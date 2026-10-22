@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { SessionProvider } from "../context/SessionContext";
 
 function RootNavigator() {
   const { user, activeRole } = useAuth();
@@ -22,7 +23,7 @@ function RootNavigator() {
       </Stack.Protected>
 
       <Stack.Protected guard={activeRole === "asisten"}>
-        <Stack.Screen name="asisten/index" />
+        <Stack.Screen name="asisten" />
       </Stack.Protected>
     </Stack>
   );
@@ -31,7 +32,9 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootNavigator />
+      <SessionProvider>
+        <RootNavigator />
+      </SessionProvider>
     </AuthProvider>
   );
 }

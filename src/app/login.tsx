@@ -21,7 +21,8 @@ interface FieldErrors {
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  const passwordRef = useRef<TextInput | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const passwordRef = useRef<any>(null);
 
   const [nim, setNim] = useState("");
   const [password, setPassword] = useState("");
