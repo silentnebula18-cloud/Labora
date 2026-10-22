@@ -32,6 +32,13 @@ export default function LoginScreen() {
   const [credentialError, setCredentialError] = useState(false); 
   const [loading, setLoading] = useState(false);
 
+  // Android kadang mengosongkan tampilan saat secureTextEntry diubah.
+  // Ganti key memaksa input dirender ulang, lalu fokus dikembalikan.
+  function togglePasswordVisibility() {
+    setShowPassword((v) => !v);
+    setTimeout(() => passwordRef.current?.focus(), 50);
+  }
+
   async function handleSubmit() {
     if (loading) return;
 
@@ -88,6 +95,8 @@ export default function LoginScreen() {
               setCredentialError(false);
             }}
             placeholder="Masukkan NIM"
+            placeholderTextColor="#9ca3af"
+            selectionColor="#2563eb"
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
@@ -104,6 +113,7 @@ export default function LoginScreen() {
             ]}
           >
             <TextInput
+              key={showPassword ? "password-visible" : "password-masked"}
               ref={passwordRef}
               style={styles.passwordInput}
               value={password}
@@ -114,6 +124,8 @@ export default function LoginScreen() {
                 setCredentialError(false);
               }}
               placeholder="Masukkan kata sandi"
+              placeholderTextColor="#9ca3af"
+              selectionColor="#2563eb"
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
@@ -121,7 +133,7 @@ export default function LoginScreen() {
               onSubmitEditing={handleSubmit}
               editable={!loading}
             />
-            <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+            <Pressable onPress={togglePasswordVisibility} hitSlop={8}>
               <Text style={styles.toggle}>
                 {showPassword ? "Sembunyikan" : "Tampilkan"}
               </Text>
@@ -168,6 +180,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
+    color: "#111827",
+    backgroundColor: "#fff",
   },
   inputError: { borderColor: "#dc2626" },
   passwordRow: {
@@ -178,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
   },
-  passwordInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
+  passwordInput: { flex: 1, paddingVertical: 12, fontSize: 16, color: "#111827" },
   toggle: { color: "#2563eb", fontWeight: "600", fontSize: 13 },
   errorText: { color: "#dc2626", fontSize: 13, marginTop: 4 },
   errorBox: {
