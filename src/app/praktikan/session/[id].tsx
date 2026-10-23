@@ -1,7 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -38,6 +38,11 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+type AttendanceFeedback = {
+  status: "success" | "error";
+  message: string;
+};
+
 // ─── Layar Detail Sesi ────────────────────────────────────────────────────────
 
 export default function SessionDetailPraktikan() {
@@ -51,6 +56,12 @@ export default function SessionDetailPraktikan() {
     refreshStudentSessions,
     refreshMyAttendances,
   } = useSession();
+
+  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [feedback, setFeedback] = useState<AttendanceFeedback | null>(null);
+  const submittingRef = useRef(false);
+  const lastSuccessSessionRef = useRef<string | null>(null);
 
   // Pastikan data segar walau layar dibuka langsung lewat deep link.
   useEffect(() => {
@@ -70,32 +81,53 @@ export default function SessionDetailPraktikan() {
   }, [id, myAttendances]);
 
   function lakukanPresensi() {
-    if (!session || !user) return;
+    if (
+      !session ||
+      !user ||
+      submittingRef.current ||
+      lastSuccessSessionRef.current === session.id
+    ) {
+      return;
+    }
 
-    const result = markAttendance(session.id, user.id);
-    if (result.ok) {
-      Alert.alert(
-        "Presensi Berhasil",
-        `Kehadiran Anda tercatat pada ${formatWaktuLengkap(
-          result.attendance.waktuHadir,
-        )}.`,
-      );
-    } else {
-      Alert.alert("Presensi Gagal", result.message);
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      const result = markAttendance(session.id, user.id);
+      if (result.ok) {
+        lastSuccessSessionRef.current = session.id;
+        setFeedback({
+          status: "success",
+          message: `Kehadiran Anda tercatat pada ${formatWaktuLengkap(
+            result.attendance.waktuHadir,
+          )}.`,
+        });
+      } else {
+        setFeedback({ status: "error", message: result.message });
+      }
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
   }
 
-  function konfirmasiPresensi() {
-    if (!session) return;
+  function tutupFeedback() {
+    setFeedback(null);
+  }
 
-    Alert.alert(
-      "Konfirmasi Presensi",
-      `Catat kehadiran Anda untuk ${session.practicum.namaPraktikum} · Kelas ${session.kelas.namaKelas}?`,
-      [
-        { text: "Batal", style: "cancel" },
-        { text: "Hadir", onPress: lakukanPresensi },
-      ],
-    );
+  function bukaKonfirmasiPresensi() {
+    if (!session || !user || attendance || session.status !== "dibuka") return;
+    setIsConfirmVisible(true);
+  }
+
+  function tutupKonfirmasiPresensi() {
+    setIsConfirmVisible(false);
+  }
+
+  function konfirmasiPresensi() {
+    if (!session || !user) return;
+    setIsConfirmVisible(false);
+    lakukanPresensi();
   }
 
   if (!session) {
@@ -186,7 +218,7 @@ export default function SessionDetailPraktikan() {
                 styles.actionBtn,
                 pressed && styles.actionBtnPressed,
               ]}
-              onPress={konfirmasiPresensi}
+              onPress={bukaKonfirmasiPresensi}
             >
               <Text style={styles.actionBtnIcon}>✓</Text>
               <Text style={styles.actionBtnText}>Lakukan Presensi</Text>
@@ -212,6 +244,151 @@ export default function SessionDetailPraktikan() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
+
+      <Modal
+        visible={isConfirmVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={tutupKonfirmasiPresensi}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={tutupKonfirmasiPresensi}
+            accessibilityLabel="Tutup konfirmasi presensi"
+          />
+
+          <View style={styles.modalCard} accessibilityViewIsModal>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalIcon}>✓</Text>
+            </View>
+
+            <Text style={styles.modalTitle}>Konfirmasi Presensi</Text>
+            <Text style={styles.modalDescription}>
+              Pastikan data sesi berikut sudah sesuai sebelum kehadiran Anda
+              dicatat.
+            </Text>
+
+            <View style={styles.modalInfo}>
+              <DetailRow
+                label="Mata Kuliah"
+                value={session.practicum.mataKuliah}
+              />
+              <DetailRow
+                label="Praktikum"
+                value={`ke-${session.practicum.nomorPraktikum} · ${session.practicum.namaPraktikum}`}
+              />
+              <DetailRow label="Kelas" value={session.kelas.namaKelas} />
+              <DetailRow
+                label="Tanggal"
+                value={formatTanggal(session.tanggal)}
+              />
+              <DetailRow
+                label="Waktu"
+                value={`${session.jamMulai} – ${session.jamSelesai}`}
+              />
+              <DetailRow label="Ruang" value={session.ruang} />
+            </View>
+
+            <Text style={styles.modalNote}>
+              Presensi hanya dapat dilakukan satu kali untuk setiap sesi.
+            </Text>
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalCancelBtn,
+                  pressed && styles.modalBtnPressed,
+                ]}
+                onPress={tutupKonfirmasiPresensi}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.modalCancelText}>Batal</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.modalConfirmBtn,
+                  pressed && styles.modalBtnPressed,
+                  isSubmitting && styles.modalBtnDisabled,
+                ]}
+                onPress={konfirmasiPresensi}
+                disabled={isSubmitting}
+              >
+                <Text style={styles.modalConfirmText}>
+                  {isSubmitting ? "Memproses..." : "Konfirmasi Presensi"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={feedback !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={tutupFeedback}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={tutupFeedback}
+            accessibilityLabel="Tutup umpan balik presensi"
+          />
+
+          <View style={styles.modalCard} accessibilityViewIsModal>
+            <View
+              style={[
+                styles.modalIconWrap,
+                feedback?.status === "error" && styles.feedbackIconError,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.modalIcon,
+                  feedback?.status === "error" && styles.feedbackIconErrorText,
+                ]}
+              >
+                {feedback?.status === "error" ? "!" : "✓"}
+              </Text>
+            </View>
+
+            <Text style={styles.modalTitle}>
+              {feedback?.status === "error"
+                ? "Presensi Gagal"
+                : "Presensi Berhasil"}
+            </Text>
+
+            <View style={styles.feedbackSession}>
+              <Text style={styles.feedbackSessionTitle}>
+                {session.practicum.mataKuliah}
+              </Text>
+              <Text style={styles.feedbackSessionText}>
+                Praktikum ke-{session.practicum.nomorPraktikum} ·{" "}
+                {session.practicum.namaPraktikum}
+              </Text>
+              <Text style={styles.feedbackSessionText}>
+                Kelas {session.kelas.namaKelas} · {session.ruang}
+              </Text>
+            </View>
+
+            <Text style={styles.feedbackMessage}>
+              {feedback?.message ?? ""}
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.modalResultBtn,
+                pressed && styles.modalBtnPressed,
+              ]}
+              onPress={tutupFeedback}
+            >
+              <Text style={styles.modalConfirmText}>OK</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -358,6 +535,127 @@ const styles = StyleSheet.create({
   actionBtnPressed: { opacity: 0.82 },
   actionBtnIcon: { color: "#fff", fontSize: 16, fontWeight: "700" },
   actionBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  modalIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 99,
+    backgroundColor: "#d1fae5",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  modalIcon: { fontSize: 24, color: "#047857", fontWeight: "700" },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#111827",
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  modalDescription: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 4,
+  },
+  modalInfo: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    padding: 14,
+    gap: 10,
+    marginTop: 14,
+  },
+  modalNote: {
+    fontSize: 12,
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 18,
+    marginTop: 12,
+  },
+  modalActions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  modalCancelBtn: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  modalCancelText: { fontSize: 14, fontWeight: "700", color: "#374151" },
+  modalConfirmBtn: {
+    flex: 1.4,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#059669",
+  },
+  modalConfirmText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  modalBtnPressed: { opacity: 0.82 },
+  modalBtnDisabled: { opacity: 0.6 },
+
+  feedbackSession: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginTop: 10,
+    gap: 2,
+    alignItems: "center",
+  },
+  feedbackSessionTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+  },
+  feedbackSessionText: {
+    fontSize: 12,
+    color: "#6b7280",
+    textAlign: "center",
+  },
+  feedbackMessage: {
+    fontSize: 14,
+    color: "#374151",
+    textAlign: "center",
+    lineHeight: 21,
+    marginTop: 12,
+    marginBottom: 18,
+  },
+  feedbackIconError: { backgroundColor: "#fee2e2" },
+  feedbackIconErrorText: { color: "#b91c1c" },
+  modalResultBtn: {
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#059669",
+  },
 
   // Not found
   notFound: {
