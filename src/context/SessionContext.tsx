@@ -8,9 +8,9 @@ import {
 } from "react";
 
 import {
+  getAttendance,
   getAttendancesBySession,
   getAttendancesByStudent,
-  getAttendance,
   getEnrolledCount,
   getSessionById,
   getSessionsByAssistant,

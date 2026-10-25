@@ -1,7 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
-  Alert,
   FlatList,
   Pressable,
   StyleSheet,
@@ -10,6 +9,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import ConfirmationBottomSheet, {
+  type ConfirmationType,
+} from "../../../components/ConfirmationBottomSheet";
 import { useSession } from "../../../context/SessionContext";
 import type { AttendanceWithStudent } from "../../../services/sessionService";
 import type { SessionStatus } from "../../../types";
@@ -100,37 +102,28 @@ export default function SessionDetailScreen() {
     [session, getEnrolled],
   );
 
-  // ─── Handler Buka / Tutup ───────────────────────────────────────────────────
+  // ─── Modal State & Handlers ──────────────────────────────────────────────────
+
+  const [modalType, setModalType] = useState<ConfirmationType | null>(null);
 
   function handleBukaSesi() {
     if (!session) return;
-    Alert.alert(
-      "Buka Sesi",
-      "Praktikan akan dapat melakukan presensi setelah sesi dibuka. Lanjutkan?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Buka Sesi",
-          onPress: () => setSessionStatus(session.id, "dibuka"),
-        },
-      ],
-    );
+    setModalType("buka");
   }
 
   function handleTutupSesi() {
     if (!session) return;
-    Alert.alert(
-      "Tutup Sesi",
-      "Sesi yang ditutup tidak dapat dibuka kembali. Lanjutkan?",
-      [
-        { text: "Batal", style: "cancel" },
-        {
-          text: "Tutup Sesi",
-          style: "destructive",
-          onPress: () => setSessionStatus(session.id, "ditutup"),
-        },
-      ],
-    );
+    setModalType("tutup");
+  }
+
+  function handleConfirmAction() {
+    if (!session || !modalType) return;
+    if (modalType === "buka") {
+      setSessionStatus(session.id, "dibuka");
+    } else if (modalType === "tutup") {
+      setSessionStatus(session.id, "ditutup");
+    }
+    setModalType(null);
   }
 
   if (!session) {
@@ -160,12 +153,26 @@ export default function SessionDetailScreen() {
 
             {/* Info Sesi */}
             <View style={styles.sessionCard}>
-              {/* Status */}
-              <View style={[styles.statusPill, { backgroundColor: statusColor + "22" }]}>
-                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-                <Text style={[styles.statusLabel, { color: statusColor }]}>
-                  {STATUS_LABEL[session.status]}
-                </Text>
+              {/* Header Status & Info Sesi */}
+              <View style={styles.cardHeaderRow}>
+                <View style={[styles.statusPill, { backgroundColor: statusColor + "22" }]}>
+                  <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                  <Text style={[styles.statusLabel, { color: statusColor }]}>
+                    {STATUS_LABEL[session.status]}
+                  </Text>
+                </View>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.infoBtn,
+                    pressed && styles.infoBtnPressed,
+                  ]}
+                  onPress={() => setModalType("info")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Informasi Pendukung Sesi"
+                >
+                  <Text style={styles.infoBtnText}>ℹ️ Info Sesi</Text>
+                </Pressable>
               </View>
 
               <Text style={styles.mataKuliah}>{session.practicum.mataKuliah}</Text>
@@ -265,6 +272,30 @@ export default function SessionDetailScreen() {
         showsVerticalScrollIndicator={false}
         ListFooterComponent={<View style={{ height: 32 }} />}
       />
+
+      {/* Bottom Sheet untuk Konfirmasi Buka/Tutup & Info Pendukung */}
+      <ConfirmationBottomSheet
+        visible={modalType !== null}
+        type={modalType}
+        sessionData={
+          session
+            ? {
+                mataKuliah: session.practicum.mataKuliah,
+                namaPraktikum: session.practicum.namaPraktikum,
+                namaKelas: session.kelas.namaKelas,
+                ruang: session.ruang,
+                tanggal: session.tanggal,
+                jamMulai: session.jamMulai,
+                jamSelesai: session.jamSelesai,
+                status: session.status,
+                enrolledCount,
+                hadirCount,
+              }
+            : null
+        }
+        onConfirm={handleConfirmAction}
+        onClose={() => setModalType(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -294,14 +325,37 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     elevation: 3,
   },
-  statusPill: {
+  cardHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  infoBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#eff6ff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 5,
-    marginBottom: 14,
+  },
+  infoBtnPressed: {
+    opacity: 0.75,
+  },
+  infoBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
     gap: 6,
   },
   statusDot: { width: 8, height: 8, borderRadius: 99 },

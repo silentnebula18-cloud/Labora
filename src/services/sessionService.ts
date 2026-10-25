@@ -4,7 +4,7 @@ import { enrollments } from "../mocks/enrollments";
 import { practicums } from "../mocks/practicums";
 import { sessions } from "../mocks/sessions";
 import { users } from "../mocks/users";
-import type { Attendance, Practicum, PracticalClass, Session, SessionStatus } from "../types";
+import type { Attendance, PracticalClass, Practicum, Session, SessionStatus } from "../types";
 
 // ─── Tipe Hasil ────────────────────────────────────────────────────────────────
 
