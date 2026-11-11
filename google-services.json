@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1071747401618",
+    "project_id": "labora-fda34",
+    "storage_bucket": "labora-fda34.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1071747401618:android:f300aa0738da5d84dee34b",
+        "android_client_info": {
+          "package_name": "com.silentnebula18.Labora"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBT9MGtjeUpwBtK_UTzP6d7A2_i1orZHtQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

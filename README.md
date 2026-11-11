@@ -54,3 +54,9 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Dokumentasi Project
+
+### Sprint 2 — Data Dinamis dengan Firebase
+
+- [Pembagian Programmer dan Detail SRS Sprint 2](docs/SPRINT2_SRS.md)
