@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { useAuth } from "../context/AuthContext";
 
 interface FieldErrors {
@@ -21,7 +20,7 @@ interface FieldErrors {
 
 export default function LoginScreen() {
   const { login } = useAuth();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   const passwordRef = useRef<any>(null);
 
   const [nim, setNim] = useState("");
@@ -29,11 +28,10 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
-  const [credentialError, setCredentialError] = useState(false); 
+  const [credentialError, setCredentialError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Android kadang mengosongkan tampilan saat secureTextEntry diubah.
-  // Ganti key memaksa input dirender ulang, lalu fokus dikembalikan.
   function togglePasswordVisibility() {
     setShowPassword((v) => !v);
     setTimeout(() => passwordRef.current?.focus(), 50);
@@ -52,13 +50,20 @@ export default function LoginScreen() {
     if (Object.keys(nextErrors).length > 0) return;
 
     setLoading(true);
-    const result = await login(nim, password);
 
-    // Jika berhasil, navigator otomatis pindah halaman.
-    if (!result.ok) {
+    try {
+      const result = await login(nim, password);
+
+      // Jika berhasil, navigator otomatis pindah halaman.
+      if (!result.ok) {
+        setLoading(false);
+        setFormError(result.message);
+        setCredentialError(result.code === "KREDENSIAL_SALAH");
+      }
+    } catch (error) {
+      console.error("Login error:", error);
       setLoading(false);
-      setFormError(result.message);
-      setCredentialError(result.code === "KREDENSIAL_SALAH");
+      setFormError("Terjadi kesalahan saat login.");
     }
   }
 
@@ -73,7 +78,9 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.title}>Labora</Text>
-          <Text style={styles.subtitle}>Masuk untuk melanjutkan</Text>
+          <Text style={styles.subtitle}>
+            Masuk untuk melanjutkan
+          </Text>
 
           {formError && (
             <View style={styles.errorBox}>
@@ -82,6 +89,7 @@ export default function LoginScreen() {
           )}
 
           <Text style={styles.label}>NIM</Text>
+
           <TextInput
             style={[
               styles.input,
@@ -103,9 +111,13 @@ export default function LoginScreen() {
             onSubmitEditing={() => passwordRef.current?.focus()}
             editable={!loading}
           />
-          {errors.nim && <Text style={styles.errorText}>{errors.nim}</Text>}
+
+          {errors.nim && (
+            <Text style={styles.errorText}>{errors.nim}</Text>
+          )}
 
           <Text style={styles.label}>Kata sandi</Text>
+
           <View
             style={[
               styles.passwordRow,
@@ -133,12 +145,17 @@ export default function LoginScreen() {
               onSubmitEditing={handleSubmit}
               editable={!loading}
             />
-            <Pressable onPress={togglePasswordVisibility} hitSlop={8}>
+
+            <Pressable
+              onPress={togglePasswordVisibility}
+              hitSlop={8}
+            >
               <Text style={styles.toggle}>
                 {showPassword ? "Sembunyikan" : "Tampilkan"}
               </Text>
             </Pressable>
           </View>
+
           {errors.password && (
             <Text style={styles.errorText}>{errors.password}</Text>
           )}
@@ -163,9 +180,21 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   safe: { flex: 1, backgroundColor: "#fff" },
-  container: { flexGrow: 1, justifyContent: "center", padding: 24 },
-  title: { fontSize: 32, fontWeight: "700", color: "#111827" },
-  subtitle: { fontSize: 16, color: "#6b7280", marginBottom: 24 },
+  container: {
+    flexGrow: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#6b7280",
+    marginBottom: 24,
+  },
   label: {
     fontSize: 14,
     fontWeight: "600",
@@ -192,9 +221,22 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 12,
   },
-  passwordInput: { flex: 1, paddingVertical: 12, fontSize: 16, color: "#111827" },
-  toggle: { color: "#2563eb", fontWeight: "600", fontSize: 13 },
-  errorText: { color: "#dc2626", fontSize: 13, marginTop: 4 },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: "#111827",
+  },
+  toggle: {
+    color: "#2563eb",
+    fontWeight: "600",
+    fontSize: 13,
+  },
+  errorText: {
+    color: "#dc2626",
+    fontSize: 13,
+    marginTop: 4,
+  },
   errorBox: {
     backgroundColor: "#fee2e2",
     borderRadius: 8,
@@ -210,5 +252,9 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });
