@@ -125,7 +125,7 @@ function SessionCard({
 // ─── Layar Utama ──────────────────────────────────────────────────────────────
 
 export default function HomeAsisten() {
-  const { user, logout } = useAuth();
+  const { user, logout, changeRole } = useAuth();
   const { sessions, refreshSessions } = useSession();
 
   useEffect(() => {
@@ -146,9 +146,16 @@ export default function HomeAsisten() {
           <Text style={styles.name}>{user.nama}</Text>
           <Text style={styles.nim}>NIM {user.nim}</Text>
         </View>
-        <Pressable onPress={logout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Keluar</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          {user.roles.length > 1 && (
+            <Pressable onPress={changeRole} style={styles.logoutBtn}>
+              <Text style={styles.logoutText}>Ganti Peran</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={logout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Keluar</Text>
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView
@@ -156,6 +163,26 @@ export default function HomeAsisten() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <Pressable
+          style={({ pressed }) => [
+            styles.kelolaCard,
+            pressed && styles.cardPressed,
+          ]}
+          onPress={() => router.push("/asisten/kelas" as any)}
+          android_ripple={{ color: "#e0e7ff" }}
+        >
+          <View style={styles.kelolaIcon}>
+            <Text style={styles.kelolaIconText}>🏫</Text>
+          </View>
+          <View style={styles.kelolaInfo}>
+            <Text style={styles.kelolaTitle}>Kelola Kelas</Text>
+            <Text style={styles.kelolaSubtitle}>
+              Tambah kelas dan atur peserta praktikum
+            </Text>
+          </View>
+          <Text style={styles.kelolaChevron}>›</Text>
+        </Pressable>
+
         {sessions.length === 0 && (
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📋</Text>
@@ -234,12 +261,16 @@ const styles = StyleSheet.create({
   greeting: { color: "#bfdbfe", fontSize: 13 },
   name: { color: "#fff", fontSize: 20, fontWeight: "700", marginTop: 2 },
   nim: { color: "#93c5fd", fontSize: 13, marginTop: 2 },
+  headerActions: {
+    alignItems: "flex-end",
+    gap: 8,
+    marginTop: 4,
+  },
   logoutBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    marginTop: 4,
   },
   logoutText: { color: "#fff", fontSize: 13, fontWeight: "600" },
 
@@ -247,6 +278,35 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   bottomPad: { height: 24 },
+
+  // Pintasan kelola kelas
+  kelolaCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  kelolaIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  kelolaIconText: { fontSize: 20 },
+  kelolaInfo: { flex: 1 },
+  kelolaTitle: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  kelolaSubtitle: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  kelolaChevron: { fontSize: 24, color: "#d1d5db", marginLeft: 8 },
 
   // Section
   sectionTitle: {
