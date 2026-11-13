@@ -10,20 +10,18 @@ export interface User {
   id: string;
   nim: string;
   nama: string;
+  kelas?: string;
   password: string;
   roles: Role[];
 }
 
-<<<<<<< HEAD
 // User tanpa password, aman disimpan di state.
-export type SafeUser = Omit<User, "password">;
-  nim: string;
-  nama: string;
+export interface SafeUser extends Omit<User, "password"> {
   email: string;
-  roles: Role[];
->>>>>>> d17bf37 (Initial commit)
+  kelas?: string;
   activeRole: Role | null;
 }
+
 export interface Practicum {
   id: string;
   mataKuliah: string;
@@ -46,23 +44,65 @@ export interface ClassRecord {
   createdAt: Date | null;
 }
 
+export interface ClassMember {
+  uid: string;
   nama: string;
   nim: string;
   email: string;
   joinedAt: Date | null;
 }
 
-export type SessionStatus = "belum_dibuka" | "dibuka" | "ditutup";
+export type SessionStatus = "scheduled" | "open" | "closed";
+
+export interface ScheduleRecord {
+  id: string;
+  classId: string;
+  mataKuliah: string;
+  kodeKelas: string;
+  nomorPraktikum: number;
+  namaPraktikum: string;
+  tanggal: string;
+  jamMulai: string;
+  jamSelesai: string;
+  ruang: string;
+  assistants: string[];
+  createdBy: string;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export interface SessionRecord {
+  id: string;
+  scheduleId: string;
+  classId: string;
+  kodeKelas?: string;
+  status: SessionStatus;
+  openedAt: Date | null;
+  closedAt: Date | null;
+  openedBy: string | null;
+  closedBy: string | null;
+  updatedBy: string | null;
+  updatedAt: Date | null;
+}
 
 export interface Session {
   id: string;
+  scheduleId?: string;
   practicumId: string;
   classId: string;
   tanggal: string;
   jamMulai: string;
   jamSelesai: string;
   ruang: string;
+  assistantId: string;
+  assistants?: string[];
   status: SessionStatus;
+  openedAt?: Date | null;
+  closedAt?: Date | null;
+  openedBy?: string | null;
+  closedBy?: string | null;
+  updatedBy?: string | null;
+  updatedAt?: Date | null;
 }
 
 export interface Enrollment {

@@ -11,7 +11,9 @@ import {
   View,
 } from "react-native";
 
+import { isClassCode } from "../constants/classes";
 import type { ClassInput } from "../services/classService";
+import ClassCodeDropdown from "./ClassCodeDropdown";
 
 interface ClassFormModalProps {
   visible: boolean;
@@ -51,8 +53,8 @@ export default function ClassFormModal({
     if (!mataKuliah.trim()) {
       nextErrors.mataKuliah = "Nama mata kuliah wajib diisi";
     }
-    if (!kodeKelas.trim()) {
-      nextErrors.kodeKelas = "Kode kelas wajib diisi";
+    if (!kodeKelas.trim() || !isClassCode(kodeKelas)) {
+      nextErrors.kodeKelas = "Kode kelas wajib dipilih";
     }
 
     setErrors(nextErrors);
@@ -116,20 +118,15 @@ export default function ClassFormModal({
           )}
 
           <Text style={styles.label}>Kode kelas</Text>
-          <TextInput
-            style={[styles.input, errors.kodeKelas && styles.inputError]}
+          <ClassCodeDropdown
             value={kodeKelas}
-            onChangeText={(text) => {
-              setKodeKelas(text);
+            onChange={(selected) => {
+              setKodeKelas(selected);
               setErrors((current) => ({ ...current, kodeKelas: undefined }));
             }}
-            placeholder="Contoh: C1"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
-            autoCapitalize="characters"
-            autoCorrect={false}
-            maxLength={20}
-            editable={!submitting}
+            placeholder="Pilih kode kelas (A1 – E2)"
+            disabled={submitting}
+            hasError={!!errors.kodeKelas}
           />
           {errors.kodeKelas && (
             <Text style={styles.errorText}>{errors.kodeKelas}</Text>

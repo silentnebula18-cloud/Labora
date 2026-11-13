@@ -35,6 +35,7 @@ export type AuthResult =
 export interface RegisterInput {
   nama: string;
   nim: string;
+  kelas: string;
   email: string;
   password: string;
 }
@@ -118,6 +119,7 @@ function toSafeUser(
   if (roles.length === 0) return { status: "no-role" };
 
   const storedActiveRole = isRole(data.activeRole) ? data.activeRole : null;
+  const kelas = readString(data.kelas).trim().toUpperCase() || undefined;
 
   return {
     status: "ok",
@@ -126,6 +128,7 @@ function toSafeUser(
       nama: readString(data.nama).trim(),
       nim: readString(data.nim).trim(),
       email: readString(data.email).trim(),
+      kelas,
       roles,
       activeRole:
         storedActiveRole && roles.includes(storedActiveRole)
@@ -140,6 +143,7 @@ export async function registerUser(
 ): Promise<AuthResult> {
   const nama = input.nama.trim();
   const nim = input.nim.trim();
+  const kelas = input.kelas.trim().toUpperCase();
   const email = normalizeEmail(input.email);
 
   let uid: string;
@@ -160,6 +164,7 @@ export async function registerUser(
       uid,
       nama,
       nim,
+      kelas,
       email,
       roles: ["praktikan"],
       activeRole: null,
@@ -186,6 +191,7 @@ export async function registerUser(
       id: uid,
       nama,
       nim,
+      kelas,
       email,
       roles: ["praktikan"],
       activeRole: null,

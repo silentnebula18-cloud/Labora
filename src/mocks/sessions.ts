@@ -10,7 +10,7 @@ export const sessions: Session[] = [
     jamSelesai: "10:00",
     ruang: "Lab Komputer 1",
     assistantId: "U001",
-    status: "dibuka",
+    status: "open",
   },
   {
     id: "S002",
@@ -21,7 +21,7 @@ export const sessions: Session[] = [
     jamSelesai: "12:00",
     ruang: "Lab Komputer 2",
     assistantId: "U002",
-    status: "belum_dibuka",
+    status: "scheduled",
   },
   {
     id: "S003",
@@ -32,7 +32,7 @@ export const sessions: Session[] = [
     jamSelesai: "15:00",
     ruang: "Lab Basis Data",
     assistantId: "U001",
-    status: "ditutup",
+    status: "closed",
   },
   {
     id: "S004",
@@ -43,7 +43,7 @@ export const sessions: Session[] = [
     jamSelesai: "10:00",
     ruang: "Lab Basis Data",
     assistantId: "U008",
-    status: "dibuka",
+    status: "open",
   },
   {
     id: "S005",
@@ -54,7 +54,7 @@ export const sessions: Session[] = [
     jamSelesai: "15:00",
     ruang: "Lab Komputer 3",
     assistantId: "U002",
-    status: "belum_dibuka",
+    status: "scheduled",
   },
   {
     id: "S006",
@@ -65,6 +65,6 @@ export const sessions: Session[] = [
     jamSelesai: "10:00",
     ruang: "Lab Komputer 3",
     assistantId: "U008",
-    status: "ditutup",
+    status: "closed",
   },
 ];

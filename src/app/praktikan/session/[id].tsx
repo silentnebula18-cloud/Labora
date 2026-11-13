@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Modal,
   Pressable,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AppIcon from "../../../components/AppIcon";
 import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../context/SessionContext";
 import type { SessionStatus } from "../../../types";
@@ -18,16 +19,47 @@ import { formatTanggal, formatWaktuLengkap } from "../../../utils/format";
 // ─── Konfigurasi Status ───────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<SessionStatus, string> = {
-  belum_dibuka: "Belum Dibuka",
-  dibuka: "Presensi Dibuka",
-  ditutup: "Selesai",
+  scheduled: "Terjadwal (Belum Dibuka)",
+  open: "Presensi Dibuka",
+  closed: "Selesai (Ditutup)",
 };
 
-const STATUS_COLOR: Record<SessionStatus, string> = {
-  belum_dibuka: "#f59e0b",
-  dibuka: "#10b981",
-  ditutup: "#9ca3af",
+const STATUS_STYLE: Record<
+  SessionStatus,
+  { bg: string; border: string; text: string; dot: string }
+> = {
+  scheduled: {
+    bg: "#f8fafc",
+    border: "#cbd5e1",
+    text: "#334155",
+    dot: "#64748b",
+  },
+  open: {
+    bg: "#e6f4ea",
+    border: "#b7dfc2",
+    text: "#0f5132",
+    dot: "#15803d",
+  },
+  closed: {
+    bg: "#f1f5f9",
+    border: "#cbd5e1",
+    text: "#475569",
+    dot: "#94a3b8",
+  },
 };
+
+function formatTimestamp(date: Date | null | undefined): string {
+  if (!date) return "—";
+  return date.toLocaleString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -43,7 +75,7 @@ type AttendanceFeedback = {
   message: string;
 };
 
-// ─── Layar Detail Sesi ────────────────────────────────────────────────────────
+// ─── Layar Detail Sesi Praktikan ──────────────────────────────────────────────
 
 export default function SessionDetailPraktikan() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -53,8 +85,6 @@ export default function SessionDetailPraktikan() {
     myAttendances,
     getSession,
     markAttendance,
-    refreshStudentSessions,
-    refreshMyAttendances,
   } = useSession();
 
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
@@ -63,15 +93,10 @@ export default function SessionDetailPraktikan() {
   const submittingRef = useRef(false);
   const lastSuccessSessionRef = useRef<string | null>(null);
 
-  // Pastikan data segar walau layar dibuka langsung lewat deep link.
-  useEffect(() => {
-    if (!user) return;
-    refreshStudentSessions(user.id);
-    refreshMyAttendances(user.id);
-  }, [user, refreshStudentSessions, refreshMyAttendances]);
-
   const session = useMemo(() => {
-    const fromList = id ? studentSessions.find((s) => s.id === id) : undefined;
+    const fromList = id
+      ? studentSessions.find((s) => s.id === id || s.scheduleId === id)
+      : undefined;
     return fromList ?? (id ? getSession(id) : null);
   }, [id, studentSessions, getSession]);
 
@@ -116,7 +141,7 @@ export default function SessionDetailPraktikan() {
   }
 
   function bukaKonfirmasiPresensi() {
-    if (!session || !user || attendance || session.status !== "dibuka") return;
+    if (!session || !user || attendance || session.status !== "open") return;
     setIsConfirmVisible(true);
   }
 
@@ -134,7 +159,9 @@ export default function SessionDetailPraktikan() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.notFound}>
-          <Text style={styles.notFoundIcon}>🔍</Text>
+          <View style={styles.notFoundIconCircle}>
+            <AppIcon name="search" size={26} color="#475569" />
+          </View>
           <Text style={styles.notFoundTitle}>Sesi tidak ditemukan</Text>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <Text style={styles.backButtonText}>Kembali</Text>
@@ -144,37 +171,50 @@ export default function SessionDetailPraktikan() {
     );
   }
 
-  const statusColor = STATUS_COLOR[session.status];
+  const statusTheme = STATUS_STYLE[session.status] ?? STATUS_STYLE.scheduled;
 
   return (
     <SafeAreaView style={styles.safe}>
+      {/* Top Bar */}
+      <View style={styles.topBar}>
+        <Pressable
+          style={styles.backBtn}
+          onPress={() => router.back()}
+          hitSlop={8}
+        >
+          <AppIcon name="chevron-left" size={18} color="#2563eb" />
+          <Text style={styles.backText}>Kembali</Text>
+        </Pressable>
+        <Text style={styles.topBarTitle}>Detail Sesi</Text>
+        <View style={{ width: 68 }} />
+      </View>
+
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>‹ Kembali</Text>
-        </Pressable>
-
         {/* Info Sesi */}
         <View style={styles.sessionCard}>
           <View
             style={[
               styles.statusPill,
-              { backgroundColor: statusColor + "22" },
+              {
+                backgroundColor: statusTheme.bg,
+                borderColor: statusTheme.border,
+              },
             ]}
           >
             <View
-              style={[styles.statusDot, { backgroundColor: statusColor }]}
+              style={[styles.statusDot, { backgroundColor: statusTheme.dot }]}
             />
-            <Text style={[styles.statusLabel, { color: statusColor }]}>
+            <Text style={[styles.statusLabel, { color: statusTheme.text }]}>
               {STATUS_LABEL[session.status]}
             </Text>
           </View>
 
           <Text style={styles.mataKuliah}>{session.practicum.mataKuliah}</Text>
           <Text style={styles.namaPraktikum}>
-            Praktikum ke-{session.practicum.nomorPraktikum} ·{" "}
+            Pertemuan {session.practicum.nomorPraktikum} ·{" "}
             {session.practicum.namaPraktikum}
           </Text>
 
@@ -184,16 +224,30 @@ export default function SessionDetailPraktikan() {
             <DetailRow label="Tanggal" value={formatTanggal(session.tanggal)} />
             <DetailRow
               label="Waktu"
-              value={`${session.jamMulai} – ${session.jamSelesai}`}
+              value={`${session.jamMulai} – ${session.jamSelesai} WIB`}
             />
+            {session.openedAt && (
+              <DetailRow
+                label="Dibuka Pada"
+                value={formatTimestamp(session.openedAt)}
+              />
+            )}
+            {session.closedAt && (
+              <DetailRow
+                label="Ditutup Pada"
+                value={formatTimestamp(session.closedAt)}
+              />
+            )}
           </View>
         </View>
 
         {/* Panel Presensi */}
         {attendance ? (
           <View style={[styles.presenceCard, styles.presenceSuccess]}>
-            <Text style={styles.presenceIcon}>✅</Text>
-            <Text style={styles.presenceTitle}>Presensi Berhasil</Text>
+            <View style={styles.presenceIconCircleSuccess}>
+              <AppIcon name="check" size={22} color="#0f5132" />
+            </View>
+            <Text style={styles.presenceTitle}>Presensi Tercatat</Text>
             <Text style={styles.presenceSuccessText}>
               Anda tercatat hadir pada{" "}
               {formatWaktuLengkap(attendance.waktuHadir)}.
@@ -202,14 +256,16 @@ export default function SessionDetailPraktikan() {
               Presensi hanya dapat dilakukan satu kali untuk setiap sesi.
             </Text>
           </View>
-        ) : session.status === "dibuka" ? (
+        ) : session.status === "open" ? (
           <>
             <View style={[styles.presenceCard, styles.presenceOpen]}>
-              <Text style={styles.presenceIcon}>🖐️</Text>
-              <Text style={styles.presenceTitle}>Sesi sedang dibuka</Text>
+              <View style={styles.presenceIconCircleOpen}>
+                <AppIcon name="unlock" size={20} color="#2563eb" />
+              </View>
+              <Text style={styles.presenceTitle}>Sesi Sedang Dibuka</Text>
               <Text style={styles.presenceOpenText}>
-                Asisten telah membuka sesi ini. Lakukan presensi sebelum sesi
-                ditutup.
+                Asisten telah membuka sesi ini. Silakan konfirmasi kehadiran
+                Anda sebelum sesi ditutup.
               </Text>
             </View>
 
@@ -220,24 +276,29 @@ export default function SessionDetailPraktikan() {
               ]}
               onPress={bukaKonfirmasiPresensi}
             >
-              <Text style={styles.actionBtnIcon}>✓</Text>
+              <AppIcon name="check" size={16} color="#ffffff" />
               <Text style={styles.actionBtnText}>Lakukan Presensi</Text>
             </Pressable>
           </>
-        ) : session.status === "belum_dibuka" ? (
+        ) : session.status === "scheduled" ? (
           <View style={[styles.presenceCard, styles.presencePending]}>
-            <Text style={styles.presenceIcon}>⏳</Text>
-            <Text style={styles.presenceTitle}>Sesi belum dibuka</Text>
+            <View style={styles.presenceIconCircleNeutral}>
+              <AppIcon name="clock" size={20} color="#475569" />
+            </View>
+            <Text style={styles.presenceTitle}>Sesi Belum Dibuka</Text>
             <Text style={styles.presencePendingText}>
-              Tombol presensi akan aktif setelah asisten membuka sesi ini.
+              Tombol presensi akan aktif secara otomatis setelah asisten membuka
+              sesi ini.
             </Text>
           </View>
         ) : (
           <View style={[styles.presenceCard, styles.presenceClosed]}>
-            <Text style={styles.presenceIcon}>🔒</Text>
-            <Text style={styles.presenceTitle}>Sesi telah ditutup</Text>
+            <View style={styles.presenceIconCircleNeutral}>
+              <AppIcon name="lock" size={20} color="#475569" />
+            </View>
+            <Text style={styles.presenceTitle}>Sesi Telah Ditutup</Text>
             <Text style={styles.presenceClosedText}>
-              Anda tidak tercatat hadir pada sesi ini.
+              Sesi ini sudah ditutup dan tidak dapat digunakan untuk presensi.
             </Text>
           </View>
         )}
@@ -260,7 +321,7 @@ export default function SessionDetailPraktikan() {
 
           <View style={styles.modalCard} accessibilityViewIsModal>
             <View style={styles.modalIconWrap}>
-              <Text style={styles.modalIcon}>✓</Text>
+              <AppIcon name="check" size={22} color="#2563eb" />
             </View>
 
             <Text style={styles.modalTitle}>Konfirmasi Presensi</Text>
@@ -276,7 +337,7 @@ export default function SessionDetailPraktikan() {
               />
               <DetailRow
                 label="Praktikum"
-                value={`ke-${session.practicum.nomorPraktikum} · ${session.practicum.namaPraktikum}`}
+                value={`Pertemuan ${session.practicum.nomorPraktikum} · ${session.practicum.namaPraktikum}`}
               />
               <DetailRow label="Kelas" value={session.kelas.namaKelas} />
               <DetailRow
@@ -344,14 +405,11 @@ export default function SessionDetailPraktikan() {
                 feedback?.status === "error" && styles.feedbackIconError,
               ]}
             >
-              <Text
-                style={[
-                  styles.modalIcon,
-                  feedback?.status === "error" && styles.feedbackIconErrorText,
-                ]}
-              >
-                {feedback?.status === "error" ? "!" : "✓"}
-              </Text>
+              <AppIcon
+                name={feedback?.status === "error" ? "alert" : "check"}
+                size={22}
+                color={feedback?.status === "error" ? "#991b1b" : "#2563eb"}
+              />
             </View>
 
             <Text style={styles.modalTitle}>
@@ -365,7 +423,7 @@ export default function SessionDetailPraktikan() {
                 {session.practicum.mataKuliah}
               </Text>
               <Text style={styles.feedbackSessionText}>
-                Praktikum ke-{session.practicum.nomorPraktikum} ·{" "}
+                Pertemuan {session.practicum.nomorPraktikum} ·{" "}
                 {session.practicum.namaPraktikum}
               </Text>
               <Text style={styles.feedbackSessionText}>
@@ -384,7 +442,7 @@ export default function SessionDetailPraktikan() {
               ]}
               onPress={tutupFeedback}
             >
-              <Text style={styles.modalConfirmText}>OK</Text>
+              <Text style={styles.modalConfirmText}>Selesai</Text>
             </Pressable>
           </View>
         </View>
@@ -396,47 +454,68 @@ export default function SessionDetailPraktikan() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: "#f1f5f9" },
   content: { padding: 16 },
 
-  // Tombol kembali
-  backBtn: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  backText: { fontSize: 16, color: "#1e40af", fontWeight: "600" },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    width: 68,
+  },
+  backText: { fontSize: 14.5, color: "#2563eb", fontWeight: "700" },
+  topBarTitle: {
+    fontSize: 15.5,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
 
-  // Kartu info sesi
   sessionCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   statusPill: {
     flexDirection: "row",
     alignItems: "center",
     alignSelf: "flex-start",
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
+    borderWidth: 1,
+    paddingHorizontal: 11,
+    paddingVertical: 4.5,
     marginBottom: 14,
     gap: 6,
   },
-  statusDot: { width: 8, height: 8, borderRadius: 99 },
-  statusLabel: { fontSize: 12, fontWeight: "700" },
+  statusDot: { width: 7, height: 7, borderRadius: 4 },
+  statusLabel: { fontSize: 11.5, fontWeight: "700" },
 
   mataKuliah: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "800",
-    color: "#111827",
+    color: "#0f172a",
     marginBottom: 4,
   },
-  namaPraktikum: { fontSize: 14, color: "#6b7280", marginBottom: 16 },
+  namaPraktikum: { fontSize: 13.5, color: "#475569", marginBottom: 16 },
 
-  detailList: { gap: 10 },
+  detailList: {
+    gap: 10,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#f1f5f9",
+  },
   detailRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -444,75 +523,105 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   detailLabel: {
-    fontSize: 12,
-    color: "#9ca3af",
+    fontSize: 11.5,
+    color: "#64748b",
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
   detailValue: {
-    fontSize: 14,
-    color: "#1f2937",
+    fontSize: 13.5,
+    color: "#0f172a",
     fontWeight: "600",
     textAlign: "right",
     flexShrink: 1,
   },
 
-  // Panel presensi
   presenceCard: {
     borderRadius: 16,
     padding: 20,
     alignItems: "center",
     marginBottom: 14,
   },
-  presenceIcon: { fontSize: 32, marginBottom: 8 },
-  presenceTitle: { fontSize: 16, fontWeight: "800", marginBottom: 6 },
-  presenceNote: { fontSize: 12, color: "#6b7280", marginTop: 10 },
+  presenceIconCircleSuccess: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#d1e7dd",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  presenceIconCircleOpen: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  presenceIconCircleNeutral: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  presenceTitle: {
+    fontSize: 15.5,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 6,
+  },
+  presenceNote: { fontSize: 12, color: "#64748b", marginTop: 10 },
 
   presenceSuccess: {
-    backgroundColor: "#ecfdf5",
+    backgroundColor: "#e6f4ea",
     borderWidth: 1,
-    borderColor: "#a7f3d0",
+    borderColor: "#b7dfc2",
   },
   presenceSuccessText: {
-    fontSize: 14,
-    color: "#047857",
+    fontSize: 13.5,
+    color: "#0f5132",
     fontWeight: "600",
     textAlign: "center",
   },
 
   presenceOpen: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#cbd5e1",
   },
   presenceOpenText: {
     fontSize: 13,
-    color: "#1d4ed8",
+    color: "#475569",
     textAlign: "center",
     lineHeight: 19,
   },
 
   presencePending: {
-    backgroundColor: "#fffbeb",
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#fde68a",
+    borderColor: "#e2e8f0",
   },
   presencePendingText: {
     fontSize: 13,
-    color: "#92400e",
+    color: "#64748b",
     textAlign: "center",
     lineHeight: 19,
   },
 
   presenceClosed: {
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#f8fafc",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e2e8f0",
   },
   presenceClosedText: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#64748b",
     textAlign: "center",
     lineHeight: 19,
   },
@@ -522,73 +631,61 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 10,
-    backgroundColor: "#059669",
-    borderRadius: 14,
-    paddingVertical: 16,
+    backgroundColor: "#2563eb",
+    borderRadius: 12,
+    paddingVertical: 15,
     marginBottom: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
   },
-  actionBtnPressed: { opacity: 0.82 },
-  actionBtnIcon: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  actionBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  actionBtnPressed: { opacity: 0.85 },
+  actionBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
     justifyContent: "center",
     padding: 20,
   },
   modalCard: {
     backgroundColor: "#fff",
-    borderRadius: 20,
+    borderRadius: 18,
     padding: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
   },
   modalIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 99,
-    backgroundColor: "#d1fae5",
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#eff6ff",
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
     marginBottom: 12,
   },
-  modalIcon: { fontSize: 24, color: "#047857", fontWeight: "700" },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
-    color: "#111827",
+    color: "#0f172a",
     textAlign: "center",
     marginBottom: 6,
   },
   modalDescription: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#64748b",
     textAlign: "center",
     lineHeight: 19,
     marginBottom: 4,
   },
   modalInfo: {
     backgroundColor: "#f8fafc",
-    borderRadius: 14,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e2e8f0",
     padding: 14,
     gap: 10,
     marginTop: 14,
   },
   modalNote: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "#64748b",
     textAlign: "center",
     lineHeight: 18,
     marginTop: 12,
@@ -596,32 +693,32 @@ const styles = StyleSheet.create({
   modalActions: { flexDirection: "row", gap: 10, marginTop: 18 },
   modalCancelBtn: {
     flex: 1,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    paddingVertical: 14,
+    borderColor: "#cbd5e1",
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
+    backgroundColor: "#f8fafc",
   },
-  modalCancelText: { fontSize: 14, fontWeight: "700", color: "#374151" },
+  modalCancelText: { fontSize: 14, fontWeight: "700", color: "#334155" },
   modalConfirmBtn: {
     flex: 1.4,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#059669",
+    backgroundColor: "#2563eb",
   },
   modalConfirmText: { fontSize: 14, fontWeight: "700", color: "#fff" },
-  modalBtnPressed: { opacity: 0.82 },
+  modalBtnPressed: { opacity: 0.85 },
   modalBtnDisabled: { opacity: 0.6 },
 
   feedbackSession: {
     backgroundColor: "#f8fafc",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#e2e8f0",
     paddingVertical: 10,
     paddingHorizontal: 14,
     marginTop: 10,
@@ -631,48 +728,54 @@ const styles = StyleSheet.create({
   feedbackSessionTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#111827",
+    color: "#0f172a",
     textAlign: "center",
   },
   feedbackSessionText: {
     fontSize: 12,
-    color: "#6b7280",
+    color: "#64748b",
     textAlign: "center",
   },
   feedbackMessage: {
-    fontSize: 14,
-    color: "#374151",
+    fontSize: 13.5,
+    color: "#334155",
     textAlign: "center",
-    lineHeight: 21,
+    lineHeight: 20,
     marginTop: 12,
     marginBottom: 18,
   },
-  feedbackIconError: { backgroundColor: "#fee2e2" },
-  feedbackIconErrorText: { color: "#b91c1c" },
+  feedbackIconError: { backgroundColor: "#fef2f2" },
   modalResultBtn: {
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 10,
+    paddingVertical: 13,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#059669",
+    backgroundColor: "#2563eb",
   },
 
-  // Not found
   notFound: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 32,
   },
-  notFoundIcon: { fontSize: 48, marginBottom: 12 },
+  notFoundIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   notFoundTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 20,
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 18,
   },
   backButton: {
-    backgroundColor: "#1e40af",
+    backgroundColor: "#2563eb",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
