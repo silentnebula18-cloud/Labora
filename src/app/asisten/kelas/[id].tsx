@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AppIcon from "../../../components/AppIcon";
 import ClassFormModal from "../../../components/ClassFormModal";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -109,10 +110,11 @@ export default function KelasDetailScreen() {
         setMembersError(describeFirestoreError(error));
         setMembersLoading(false);
       },
+      classData?.kodeKelas,
     );
 
     return unsubscribe;
-  }, [classId]);
+  }, [classId, classData?.kodeKelas]);
 
   function openEdit() {
     if (!classData) return;
@@ -239,7 +241,7 @@ export default function KelasDetailScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centerBox}>
-          <Text style={styles.notFoundIcon}>🔍</Text>
+          <AppIcon name="search" size={32} color="#475569" />
           <Text style={styles.notFoundTitle}>Kelas tidak ditemukan</Text>
           {classError && <Text style={styles.centerText}>{classError}</Text>}
           <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -342,7 +344,9 @@ export default function KelasDetailScreen() {
 
         {!membersLoading && members.length === 0 && (
           <View style={styles.emptyMembers}>
-            <Text style={styles.emptyMembersIcon}>👥</Text>
+            <View style={{ marginBottom: 10 }}>
+              <AppIcon name="users" size={28} color="#64748b" />
+            </View>
             <Text style={styles.emptyMembersTitle}>Belum ada peserta</Text>
             <Text style={styles.emptyMembersText}>
               Tambahkan peserta dengan email akun Labora yang sudah terdaftar.

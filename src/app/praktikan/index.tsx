@@ -1,14 +1,24 @@
-import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
+import AppIcon from "../../components/AppIcon";
+import BottomNavBar, {
+  type BottomNavTab,
+} from "../../components/BottomNavBar";
+import ProfileView from "../../components/ProfileView";
 import { useAuth } from "../../context/AuthContext";
 import { useSession } from "../../context/SessionContext";
 import {
@@ -27,25 +37,28 @@ import {
 
 const STATUS_CONFIG: Record<
   SessionStatus,
-  { label: string; bg: string; text: string; dot: string }
+  { label: string; bg: string; border: string; text: string; dot: string }
 > = {
-  belum_dibuka: {
-    label: "Belum Dibuka",
-    bg: "#fef3c7",
-    text: "#92400e",
-    dot: "#f59e0b",
+  scheduled: {
+    label: "Terjadwal",
+    bg: "#f8fafc",
+    border: "#cbd5e1",
+    text: "#334155",
+    dot: "#64748b",
   },
-  dibuka: {
+  open: {
     label: "Presensi Dibuka",
-    bg: "#d1fae5",
-    text: "#065f46",
-    dot: "#10b981",
+    bg: "#e6f4ea",
+    border: "#b7dfc2",
+    text: "#0f5132",
+    dot: "#15803d",
   },
-  ditutup: {
+  closed: {
     label: "Selesai",
-    bg: "#f3f4f6",
-    text: "#374151",
-    dot: "#9ca3af",
+    bg: "#f1f5f9",
+    border: "#cbd5e1",
+    text: "#475569",
+    dot: "#94a3b8",
   },
 };
 
@@ -78,7 +91,7 @@ function SessionCard({
   status,
   sudahPresensi,
 }: SessionCardProps) {
-  const cfg = STATUS_CONFIG[status];
+  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.scheduled;
 
   return (
     <Pressable
@@ -86,48 +99,63 @@ function SessionCard({
       onPress={() =>
         router.push({ pathname: "/praktikan/session/[id]", params: { id } } as any)
       }
-      android_ripple={{ color: "#dbeafe" }}
+      android_ripple={{ color: "#e2e8f0" }}
     >
       <View style={styles.cardTopRow}>
-        <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: cfg.bg, borderColor: cfg.border },
+          ]}
+        >
           <View style={[styles.statusDot, { backgroundColor: cfg.dot }]} />
           <Text style={[styles.statusText, { color: cfg.text }]}>
             {cfg.label}
           </Text>
         </View>
 
-        {sudahPresensi && (
-          <View style={styles.presensiChip}>
-            <Text style={styles.presensiChipText}>✓ Sudah presensi</Text>
+        <View style={styles.topRightBadges}>
+          {sudahPresensi && (
+            <View style={styles.presensiChip}>
+              <AppIcon name="check" size={11} color="#0f5132" />
+              <Text style={styles.presensiChipText}>Hadir</Text>
+            </View>
+          )}
+          <View style={styles.classBadge}>
+            <Text style={styles.classBadgeText}>Kelas {namaKelas}</Text>
           </View>
-        )}
+        </View>
       </View>
 
       <Text style={styles.mataKuliah} numberOfLines={1}>
         {mataKuliah}
       </Text>
       <Text style={styles.namaPraktikum} numberOfLines={1}>
-        Praktikum ke-{nomorPraktikum} · {namaPraktikum} · Kelas {namaKelas}
+        Pertemuan {nomorPraktikum} · {namaPraktikum}
       </Text>
+
+      <View style={styles.cardDivider} />
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <Text style={styles.infoIcon}>📅</Text>
+          <AppIcon name="calendar" size={14} color="#64748b" />
           <Text style={styles.infoText}>{formatTanggal(tanggal)}</Text>
         </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoIcon}>🕐</Text>
-          <Text style={styles.infoText}>
-            {jamMulai} – {jamSelesai}
-          </Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoIcon}>📍</Text>
-          <Text style={styles.infoText}>{ruang}</Text>
+        <View style={styles.infoBottomInline}>
+          <View style={styles.infoItemInline}>
+            <AppIcon name="clock" size={14} color="#64748b" />
+            <Text style={styles.infoText}>
+              {jamMulai} – {jamSelesai}
+            </Text>
+          </View>
+          <View style={styles.infoItemInline}>
+            <AppIcon name="location" size={14} color="#64748b" />
+            <Text style={styles.infoText} numberOfLines={1}>
+              {ruang}
+            </Text>
+          </View>
         </View>
       </View>
-
-      <Text style={styles.chevron}>›</Text>
     </Pressable>
   );
 }
@@ -150,7 +178,7 @@ function AttendanceCard({ item }: { item: AttendanceWithSession }) {
           {item.session.practicum.mataKuliah}
         </Text>
         <Text style={styles.attendanceSub} numberOfLines={1}>
-          Praktikum ke-{item.session.practicum.nomorPraktikum} ·{" "}
+          Pertemuan {item.session.practicum.nomorPraktikum} ·{" "}
           {item.session.practicum.namaPraktikum}
         </Text>
         <Text style={styles.attendanceSub} numberOfLines={1}>
@@ -167,16 +195,19 @@ function AttendanceCard({ item }: { item: AttendanceWithSession }) {
   );
 }
 
-// ─── Layar Utama ──────────────────────────────────────────────────────────────
+// ─── Layar Utama Praktikan ────────────────────────────────────────────────────
 
 export default function HomePraktikan() {
-  const { user, logout, changeRole } = useAuth();
+  const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const {
     studentSessions,
+    sessionsLoading,
+    sessionsError,
     myAttendances,
-    refreshStudentSessions,
-    refreshMyAttendances,
   } = useSession();
+
+  const [activeNavTab, setActiveNavTab] = useState<BottomNavTab>("beranda");
   const [tab, setTab] = useState<"jadwal" | "kehadiran" | "kelas">("jadwal");
 
   const [classList, setClassList] = useState<ClassRecord[]>([]);
@@ -197,18 +228,11 @@ export default function HomePraktikan() {
         setClassesError(describeFirestoreError(error));
         setClassesLoading(false);
       },
+      user.kelas,
     );
 
     return unsubscribe;
   }, [user]);
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!user) return;
-      refreshStudentSessions(user.id);
-      refreshMyAttendances(user.id);
-    }, [user, refreshStudentSessions, refreshMyAttendances]),
-  );
 
   const attendedSessionIds = useMemo(
     () => new Set(myAttendances.map((a) => a.sessionId)),
@@ -217,258 +241,300 @@ export default function HomePraktikan() {
 
   if (!user) return null;
 
-  const upcoming = studentSessions.filter((s) => s.status !== "ditutup");
-  const past = studentSessions.filter((s) => s.status === "ditutup");
+  const upcoming = studentSessions.filter((s) => s.status !== "closed");
+  const past = studentSessions.filter((s) => s.status === "closed");
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerInfo}>
-          <View style={styles.rolePill}>
-            <Text style={styles.rolePillText}>Praktikan</Text>
+    <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
+      <StatusBar style="light" />
+      {activeNavTab === "beranda" ? (
+        <>
+          {/* Header Beranda */}
+          <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+            <View style={styles.headerTopRow}>
+              <Text style={styles.greeting}>Selamat datang,</Text>
+              <View style={styles.rolePill}>
+                <Text style={styles.rolePillText}>PRAKTIKAN</Text>
+              </View>
+            </View>
+            <Text style={styles.name}>{user.nama}</Text>
+            <Text style={styles.nim}>
+              NIM {user.nim}
+              {user.kelas ? ` · Kelas ${user.kelas}` : ""}
+            </Text>
           </View>
-          <Text style={styles.greeting}>Selamat datang 👋</Text>
-          <Text style={styles.name}>{user.nama}</Text>
-          <Text style={styles.nim}>NIM {user.nim}</Text>
-        </View>
-        <View style={styles.headerActions}>
-          {user.roles.length > 1 && (
-            <Pressable onPress={changeRole} style={styles.logoutBtn}>
-              <Text style={styles.logoutText}>Ganti Peran</Text>
+
+          {/* Segment */}
+          <View style={styles.segment}>
+            <Pressable
+              style={[
+                styles.segmentItem,
+                tab === "jadwal" && styles.segmentActive,
+              ]}
+              onPress={() => setTab("jadwal")}
+            >
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === "jadwal" && styles.segmentTextActive,
+                ]}
+              >
+                Jadwal
+              </Text>
+              <View
+                style={[
+                  styles.segmentCount,
+                  tab === "jadwal" && styles.segmentCountActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentCountText,
+                    tab === "jadwal" && styles.segmentCountTextActive,
+                  ]}
+                >
+                  {studentSessions.length}
+                </Text>
+              </View>
             </Pressable>
-          )}
-          <Pressable onPress={logout} style={styles.logoutBtn}>
-            <Text style={styles.logoutText}>Keluar</Text>
-          </Pressable>
-        </View>
-      </View>
 
-      {/* Segment */}
-      <View style={styles.segment}>
-        <Pressable
-          style={[styles.segmentItem, tab === "jadwal" && styles.segmentActive]}
-          onPress={() => setTab("jadwal")}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              tab === "jadwal" && styles.segmentTextActive,
-            ]}
-          >
-            Jadwal
-          </Text>
-          <View
-            style={[
-              styles.segmentCount,
-              tab === "jadwal" && styles.segmentCountActive,
-            ]}
-          >
-            <Text
+            <Pressable
               style={[
-                styles.segmentCountText,
-                tab === "jadwal" && styles.segmentCountTextActive,
+                styles.segmentItem,
+                tab === "kehadiran" && styles.segmentActive,
               ]}
+              onPress={() => setTab("kehadiran")}
             >
-              {studentSessions.length}
-            </Text>
-          </View>
-        </Pressable>
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === "kehadiran" && styles.segmentTextActive,
+                ]}
+              >
+                Kehadiran
+              </Text>
+              <View
+                style={[
+                  styles.segmentCount,
+                  tab === "kehadiran" && styles.segmentCountActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentCountText,
+                    tab === "kehadiran" && styles.segmentCountTextActive,
+                  ]}
+                >
+                  {myAttendances.length}
+                </Text>
+              </View>
+            </Pressable>
 
-        <Pressable
-          style={[
-            styles.segmentItem,
-            tab === "kehadiran" && styles.segmentActive,
-          ]}
-          onPress={() => setTab("kehadiran")}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              tab === "kehadiran" && styles.segmentTextActive,
-            ]}
-          >
-            Kehadiran
-          </Text>
-          <View
-            style={[
-              styles.segmentCount,
-              tab === "kehadiran" && styles.segmentCountActive,
-            ]}
-          >
-            <Text
+            <Pressable
               style={[
-                styles.segmentCountText,
-                tab === "kehadiran" && styles.segmentCountTextActive,
+                styles.segmentItem,
+                tab === "kelas" && styles.segmentActive,
               ]}
+              onPress={() => setTab("kelas")}
             >
-              {myAttendances.length}
-            </Text>
+              <Text
+                style={[
+                  styles.segmentText,
+                  tab === "kelas" && styles.segmentTextActive,
+                ]}
+              >
+                Kelas
+              </Text>
+              <View
+                style={[
+                  styles.segmentCount,
+                  tab === "kelas" && styles.segmentCountActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentCountText,
+                    tab === "kelas" && styles.segmentCountTextActive,
+                  ]}
+                >
+                  {classList.length}
+                </Text>
+              </View>
+            </Pressable>
           </View>
-        </Pressable>
 
-        <Pressable
-          style={[styles.segmentItem, tab === "kelas" && styles.segmentActive]}
-          onPress={() => setTab("kelas")}
-        >
-          <Text
-            style={[
-              styles.segmentText,
-              tab === "kelas" && styles.segmentTextActive,
-            ]}
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
           >
-            Kelas
-          </Text>
-          <View
-            style={[
-              styles.segmentCount,
-              tab === "kelas" && styles.segmentCountActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentCountText,
-                tab === "kelas" && styles.segmentCountTextActive,
-              ]}
-            >
-              {classList.length}
-            </Text>
-          </View>
-        </Pressable>
-      </View>
-
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {tab === "jadwal" && (
-          <>
-            {studentSessions.length === 0 && (
-              <View style={styles.empty}>
-                <Text style={styles.emptyIcon}>📚</Text>
-                <Text style={styles.emptyTitle}>Belum ada jadwal</Text>
-                <Text style={styles.emptySubtitle}>
-                  Jadwal praktikum untuk kelas yang Anda ikuti akan muncul di
-                  sini.
-                </Text>
-              </View>
-            )}
-
-            {upcoming.length > 0 && (
+            {tab === "jadwal" && (
               <>
-                <Text style={styles.sectionTitle}>Jadwal Mendatang</Text>
-                {upcoming.map((s) => (
-                  <SessionCard
-                    key={s.id}
-                    id={s.id}
-                    mataKuliah={s.practicum.mataKuliah}
-                    namaPraktikum={s.practicum.namaPraktikum}
-                    nomorPraktikum={s.practicum.nomorPraktikum}
-                    namaKelas={s.kelas.namaKelas}
-                    tanggal={s.tanggal}
-                    jamMulai={s.jamMulai}
-                    jamSelesai={s.jamSelesai}
-                    ruang={s.ruang}
-                    status={s.status}
-                    sudahPresensi={attendedSessionIds.has(s.id)}
-                  />
-                ))}
-              </>
-            )}
-
-            {past.length > 0 && (
-              <>
-                <Text style={[styles.sectionTitle, styles.sectionTitlePast]}>
-                  Riwayat Sesi
-                </Text>
-                {past.map((s) => (
-                  <SessionCard
-                    key={s.id}
-                    id={s.id}
-                    mataKuliah={s.practicum.mataKuliah}
-                    namaPraktikum={s.practicum.namaPraktikum}
-                    nomorPraktikum={s.practicum.nomorPraktikum}
-                    namaKelas={s.kelas.namaKelas}
-                    tanggal={s.tanggal}
-                    jamMulai={s.jamMulai}
-                    jamSelesai={s.jamSelesai}
-                    ruang={s.ruang}
-                    status={s.status}
-                    sudahPresensi={attendedSessionIds.has(s.id)}
-                  />
-                ))}
-              </>
-            )}
-          </>
-        )}
-
-        {tab === "kehadiran" && (
-          <>
-            {myAttendances.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyIcon}>🗂️</Text>
-                <Text style={styles.emptyTitle}>Belum ada kehadiran</Text>
-                <Text style={styles.emptySubtitle}>
-                  Catatan presensi Anda akan tersimpan dan tampil di sini setelah
-                  melakukan presensi pada sesi yang dibuka.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>Catatan Kehadiran</Text>
-                {myAttendances.map((item) => (
-                  <AttendanceCard key={item.id} item={item} />
-                ))}
-              </>
-            )}
-          </>
-        )}
-
-        {tab === "kelas" && (
-          <>
-            {classesLoading ? (
-              <View style={styles.classLoading}>
-                <Text style={styles.classLoadingText}>Memuat kelas…</Text>
-              </View>
-            ) : classesError ? (
-              <View style={styles.classErrorBox}>
-                <Text style={styles.classErrorText}>{classesError}</Text>
-              </View>
-            ) : classList.length === 0 ? (
-              <View style={styles.empty}>
-                <Text style={styles.emptyIcon}>🎓</Text>
-                <Text style={styles.emptyTitle}>Belum ada kelas</Text>
-                <Text style={styles.emptySubtitle}>
-                  Kelas praktikum yang Anda ikuti akan muncul di sini setelah
-                  ditambahkan oleh asisten.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>Kelas Saya</Text>
-                {classList.map((item) => (
-                  <View key={item.id} style={styles.classCard}>
-                    <View style={styles.classIconBox}>
-                      <Text style={styles.classIcon}>🎓</Text>
-                    </View>
-                    <View style={styles.classInfo}>
-                      <Text style={styles.classCourse} numberOfLines={2}>
-                        {item.mataKuliah}
-                      </Text>
-                      <Text style={styles.classMeta}>
-                        Kelas {item.kodeKelas}
-                      </Text>
-                    </View>
+                {sessionsLoading && (
+                  <View style={styles.classLoading}>
+                    <ActivityIndicator color="#2563eb" />
+                    <Text style={styles.classLoadingText}>
+                      Memuat jadwal & sesi…
+                    </Text>
                   </View>
-                ))}
+                )}
+
+                {sessionsError && (
+                  <View style={styles.classErrorBox}>
+                    <Text style={styles.classErrorText}>{sessionsError}</Text>
+                  </View>
+                )}
+
+                {!sessionsLoading &&
+                  !sessionsError &&
+                  studentSessions.length === 0 && (
+                    <View style={styles.empty}>
+                      <View style={styles.emptyIconCircle}>
+                        <AppIcon name="calendar" size={26} color="#475569" />
+                      </View>
+                      <Text style={styles.emptyTitle}>Belum ada jadwal</Text>
+                      <Text style={styles.emptySubtitle}>
+                        Jadwal praktikum untuk kelas yang Anda ikuti akan muncul
+                        di sini.
+                      </Text>
+                    </View>
+                  )}
+
+                {upcoming.length > 0 && (
+                  <>
+                    <Text style={styles.sectionTitle}>Jadwal Mendatang</Text>
+                    {upcoming.map((s) => (
+                      <SessionCard
+                        key={s.id}
+                        id={s.id}
+                        mataKuliah={s.practicum.mataKuliah}
+                        namaPraktikum={s.practicum.namaPraktikum}
+                        nomorPraktikum={s.practicum.nomorPraktikum}
+                        namaKelas={s.kelas.namaKelas}
+                        tanggal={s.tanggal}
+                        jamMulai={s.jamMulai}
+                        jamSelesai={s.jamSelesai}
+                        ruang={s.ruang}
+                        status={s.status}
+                        sudahPresensi={attendedSessionIds.has(s.id)}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {past.length > 0 && (
+                  <>
+                    <Text
+                      style={[styles.sectionTitle, styles.sectionTitlePast]}
+                    >
+                      Riwayat Sesi
+                    </Text>
+                    {past.map((s) => (
+                      <SessionCard
+                        key={s.id}
+                        id={s.id}
+                        mataKuliah={s.practicum.mataKuliah}
+                        namaPraktikum={s.practicum.namaPraktikum}
+                        nomorPraktikum={s.practicum.nomorPraktikum}
+                        namaKelas={s.kelas.namaKelas}
+                        tanggal={s.tanggal}
+                        jamMulai={s.jamMulai}
+                        jamSelesai={s.jamSelesai}
+                        ruang={s.ruang}
+                        status={s.status}
+                        sudahPresensi={attendedSessionIds.has(s.id)}
+                      />
+                    ))}
+                  </>
+                )}
               </>
             )}
-          </>
-        )}
 
-        <View style={styles.bottomPad} />
-      </ScrollView>
+            {tab === "kehadiran" && (
+              <>
+                {myAttendances.length === 0 ? (
+                  <View style={styles.empty}>
+                    <View style={styles.emptyIconCircle}>
+                      <AppIcon name="clipboard" size={26} color="#475569" />
+                    </View>
+                    <Text style={styles.emptyTitle}>Belum ada kehadiran</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Catatan presensi Anda akan tersimpan dan tampil di sini
+                      setelah melakukan presensi pada sesi yang dibuka.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.sectionTitle}>Catatan Kehadiran</Text>
+                    {myAttendances.map((item) => (
+                      <AttendanceCard key={item.id} item={item} />
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+
+            {tab === "kelas" && (
+              <>
+                {classesLoading ? (
+                  <View style={styles.classLoading}>
+                    <ActivityIndicator color="#2563eb" />
+                    <Text style={styles.classLoadingText}>Memuat kelas…</Text>
+                  </View>
+                ) : classesError ? (
+                  <View style={styles.classErrorBox}>
+                    <Text style={styles.classErrorText}>{classesError}</Text>
+                  </View>
+                ) : classList.length === 0 ? (
+                  <View style={styles.empty}>
+                    <View style={styles.emptyIconCircle}>
+                      <AppIcon name="class" size={26} color="#475569" />
+                    </View>
+                    <Text style={styles.emptyTitle}>Belum ada kelas</Text>
+                    <Text style={styles.emptySubtitle}>
+                      Kelas praktikum yang Anda ikuti akan muncul di sini
+                      setelah ditambahkan oleh asisten.
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Text style={styles.sectionTitle}>Kelas Saya</Text>
+                    {classList.map((item) => (
+                      <View key={item.id} style={styles.classCard}>
+                        <View style={styles.classIconBox}>
+                          <AppIcon name="class" size={20} color="#2563eb" />
+                        </View>
+                        <View style={styles.classInfo}>
+                          <Text style={styles.classCourse} numberOfLines={2}>
+                            {item.mataKuliah}
+                          </Text>
+                          <Text style={styles.classMeta}>
+                            Kelas {item.kodeKelas}
+                          </Text>
+                        </View>
+                      </View>
+                    ))}
+                  </>
+                )}
+              </>
+            )}
+
+            <View style={styles.bottomPad} />
+          </ScrollView>
+        </>
+      ) : (
+        <>
+          <View
+            style={[styles.profileHeader, { paddingTop: insets.top + 15 }]}
+          >
+            <Text style={styles.profileHeaderTitle}>Profil Pengguna</Text>
+          </View>
+          <ProfileView />
+        </>
+      )}
+
+      {/* Bottom Navbar 2 Menu */}
+      <BottomNavBar activeTab={activeNavTab} onChangeTab={setActiveNavTab} />
     </SafeAreaView>
   );
 }
@@ -476,43 +542,52 @@ export default function HomePraktikan() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: "#f1f5f9" },
 
   // Header
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
-    backgroundColor: "#1e40af",
+    paddingTop: 14,
+    paddingBottom: 18,
+    backgroundColor: "#2563eb",
   },
-  headerInfo: { flex: 1 },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  greeting: {
+    color: "#dbeafe",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   rolePill: {
-    alignSelf: "flex-start",
     backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 999,
-    paddingHorizontal: 10,
+    borderRadius: 6,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    marginBottom: 8,
   },
-  rolePillText: { color: "#e0e7ff", fontSize: 11, fontWeight: "700" },
-  greeting: { color: "#bfdbfe", fontSize: 13 },
-  name: { color: "#fff", fontSize: 20, fontWeight: "700", marginTop: 2 },
-  nim: { color: "#93c5fd", fontSize: 13, marginTop: 2 },
-  headerActions: {
-    alignItems: "flex-end",
-    gap: 8,
-    marginTop: 4,
+  rolePillText: {
+    color: "#ffffff",
+    fontSize: 10.5,
+    fontWeight: "800",
+    letterSpacing: 0.6,
   },
-  logoutBtn: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
+  name: { color: "#ffffff", fontSize: 19, fontWeight: "800" },
+  nim: { color: "#dbeafe", fontSize: 12, marginTop: 2, fontWeight: "500" },
+
+  profileHeader: {
+    backgroundColor: "#2563eb",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    alignItems: "center",
   },
-  logoutText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  profileHeaderTitle: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "800",
+  },
 
   // Segment
   segment: {
@@ -521,7 +596,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     padding: 4,
     backgroundColor: "#e2e8f0",
-    borderRadius: 14,
+    borderRadius: 12,
   },
   segmentItem: {
     flex: 1,
@@ -530,18 +605,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 6,
     paddingVertical: 9,
-    borderRadius: 10,
+    borderRadius: 9,
   },
   segmentActive: {
-    backgroundColor: "#fff",
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    backgroundColor: "#ffffff",
   },
-  segmentText: { fontSize: 13, fontWeight: "600", color: "#64748b" },
-  segmentTextActive: { color: "#1e40af" },
+  segmentText: { fontSize: 12.5, fontWeight: "600", color: "#64748b" },
+  segmentTextActive: { color: "#2563eb", fontWeight: "800" },
   segmentCount: {
     minWidth: 20,
     paddingHorizontal: 6,
@@ -550,40 +620,34 @@ const styles = StyleSheet.create({
     backgroundColor: "#cbd5e1",
     alignItems: "center",
   },
-  segmentCountActive: { backgroundColor: "#dbeafe" },
+  segmentCountActive: { backgroundColor: "#eff6ff" },
   segmentCountText: { fontSize: 11, fontWeight: "700", color: "#475569" },
-  segmentCountTextActive: { color: "#1d4ed8" },
+  segmentCountTextActive: { color: "#2563eb" },
 
-  // Scroll
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   bottomPad: { height: 24 },
 
-  // Section
   sectionTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#1e40af",
+    fontSize: 12.5,
+    fontWeight: "800",
+    color: "#2563eb",
     textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginTop: 8,
+    letterSpacing: 0.6,
+    marginTop: 4,
     marginBottom: 10,
     marginLeft: 2,
   },
-  sectionTitlePast: { color: "#6b7280", marginTop: 24 },
+  sectionTitlePast: { color: "#64748b", marginTop: 20 },
 
   // Card
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-    position: "relative",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   cardPressed: { opacity: 0.85 },
   cardTopRow: {
@@ -591,85 +655,107 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 10,
-    paddingRight: 20,
+  },
+  topRightBadges: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
 
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
     borderRadius: 999,
+    borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 4,
-    gap: 5,
+    paddingVertical: 3.5,
+    gap: 6,
   },
-  statusDot: { width: 7, height: 7, borderRadius: 99 },
-  statusText: { fontSize: 12, fontWeight: "600" },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 11.5, fontWeight: "700" },
 
   presensiChip: {
-    backgroundColor: "#ecfdf5",
-    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#e6f4ea",
+    borderWidth: 1,
+    borderColor: "#b7dfc2",
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  presensiChipText: { fontSize: 11, fontWeight: "700", color: "#0f5132" },
+
+  classBadge: {
+    backgroundColor: "#eff6ff",
+    borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  presensiChipText: { fontSize: 11, fontWeight: "700", color: "#059669" },
+  classBadgeText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#2563eb",
+  },
 
-  mataKuliah: { fontSize: 16, fontWeight: "700", color: "#111827" },
+  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#0f172a" },
   namaPraktikum: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#475569",
     marginTop: 2,
-    marginBottom: 12,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: "#f1f5f9",
+    marginVertical: 10,
   },
 
   infoRow: { gap: 6 },
-  infoItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  infoIcon: { fontSize: 13 },
-  infoText: { fontSize: 13, color: "#374151", flex: 1 },
-
-  chevron: {
-    position: "absolute",
-    right: 16,
-    top: "50%",
-    fontSize: 24,
-    color: "#d1d5db",
-    marginTop: -12,
+  infoItem: { flexDirection: "row", alignItems: "center", gap: 7 },
+  infoBottomInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
   },
+  infoItemInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  infoText: { fontSize: 12.5, color: "#475569", fontWeight: "500" },
 
   // Riwayat kehadiran
   attendanceCard: {
     flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
     padding: 14,
     marginBottom: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   dateBox: {
-    width: 54,
-    borderRadius: 12,
+    width: 52,
+    borderRadius: 10,
     backgroundColor: "#eff6ff",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
     marginRight: 12,
   },
-  dateBoxDay: { fontSize: 11, fontWeight: "700", color: "#60a5fa" },
+  dateBoxDay: { fontSize: 10.5, fontWeight: "700", color: "#475569" },
   dateBoxNumber: {
-    fontSize: 20,
+    fontSize: 19,
     fontWeight: "800",
-    color: "#1e40af",
-    lineHeight: 24,
+    color: "#2563eb",
+    lineHeight: 23,
   },
-  dateBoxMonth: { fontSize: 11, fontWeight: "600", color: "#60a5fa" },
+  dateBoxMonth: { fontSize: 10.5, fontWeight: "700", color: "#475569" },
 
   attendanceInfo: { flex: 1 },
-  attendanceCourse: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  attendanceSub: { fontSize: 12, color: "#6b7280", marginTop: 2 },
+  attendanceCourse: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
+  attendanceSub: { fontSize: 12, color: "#64748b", marginTop: 2 },
   attendanceTimeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -679,60 +765,75 @@ const styles = StyleSheet.create({
   attendanceDot: {
     width: 6,
     height: 6,
-    borderRadius: 99,
-    backgroundColor: "#10b981",
+    borderRadius: 3,
+    backgroundColor: "#15803d",
   },
-  attendanceTime: { fontSize: 12, fontWeight: "700", color: "#059669" },
+  attendanceTime: { fontSize: 12, fontWeight: "700", color: "#0f5132" },
 
-  // Kelas
-  classLoading: { paddingVertical: 40, alignItems: "center" },
-  classLoadingText: { fontSize: 13, color: "#6b7280" },
+  // Kelas & Loading
+  classLoading: { paddingVertical: 40, alignItems: "center", gap: 10 },
+  classLoadingText: { fontSize: 13, color: "#64748b" },
   classErrorBox: {
-    backgroundColor: "#fee2e2",
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
     borderRadius: 12,
     padding: 14,
+    marginBottom: 12,
   },
-  classErrorText: { color: "#b91c1c", fontSize: 13 },
+  classErrorText: { color: "#991b1b", fontSize: 13 },
   classCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
     padding: 14,
     marginBottom: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   classIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: "#eff6ff",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  classIcon: { fontSize: 22 },
   classInfo: { flex: 1 },
-  classCourse: { fontSize: 15, fontWeight: "700", color: "#111827" },
-  classMeta: { fontSize: 12, color: "#6b7280", marginTop: 3 },
+  classCourse: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
+  classMeta: { fontSize: 12, color: "#64748b", marginTop: 3 },
 
   // Empty
-  empty: { alignItems: "center", paddingTop: 64, paddingHorizontal: 32 },
-  emptyIcon: { fontSize: 48, marginBottom: 16 },
+  empty: {
+    alignItems: "center",
+    paddingVertical: 44,
+    paddingHorizontal: 28,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
+    fontSize: 13,
+    color: "#64748b",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 19,
   },
 });

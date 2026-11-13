@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { SessionStatus } from "../types";
+import AppIcon from "./AppIcon";
 
 export type ConfirmationType = "buka" | "tutup" | "info";
 
@@ -38,6 +39,7 @@ export interface ConfirmationBottomSheetProps {
 function formatTanggal(iso: string) {
   if (!iso) return "—";
   const d = new Date(iso + "T00:00:00");
+  if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("id-ID", {
     weekday: "long",
     day: "numeric",
@@ -83,7 +85,6 @@ export default function ConfirmationBottomSheet({
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        {/* Backdrop untuk klik dismiss */}
         <Pressable
           style={styles.backdrop}
           onPress={onClose}
@@ -91,14 +92,12 @@ export default function ConfirmationBottomSheet({
           accessibilityRole="button"
         />
 
-        {/* Sheet Card */}
         <View
           style={[
             styles.sheetContainer,
             { paddingBottom: Math.max(insets.bottom, 20) },
           ]}
         >
-          {/* Handle bar drag indicator */}
           <View style={styles.dragHandleContainer}>
             <View style={styles.dragHandle} />
           </View>
@@ -119,9 +118,11 @@ export default function ConfirmationBottomSheet({
                   isInfo && styles.iconCircleInfo,
                 ]}
               >
-                <Text style={styles.iconText}>
-                  {isBuka ? "▶" : isTutup ? "⏹" : "ℹ"}
-                </Text>
+                <AppIcon
+                  name={isBuka ? "play" : isTutup ? "stop" : "info"}
+                  size={22}
+                  color={isBuka ? "#0f5132" : isTutup ? "#991b1b" : "#2563eb"}
+                />
               </View>
 
               <Text style={styles.title}>
@@ -129,7 +130,7 @@ export default function ConfirmationBottomSheet({
                   ? "Buka Sesi Praktikum"
                   : isTutup
                     ? "Tutup Sesi Praktikum"
-                    : "Informasi Pendukung Sesi"}
+                    : "Rincian Operasional Sesi"}
               </Text>
 
               <Text style={styles.subtitle}>
@@ -173,7 +174,7 @@ export default function ConfirmationBottomSheet({
               <View style={styles.infoDivider} />
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Jadwal</Text>
+                <Text style={styles.infoLabel}>Tanggal</Text>
                 <Text style={styles.infoValue}>
                   {formatTanggal(sessionData.tanggal)}
                 </Text>
@@ -214,7 +215,7 @@ export default function ConfirmationBottomSheet({
                     <Text style={styles.statNumberTotal}>
                       {sessionData.enrolledCount}
                     </Text>
-                    <Text style={styles.statLabel}>Total Terdaftar</Text>
+                    <Text style={styles.statLabel}>Terdaftar</Text>
                   </View>
                 </View>
 
@@ -239,29 +240,29 @@ export default function ConfirmationBottomSheet({
             {/* Banner Catatan / Konsekuensi Aksi */}
             {isBuka && (
               <View style={styles.noticeBoxBuka}>
-                <Text style={styles.noticeIcon}>💡</Text>
+                <AppIcon name="info" size={16} color="#2563eb" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Catatan: </Text>
-                  Setelah sesi dibuka, waktu presensi mulai dihitung. Pastikan
-                  asisten telah siap di ruang laboratorium.
+                  Setelah sesi dibuka, waktu pembukaan sesi dicatat di sistem
+                  dan praktikan dapat langsung melakukan presensi.
                 </Text>
               </View>
             )}
 
             {isTutup && (
               <View style={styles.noticeBoxTutup}>
-                <Text style={styles.noticeIcon}>⚠️</Text>
+                <AppIcon name="alert" size={16} color="#991b1b" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Perhatian: </Text>
-                  Sesi yang ditutup bersifat final dan tidak dapat dibuka kembali.
-                  Mahasiswa yang belum presensi akan tercatat tidak hadir.
+                  Sesi yang ditutup bersifat final dan tidak dapat digunakan
+                  lagi untuk presensi.
                 </Text>
               </View>
             )}
 
             {isInfo && (
               <View style={styles.noticeBoxInfo}>
-                <Text style={styles.noticeIcon}>📌</Text>
+                <AppIcon name="info" size={16} color="#2563eb" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Panduan: </Text>
                   Gunakan tombol Buka Sesi saat praktikum dimulai dan Tutup Sesi
@@ -282,7 +283,7 @@ export default function ConfirmationBottomSheet({
                 ]}
                 onPress={onClose}
               >
-                <Text style={styles.primaryBtnText}>Tutup Informasi</Text>
+                <Text style={styles.primaryBtnText}>Tutup</Text>
               </Pressable>
             ) : (
               <View style={styles.buttonGroup}>
@@ -322,7 +323,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(0, 0, 0, 0.45)",
+    backgroundColor: "rgba(15, 23, 42, 0.55)",
   },
   backdrop: {
     position: "absolute",
@@ -333,71 +334,61 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     backgroundColor: "#ffffff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     maxHeight: "88%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 12,
   },
   dragHandleContainer: {
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   dragHandle: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
+    width: 40,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: "#cbd5e1",
   },
   scrollArea: {
     maxHeight: 500,
   },
   scrollContent: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     paddingBottom: 12,
   },
 
-  // Header
   header: {
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: 16,
   },
   iconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   iconCircleBuka: {
-    backgroundColor: "#d1fae5",
-    borderWidth: 1.5,
-    borderColor: "#10b981",
+    backgroundColor: "#e6f4ea",
+    borderWidth: 1,
+    borderColor: "#b7dfc2",
   },
   iconCircleTutup: {
-    backgroundColor: "#fee2e2",
-    borderWidth: 1.5,
-    borderColor: "#ef4444",
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
   },
   iconCircleInfo: {
-    backgroundColor: "#dbeafe",
-    borderWidth: 1.5,
-    borderColor: "#3b82f6",
-  },
-  iconText: {
-    fontSize: 22,
-    fontWeight: "700",
+    backgroundColor: "#eff6ff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
   },
   title: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     color: "#0f172a",
     textAlign: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
@@ -407,37 +398,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
 
-  // Info Card
   infoCard: {
     backgroundColor: "#f8fafc",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 15,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   infoCardTitle: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#94a3b8",
+    color: "#64748b",
     letterSpacing: 0.8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 4,
+    paddingVertical: 3,
   },
   infoLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: "#64748b",
     fontWeight: "500",
     flex: 1,
   },
   infoValue: {
     fontSize: 13,
-    color: "#1e293b",
+    color: "#0f172a",
     fontWeight: "700",
     textAlign: "right",
     flex: 1.5,
@@ -445,17 +435,16 @@ const styles = StyleSheet.create({
   infoDivider: {
     height: 1,
     backgroundColor: "#e2e8f0",
-    marginVertical: 8,
+    marginVertical: 7,
   },
 
-  // Stats Card
   statsCard: {
     backgroundColor: "#f8fafc",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 15,
     borderWidth: 1,
     borderColor: "#e2e8f0",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   statsRow: {
     flexDirection: "row",
@@ -466,13 +455,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     paddingHorizontal: 8,
-    borderRadius: 12,
+    borderRadius: 10,
     alignItems: "center",
   },
   statBoxHadir: {
-    backgroundColor: "#ecfdf5",
+    backgroundColor: "#e6f4ea",
     borderWidth: 1,
-    borderColor: "#a7f3d0",
+    borderColor: "#b7dfc2",
   },
   statBoxBelum: {
     backgroundColor: "#fef2f2",
@@ -485,17 +474,17 @@ const styles = StyleSheet.create({
     borderColor: "#cbd5e1",
   },
   statNumberHadir: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
-    color: "#059669",
+    color: "#0f5132",
   },
   statNumberBelum: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
-    color: "#dc2626",
+    color: "#991b1b",
   },
   statNumberTotal: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "800",
     color: "#334155",
   },
@@ -517,7 +506,7 @@ const styles = StyleSheet.create({
   },
   rateBarFill: {
     height: "100%",
-    backgroundColor: "#059669",
+    backgroundColor: "#2563eb",
     borderRadius: 3,
   },
   rateText: {
@@ -527,40 +516,35 @@ const styles = StyleSheet.create({
     textAlign: "right",
   },
 
-  // Notice Boxes
   noticeBoxBuka: {
     flexDirection: "row",
-    backgroundColor: "#f0fdf4",
+    backgroundColor: "#f1f5f9",
     borderWidth: 1,
-    borderColor: "#bbf7d0",
-    borderRadius: 14,
+    borderColor: "#cbd5e1",
+    borderRadius: 12,
     padding: 12,
     gap: 10,
     alignItems: "flex-start",
   },
   noticeBoxTutup: {
     flexDirection: "row",
-    backgroundColor: "#fff1f2",
+    backgroundColor: "#fef2f2",
     borderWidth: 1,
-    borderColor: "#fecdd3",
-    borderRadius: 14,
+    borderColor: "#fecaca",
+    borderRadius: 12,
     padding: 12,
     gap: 10,
     alignItems: "flex-start",
   },
   noticeBoxInfo: {
     flexDirection: "row",
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#f1f5f9",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
-    borderRadius: 14,
+    borderColor: "#cbd5e1",
+    borderRadius: 12,
     padding: 12,
     gap: 10,
     alignItems: "flex-start",
-  },
-  noticeIcon: {
-    fontSize: 16,
-    marginTop: 1,
   },
   noticeText: {
     flex: 1,
@@ -573,24 +557,22 @@ const styles = StyleSheet.create({
     color: "#0f172a",
   },
 
-  // Footer & Buttons
   footer: {
-    paddingHorizontal: 22,
-    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingTop: 10,
   },
   buttonGroup: {
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
   },
   button: {
     paddingVertical: 14,
-    borderRadius: 14,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   buttonPressed: {
     opacity: 0.85,
-    transform: [{ scale: 0.98 }],
   },
   cancelBtn: {
     flex: 1,
@@ -599,38 +581,28 @@ const styles = StyleSheet.create({
     borderColor: "#cbd5e1",
   },
   cancelBtnText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: "#475569",
+    color: "#334155",
   },
   bukaBtn: {
-    flex: 1.7,
-    backgroundColor: "#059669",
-    shadowColor: "#059669",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    flex: 1.6,
+    backgroundColor: "#2563eb",
   },
   tutupBtn: {
-    flex: 1.7,
-    backgroundColor: "#dc2626",
-    shadowColor: "#dc2626",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
+    flex: 1.6,
+    backgroundColor: "#991b1b",
   },
   actionBtnText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
     color: "#ffffff",
   },
   primaryBtn: {
-    backgroundColor: "#1e40af",
+    backgroundColor: "#2563eb",
   },
   primaryBtnText: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
     color: "#ffffff",
   },

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AppIcon from "../../../components/AppIcon";
 import ClassFormModal from "../../../components/ClassFormModal";
 import { useAuth } from "../../../context/AuthContext";
 import {
@@ -82,7 +83,8 @@ export default function KelolaKelasScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>‹ Kembali</Text>
+          <AppIcon name="chevron-left" size={16} color="#2563eb" />
+          <Text style={styles.backText}>Kembali</Text>
         </Pressable>
 
         <View style={styles.headerRow}>
@@ -104,12 +106,12 @@ export default function KelolaKelasScreen() {
             setFormVisible(true);
           }}
         >
-          <Text style={styles.addButtonText}>＋ Tambah Kelas</Text>
+          <Text style={styles.addButtonText}>+ Tambah Kelas</Text>
         </Pressable>
 
         {loading && (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color="#1e40af" />
+            <ActivityIndicator color="#2563eb" />
             <Text style={styles.loadingText}>Memuat kelas…</Text>
           </View>
         )}
@@ -122,7 +124,9 @@ export default function KelolaKelasScreen() {
 
         {!loading && !loadError && classes.length === 0 && (
           <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>🏫</Text>
+            <View style={styles.emptyIconCircle}>
+              <AppIcon name="class" size={26} color="#475569" />
+            </View>
             <Text style={styles.emptyTitle}>Belum ada kelas</Text>
             <Text style={styles.emptySubtitle}>
               Tambahkan kelas praktikum pertama Anda untuk mulai mengelola
@@ -177,31 +181,36 @@ export default function KelolaKelasScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: "#f1f5f9" },
   content: { padding: 16, paddingBottom: 32 },
 
-  backBtn: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  backText: { fontSize: 16, color: "#1e40af", fontWeight: "600" },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 12,
+  },
+  backText: { fontSize: 15, color: "#2563eb", fontWeight: "700" },
 
   headerRow: { flexDirection: "row", alignItems: "flex-start" },
   headerInfo: { flex: 1 },
-  title: { fontSize: 22, fontWeight: "800", color: "#111827" },
+  title: { fontSize: 21, fontWeight: "800", color: "#0f172a" },
   subtitle: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#64748b",
     lineHeight: 19,
     marginTop: 4,
   },
 
   addButton: {
-    backgroundColor: "#1e40af",
+    backgroundColor: "#2563eb",
     borderRadius: 12,
     paddingVertical: 13,
     alignItems: "center",
     marginTop: 16,
     marginBottom: 16,
   },
-  addButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  addButtonText: { color: "#fff", fontSize: 14.5, fontWeight: "700" },
   pressed: { opacity: 0.85 },
 
   loadingBox: {
@@ -209,41 +218,56 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     gap: 10,
   },
-  loadingText: { fontSize: 13, color: "#6b7280" },
+  loadingText: { fontSize: 13, color: "#64748b" },
 
   errorBox: {
-    backgroundColor: "#fee2e2",
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
     borderRadius: 12,
     padding: 14,
     marginBottom: 12,
   },
-  errorBoxText: { color: "#b91c1c", fontSize: 13 },
+  errorBoxText: { color: "#991b1b", fontSize: 13 },
 
-  empty: { alignItems: "center", paddingTop: 40, paddingHorizontal: 24 },
-  emptyIcon: { fontSize: 48, marginBottom: 14 },
+  empty: {
+    alignItems: "center",
+    paddingVertical: 44,
+    paddingHorizontal: 24,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+  },
+  emptyIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#111827",
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: "#6b7280",
+    fontSize: 13,
+    color: "#64748b",
     textAlign: "center",
-    lineHeight: 20,
+    lineHeight: 19,
   },
 
   card: {
     backgroundColor: "#fff",
-    borderRadius: 16,
+    borderRadius: 14,
     padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
   },
   cardTop: {
     flexDirection: "row",
@@ -252,13 +276,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   kodePill: {
-    backgroundColor: "#dbeafe",
-    borderRadius: 999,
+    backgroundColor: "#eff6ff",
+    borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  kodePillText: { fontSize: 12, fontWeight: "700", color: "#1d4ed8" },
-  chevron: { fontSize: 24, color: "#d1d5db" },
-  course: { fontSize: 16, fontWeight: "700", color: "#111827" },
-  meta: { fontSize: 12, color: "#6b7280", marginTop: 4 },
+  kodePillText: { fontSize: 12, fontWeight: "700", color: "#2563eb" },
+  chevron: { fontSize: 22, color: "#94a3b8" },
+  course: { fontSize: 15.5, fontWeight: "800", color: "#0f172a" },
+  meta: { fontSize: 12, color: "#64748b", marginTop: 4 },
 });

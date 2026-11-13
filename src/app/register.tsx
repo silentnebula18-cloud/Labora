@@ -13,11 +13,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import ClassCodeDropdown from "../components/ClassCodeDropdown";
+import { isClassCode } from "../constants/classes";
 import { useAuth } from "../context/AuthContext";
 
 interface FieldErrors {
   nama?: string;
   nim?: string;
+  kelas?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
@@ -35,6 +38,7 @@ export default function RegisterScreen() {
 
   const [nama, setNama] = useState("");
   const [nim, setNim] = useState("");
+  const [kelas, setKelas] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -52,6 +56,9 @@ export default function RegisterScreen() {
       nextErrors.nim = "NIM wajib diisi";
     } else if (!/^\d{5,20}$/.test(nim.trim())) {
       nextErrors.nim = "NIM harus berupa 5–20 digit angka";
+    }
+    if (!kelas.trim() || !isClassCode(kelas)) {
+      nextErrors.kelas = "Kelas wajib dipilih";
     }
     if (!email.trim()) {
       nextErrors.email = "Email wajib diisi";
@@ -79,6 +86,7 @@ export default function RegisterScreen() {
       const result = await register({
         nama: nama.trim(),
         nim: nim.trim(),
+        kelas: kelas.trim().toUpperCase(),
         email: email.trim(),
         password,
       });
@@ -157,6 +165,20 @@ export default function RegisterScreen() {
             editable={!loading}
           />
           {errors.nim && <Text style={styles.errorText}>{errors.nim}</Text>}
+
+          <Text style={styles.label}>Kelas</Text>
+          <ClassCodeDropdown
+            value={kelas}
+            onChange={(selected) => {
+              setKelas(selected);
+              setErrors((e) => ({ ...e, kelas: undefined }));
+              setFormError(null);
+            }}
+            placeholder="Pilih kelas (A1 – E2)"
+            disabled={loading}
+            hasError={!!errors.kelas}
+          />
+          {errors.kelas && <Text style={styles.errorText}>{errors.kelas}</Text>}
 
           <Text style={styles.label}>Email</Text>
           <TextInput
