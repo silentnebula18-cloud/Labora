@@ -1,44 +1,46 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { onAuthStateChanged } from "@react-native-firebase/auth";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 
+import { auth } from "../lib/firebase";
 import {
-  authenticate,
-  getUserById,
+  loadUserProfile,
+  loginUser,
+  logoutUser,
+  registerUser,
+  updateActiveRole,
   type AuthResult,
+  type RegisterInput,
 } from "../services/authService";
-import type { AuthSession, Role, SafeUser } from "../types";
-
-const STORAGE_KEY = "labora.session";
+import type { Role, SafeUser } from "../types";
 
 interface AuthContextValue {
   user: SafeUser | null;
   activeRole: Role | null;
   isRestoring: boolean;
-  login: (nim: string, password: string) => Promise<AuthResult>;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (input: RegisterInput) => Promise<AuthResult>;
   selectRole: (role: Role) => void;
+  changeRole: () => void;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function saveSession(session: AuthSession | null) {
-  try {
-    if (session) {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-    } else {
-      await AsyncStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // Penyimpanan gagal tidak boleh menggagalkan alur login.
+function resolveActiveRole(user: SafeUser): Role | null {
+  if (user.activeRole && user.roles.includes(user.activeRole)) {
+    return user.activeRole;
   }
+  if (user.roles.length === 1) return user.roles[0];
+  return null;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -46,64 +48,125 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [activeRole, setActiveRole] = useState<Role | null>(null);
   const [isRestoring, setIsRestoring] = useState(true);
 
-  // Pulihkan sesi saat aplikasi dibuka.
+  // Saat registrasi, listener auth bisa terpanggil sebelum profil Firestore
+  // selesai dibuat. Alur register menangani state-nya sendiri.
+  const signingUpRef = useRef(false);
+  const profileRequestRef = useRef(0);
+
   useEffect(() => {
-    (async () => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setUser(null);
+        setActiveRole(null);
+        setIsRestoring(false);
+        return;
+      }
+
+      if (signingUpRef.current) return;
+
+      const requestId = ++profileRequestRef.current;
+
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (!raw) return;
+        const result = await loadUserProfile(firebaseUser.uid);
+        if (requestId !== profileRequestRef.current) return;
 
-        const session = JSON.parse(raw) as AuthSession;
-        const found = getUserById(session.userId);
-        if (!found) return;
-
-        setUser(found);
-
-        if (session.activeRole && found.roles.includes(session.activeRole)) {
-          setActiveRole(session.activeRole);
-        } else if (found.roles.length === 1) {
-          setActiveRole(found.roles[0]);
+        if (result.status !== "ok") {
+          await logoutUser().catch(() => undefined);
+          setUser(null);
+          setActiveRole(null);
+        } else {
+          setUser(result.user);
+          setActiveRole(resolveActiveRole(result.user));
         }
       } catch {
-        // Data sesi rusak: anggap belum login.
+        if (requestId !== profileRequestRef.current) return;
+        await logoutUser().catch(() => undefined);
+        setUser(null);
+        setActiveRole(null);
       } finally {
-        setIsRestoring(false);
+        if (requestId === profileRequestRef.current) setIsRestoring(false);
       }
-    })();
+    });
+
+    return unsubscribe;
   }, []);
 
-  const login = useCallback(async (nim: string, password: string) => {
-    const result = await authenticate(nim, password);
+  const login = useCallback(async (email: string, password: string) => {
+    const result = await loginUser(email, password);
 
     if (result.ok) {
-      // Satu peran: langsung aktif. Dua peran: tunggu pengguna memilih.
-      const role = result.user.roles.length === 1 ? result.user.roles[0] : null;
       setUser(result.user);
-      setActiveRole(role);
-      void saveSession({ userId: result.user.id, activeRole: role });
+      setActiveRole(resolveActiveRole(result.user));
+      setIsRestoring(false);
     }
 
     return result;
   }, []);
 
+  const register = useCallback(async (input: RegisterInput) => {
+    signingUpRef.current = true;
+
+    try {
+      const result = await registerUser(input);
+
+      if (result.ok) {
+        setUser(result.user);
+        setActiveRole(resolveActiveRole(result.user));
+        setIsRestoring(false);
+      }
+
+      return result;
+    } finally {
+      signingUpRef.current = false;
+    }
+  }, []);
+
   const selectRole = useCallback(
     (role: Role) => {
       if (!user || !user.roles.includes(role)) return;
+
       setActiveRole(role);
-      void saveSession({ userId: user.id, activeRole: role });
+      setUser((prev) => (prev ? { ...prev, activeRole: role } : prev));
+      void updateActiveRole(user.id, role).catch(() => undefined);
     },
     [user],
   );
 
+  const changeRole = useCallback(() => {
+    if (!user || user.roles.length < 2) return;
+
+    setActiveRole(null);
+    setUser((prev) => (prev ? { ...prev, activeRole: null } : prev));
+    void updateActiveRole(user.id, null).catch(() => undefined);
+  }, [user]);
+
   const logout = useCallback(() => {
     setUser(null);
     setActiveRole(null);
-    void saveSession(null);
+    void logoutUser().catch(() => undefined);
   }, []);
 
   const value = useMemo(
-    () => ({ user, activeRole, isRestoring, login, selectRole, logout }),
-    [user, activeRole, isRestoring, login, selectRole, logout],
+    () => ({
+      user,
+      activeRole,
+      isRestoring,
+      login,
+      register,
+      selectRole,
+      changeRole,
+      logout,
+    }),
+    [
+      user,
+      activeRole,
+      isRestoring,
+      login,
+      register,
+      selectRole,
+      changeRole,
+      logout,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

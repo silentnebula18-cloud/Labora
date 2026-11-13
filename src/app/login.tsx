@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -14,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 
 interface FieldErrors {
-  nim?: string;
+  email?: string;
   password?: string;
 }
 
@@ -23,7 +24,7 @@ export default function LoginScreen() {
 
   const passwordRef = useRef<any>(null);
 
-  const [nim, setNim] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -41,7 +42,11 @@ export default function LoginScreen() {
     if (loading) return;
 
     const nextErrors: FieldErrors = {};
-    if (!nim.trim()) nextErrors.nim = "NIM wajib diisi";
+    if (!email.trim()) {
+      nextErrors.email = "Email wajib diisi";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      nextErrors.email = "Format email tidak valid";
+    }
     if (!password) nextErrors.password = "Kata sandi wajib diisi";
 
     setFormError(null);
@@ -52,7 +57,7 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      const result = await login(nim, password);
+      const result = await login(email, password);
 
       // Jika berhasil, navigator otomatis pindah halaman.
       if (!result.ok) {
@@ -88,32 +93,35 @@ export default function LoginScreen() {
             </View>
           )}
 
-          <Text style={styles.label}>NIM</Text>
+          <Text style={styles.label}>Email</Text>
 
           <TextInput
             style={[
               styles.input,
-              (errors.nim || credentialError) && styles.inputError,
+              (errors.email || credentialError) && styles.inputError,
             ]}
-            value={nim}
+            value={email}
             onChangeText={(t) => {
-              setNim(t);
-              setErrors((e) => ({ ...e, nim: undefined }));
+              setEmail(t);
+              setErrors((e) => ({ ...e, email: undefined }));
               setFormError(null);
               setCredentialError(false);
             }}
-            placeholder="Masukkan NIM"
+            placeholder="Masukkan email"
             placeholderTextColor="#9ca3af"
             selectionColor="#2563eb"
             autoCapitalize="none"
             autoCorrect={false}
+            keyboardType="email-address"
+            autoComplete="email"
+            textContentType="emailAddress"
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}
             editable={!loading}
           />
 
-          {errors.nim && (
-            <Text style={styles.errorText}>{errors.nim}</Text>
+          {errors.email && (
+            <Text style={styles.errorText}>{errors.email}</Text>
           )}
 
           <Text style={styles.label}>Kata sandi</Text>
@@ -171,6 +179,16 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Masuk</Text>
             )}
           </Pressable>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Belum punya akun?</Text>
+            <Pressable
+              onPress={() => router.push("/register" as any)}
+              hitSlop={8}
+            >
+              <Text style={styles.footerLink}>Daftar</Text>
+            </Pressable>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -255,6 +273,22 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  footer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 20,
+  },
+  footerText: {
+    color: "#6b7280",
+    fontSize: 14,
+  },
+  footerLink: {
+    color: "#2563eb",
+    fontSize: 14,
     fontWeight: "600",
   },
 });

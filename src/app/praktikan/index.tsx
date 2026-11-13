@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -11,8 +11,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "../../context/AuthContext";
 import { useSession } from "../../context/SessionContext";
+import {
+  describeFirestoreError,
+  subscribeStudentClasses,
+} from "../../services/classService";
 import type { AttendanceWithSession } from "../../services/sessionService";
-import type { SessionStatus } from "../../types";
+import type { ClassRecord, SessionStatus } from "../../types";
 import {
   formatTanggal,
   formatWaktuLengkap,
@@ -166,14 +170,37 @@ function AttendanceCard({ item }: { item: AttendanceWithSession }) {
 // ─── Layar Utama ──────────────────────────────────────────────────────────────
 
 export default function HomePraktikan() {
-  const { user, logout } = useAuth();
+  const { user, logout, changeRole } = useAuth();
   const {
     studentSessions,
     myAttendances,
     refreshStudentSessions,
     refreshMyAttendances,
   } = useSession();
-  const [tab, setTab] = useState<"jadwal" | "kehadiran">("jadwal");
+  const [tab, setTab] = useState<"jadwal" | "kehadiran" | "kelas">("jadwal");
+
+  const [classList, setClassList] = useState<ClassRecord[]>([]);
+  const [classesLoading, setClassesLoading] = useState(true);
+  const [classesError, setClassesError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const unsubscribe = subscribeStudentClasses(
+      user.id,
+      (items) => {
+        setClassList(items);
+        setClassesError(null);
+        setClassesLoading(false);
+      },
+      (error) => {
+        setClassesError(describeFirestoreError(error));
+        setClassesLoading(false);
+      },
+    );
+
+    return unsubscribe;
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -205,9 +232,16 @@ export default function HomePraktikan() {
           <Text style={styles.name}>{user.nama}</Text>
           <Text style={styles.nim}>NIM {user.nim}</Text>
         </View>
-        <Pressable onPress={logout} style={styles.logoutBtn}>
-          <Text style={styles.logoutText}>Keluar</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          {user.roles.length > 1 && (
+            <Pressable onPress={changeRole} style={styles.logoutBtn}>
+              <Text style={styles.logoutText}>Ganti Peran</Text>
+            </Pressable>
+          )}
+          <Pressable onPress={logout} style={styles.logoutBtn}>
+            <Text style={styles.logoutText}>Keluar</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Segment */}
@@ -254,7 +288,7 @@ export default function HomePraktikan() {
               tab === "kehadiran" && styles.segmentTextActive,
             ]}
           >
-            Kehadiran Saya
+            Kehadiran
           </Text>
           <View
             style={[
@@ -269,6 +303,35 @@ export default function HomePraktikan() {
               ]}
             >
               {myAttendances.length}
+            </Text>
+          </View>
+        </Pressable>
+
+        <Pressable
+          style={[styles.segmentItem, tab === "kelas" && styles.segmentActive]}
+          onPress={() => setTab("kelas")}
+        >
+          <Text
+            style={[
+              styles.segmentText,
+              tab === "kelas" && styles.segmentTextActive,
+            ]}
+          >
+            Kelas
+          </Text>
+          <View
+            style={[
+              styles.segmentCount,
+              tab === "kelas" && styles.segmentCountActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.segmentCountText,
+                tab === "kelas" && styles.segmentCountTextActive,
+              ]}
+            >
+              {classList.length}
             </Text>
           </View>
         </Pressable>
@@ -362,6 +425,48 @@ export default function HomePraktikan() {
           </>
         )}
 
+        {tab === "kelas" && (
+          <>
+            {classesLoading ? (
+              <View style={styles.classLoading}>
+                <Text style={styles.classLoadingText}>Memuat kelas…</Text>
+              </View>
+            ) : classesError ? (
+              <View style={styles.classErrorBox}>
+                <Text style={styles.classErrorText}>{classesError}</Text>
+              </View>
+            ) : classList.length === 0 ? (
+              <View style={styles.empty}>
+                <Text style={styles.emptyIcon}>🎓</Text>
+                <Text style={styles.emptyTitle}>Belum ada kelas</Text>
+                <Text style={styles.emptySubtitle}>
+                  Kelas praktikum yang Anda ikuti akan muncul di sini setelah
+                  ditambahkan oleh asisten.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.sectionTitle}>Kelas Saya</Text>
+                {classList.map((item) => (
+                  <View key={item.id} style={styles.classCard}>
+                    <View style={styles.classIconBox}>
+                      <Text style={styles.classIcon}>🎓</Text>
+                    </View>
+                    <View style={styles.classInfo}>
+                      <Text style={styles.classCourse} numberOfLines={2}>
+                        {item.mataKuliah}
+                      </Text>
+                      <Text style={styles.classMeta}>
+                        Kelas {item.kodeKelas}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </>
+            )}
+          </>
+        )}
+
         <View style={styles.bottomPad} />
       </ScrollView>
     </SafeAreaView>
@@ -396,12 +501,16 @@ const styles = StyleSheet.create({
   greeting: { color: "#bfdbfe", fontSize: 13 },
   name: { color: "#fff", fontSize: 20, fontWeight: "700", marginTop: 2 },
   nim: { color: "#93c5fd", fontSize: 13, marginTop: 2 },
+  headerActions: {
+    alignItems: "flex-end",
+    gap: 8,
+    marginTop: 4,
+  },
   logoutBtn: {
     backgroundColor: "rgba(255,255,255,0.15)",
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 20,
-    marginTop: 4,
   },
   logoutText: { color: "#fff", fontSize: 13, fontWeight: "600" },
 
@@ -574,6 +683,42 @@ const styles = StyleSheet.create({
     backgroundColor: "#10b981",
   },
   attendanceTime: { fontSize: 12, fontWeight: "700", color: "#059669" },
+
+  // Kelas
+  classLoading: { paddingVertical: 40, alignItems: "center" },
+  classLoadingText: { fontSize: 13, color: "#6b7280" },
+  classErrorBox: {
+    backgroundColor: "#fee2e2",
+    borderRadius: 12,
+    padding: 14,
+  },
+  classErrorText: { color: "#b91c1c", fontSize: 13 },
+  classCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  classIconBox: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  classIcon: { fontSize: 22 },
+  classInfo: { flex: 1 },
+  classCourse: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  classMeta: { fontSize: 12, color: "#6b7280", marginTop: 3 },
 
   // Empty
   empty: { alignItems: "center", paddingTop: 64, paddingHorizontal: 32 },
