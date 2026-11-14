@@ -21,7 +21,7 @@ import {
   addClassMember,
   deleteClass,
   describeFirestoreError,
-  findUserByEmail,
+  findUserByNim,
   removeClassMember,
   subscribeClass,
   subscribeClassMembers,
@@ -30,7 +30,7 @@ import {
 } from "../../../services/classService";
 import type { ClassMember, ClassRecord } from "../../../types";
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NIM_PATTERN = /^\d{14}$/;
 
 function formatTanggal(date: Date | null): string {
   if (!date) return "—";
@@ -64,7 +64,7 @@ export default function KelasDetailScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [addVisible, setAddVisible] = useState(false);
-  const [addEmail, setAddEmail] = useState("");
+  const [addNim, setAddNim] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -110,11 +110,10 @@ export default function KelasDetailScreen() {
         setMembersError(describeFirestoreError(error));
         setMembersLoading(false);
       },
-      classData?.kodeKelas,
     );
 
     return unsubscribe;
-  }, [classId, classData?.kodeKelas]);
+  }, [classId]);
 
   function openEdit() {
     if (!classData) return;
@@ -160,7 +159,7 @@ export default function KelasDetailScreen() {
   }
 
   function openAddMember() {
-    setAddEmail("");
+    setAddNim("");
     setAddError(null);
     setAddVisible(true);
   }
@@ -168,14 +167,16 @@ export default function KelasDetailScreen() {
   async function handleAddMember() {
     if (!classId || adding) return;
 
-    const email = addEmail.trim();
+    const nim = addNim.trim();
 
-    if (!email) {
-      setAddError("Email peserta wajib diisi");
+    if (!nim) {
+      setAddError("NIM peserta wajib diisi");
       return;
     }
-    if (!EMAIL_PATTERN.test(email)) {
-      setAddError("Format email tidak valid");
+    if (!NIM_PATTERN.test(nim)) {
+      setAddError(
+        "NIM harus terdiri dari 14 digit angka tanpa huruf atau karakter lain",
+      );
       return;
     }
 
@@ -183,11 +184,11 @@ export default function KelasDetailScreen() {
     setAddError(null);
 
     try {
-      const found = await findUserByEmail(email);
+      const found = await findUserByNim(nim);
 
       if (!found) {
         setAddError(
-          "Akun dengan email tersebut tidak ditemukan. Pastikan pengguna sudah registrasi.",
+          "Akun dengan NIM tersebut tidak ditemukan. Pastikan praktikan sudah registrasi.",
         );
         return;
       }
@@ -202,7 +203,7 @@ export default function KelasDetailScreen() {
 
       await addClassMember(classId, found);
       setAddVisible(false);
-      setAddEmail("");
+      setAddNim("");
     } catch (error) {
       setAddError(describeFirestoreError(error));
     } finally {
@@ -349,7 +350,7 @@ export default function KelasDetailScreen() {
             </View>
             <Text style={styles.emptyMembersTitle}>Belum ada peserta</Text>
             <Text style={styles.emptyMembersText}>
-              Tambahkan peserta dengan email akun Labora yang sudah terdaftar.
+              Tambahkan peserta dengan NIM akun Labora yang sudah terdaftar.
             </Text>
           </View>
         )}
@@ -474,7 +475,7 @@ export default function KelasDetailScreen() {
       >
         <KeyboardAvoidingView
           style={styles.modalBackdrop}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
         >
           <Pressable
             style={StyleSheet.absoluteFill}
@@ -485,63 +486,68 @@ export default function KelasDetailScreen() {
           />
 
           <View style={styles.modalCard} accessibilityViewIsModal>
-            <Text style={styles.modalTitle}>Tambah Peserta</Text>
-            <Text style={styles.modalDescription}>
-              Masukkan email akun praktikan yang sudah terdaftar di Labora.
-            </Text>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.modalTitle}>Tambah Peserta</Text>
+              <Text style={styles.modalDescription}>
+                Masukkan 14 digit NIM akun praktikan yang sudah terdaftar di Labora.
+              </Text>
 
-            {addError && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorBoxText}>{addError}</Text>
+              {addError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorBoxText}>{addError}</Text>
+                </View>
+              )}
+
+              <Text style={styles.inputLabel}>NIM peserta</Text>
+              <TextInput
+                style={styles.input}
+                value={addNim}
+                onChangeText={(text) => {
+                  setAddNim(text);
+                  setAddError(null);
+                }}
+                placeholder="Masukkan 14 digit NIM"
+                placeholderTextColor="#9ca3af"
+                selectionColor="#2563eb"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="number-pad"
+                maxLength={14}
+                editable={!adding}
+              />
+
+              <View style={styles.modalActions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.modalCancelButton,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() => setAddVisible(false)}
+                  disabled={adding}
+                >
+                  <Text style={styles.modalCancelText}>Batal</Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.modalPrimaryButton,
+                    pressed && styles.pressed,
+                    adding && styles.buttonDisabled,
+                  ]}
+                  onPress={handleAddMember}
+                  disabled={adding}
+                >
+                  {adding ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.modalPrimaryText}>Tambah Peserta</Text>
+                  )}
+                </Pressable>
               </View>
-            )}
-
-            <Text style={styles.inputLabel}>Email peserta</Text>
-            <TextInput
-              style={styles.input}
-              value={addEmail}
-              onChangeText={(text) => {
-                setAddEmail(text);
-                setAddError(null);
-              }}
-              placeholder="nama@email.com"
-              placeholderTextColor="#9ca3af"
-              selectionColor="#2563eb"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              autoComplete="email"
-              editable={!adding}
-            />
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalCancelButton,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => setAddVisible(false)}
-                disabled={adding}
-              >
-                <Text style={styles.modalCancelText}>Batal</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalPrimaryButton,
-                  pressed && styles.pressed,
-                  adding && styles.buttonDisabled,
-                ]}
-                onPress={handleAddMember}
-                disabled={adding}
-              >
-                {adding ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalPrimaryText}>Tambah Peserta</Text>
-                )}
-              </Pressable>
-            </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

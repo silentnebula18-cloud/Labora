@@ -1,10 +1,13 @@
 import {
   addDoc,
   collection,
+  doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
   serverTimestamp,
+  updateDoc,
   where,
 } from "@react-native-firebase/firestore";
 
@@ -202,4 +205,185 @@ export async function getExistingPermission(
 
   const docSnap = snapshot.docs[0];
   return mapPermissionRecord(docSnap.id, docSnap.data() as Record<string, unknown>);
+}
+
+/**
+ * Pantau status pengajuan izin milik praktikan pada sesi tertentu secara real-time (SRS 008).
+ */
+export function subscribeStudentSessionPermission(
+  studentUid: string,
+  sessionId: string,
+  onData: Listener<PermissionRecord | null>,
+  onError?: ErrorListener,
+) {
+  if (!studentUid || !sessionId) {
+    onData(null);
+    return () => undefined;
+  }
+
+  const q = query(
+    collection(db, "permissionRequests"),
+    where("uid", "==", studentUid),
+    where("sessionId", "==", sessionId),
+  );
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      if (snapshot.empty) {
+        onData(null);
+        return;
+      }
+      const records = snapshot.docs.map((docSnap) =>
+        mapPermissionRecord(docSnap.id, docSnap.data() as Record<string, unknown>),
+      );
+      records.sort((a, b) => {
+        const timeA = a.createdAt?.getTime() ?? 0;
+        const timeB = b.createdAt?.getTime() ?? 0;
+        return timeB - timeA;
+      });
+      onData(records[0] ?? null);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+function chunkList<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+/**
+ * Pantau seluruh pengajuan izin untuk daftar kelas yang diampu asisten secara real-time (SRS 011).
+ */
+export function subscribeAssistantPermissions(
+  classIds: string[],
+  onData: Listener<PermissionRecord[]>,
+  onError?: ErrorListener,
+) {
+  const uniqueClassIds = Array.from(new Set(classIds.filter(Boolean))).sort();
+  if (uniqueClassIds.length === 0) {
+    onData([]);
+    return () => undefined;
+  }
+
+  const chunks = chunkList(uniqueClassIds, 10);
+  const chunkRecordsMap = new Map<number, PermissionRecord[]>();
+
+  function emitMerged() {
+    const mergedMap = new Map<string, PermissionRecord>();
+    chunkRecordsMap.forEach((list) => {
+      list.forEach((item) => mergedMap.set(item.id, item));
+    });
+    const allRecords = Array.from(mergedMap.values());
+    allRecords.sort((a, b) => {
+      const timeA = a.createdAt?.getTime() ?? 0;
+      const timeB = b.createdAt?.getTime() ?? 0;
+      return timeB - timeA;
+    });
+    onData(allRecords);
+  }
+
+  const unsubscribers = chunks.map((chunk, index) => {
+    const q = query(
+      collection(db, "permissionRequests"),
+      where("classId", "in", chunk),
+    );
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const records = snapshot.docs.map((docSnap) =>
+          mapPermissionRecord(
+            docSnap.id,
+            docSnap.data() as Record<string, unknown>,
+          ),
+        );
+        chunkRecordsMap.set(index, records);
+        emitMerged();
+      },
+      (error) => onError?.(error),
+    );
+  });
+
+  return () => {
+    unsubscribers.forEach((unsub) => unsub());
+  };
+}
+
+/**
+ * Simpan keputusan asisten (approved / rejected) ke Firestore (SRS 011).
+ * Pengajuan yang sudah diputuskan tidak dapat diubah kembali.
+ */
+export async function decidePermissionRequest(
+  permissionId: string,
+  assistantUid: string,
+  decision: Exclude<PermissionStatus, "pending">,
+): Promise<void> {
+  if (!permissionId) {
+    throw new Error("ID pengajuan izin tidak valid.");
+  }
+  if (!assistantUid) {
+    throw new Error("Identitas asisten tidak ditemukan.");
+  }
+  if (decision !== "approved" && decision !== "rejected") {
+    throw new Error("Keputusan harus berupa approved atau rejected.");
+  }
+
+  const docRef = doc(db, "permissionRequests", permissionId);
+  const snapshot = await getDoc(docRef);
+
+  if (!snapshot.exists()) {
+    throw new Error("Data pengajuan izin tidak ditemukan.");
+  }
+
+  const currentData = snapshot.data() as Record<string, unknown>;
+  const currentStatus = isPermissionStatus(currentData.status)
+    ? currentData.status
+    : "pending";
+
+  if (currentStatus !== "pending") {
+    throw new Error(
+      "Pengajuan izin ini sudah diputuskan sebelumnya dan tidak dapat diubah.",
+    );
+  }
+
+  await updateDoc(docRef, {
+    status: decision,
+    decidedBy: assistantUid,
+    decidedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Pantau satu dokumen pengajuan izin secara real-time berdasarkan ID (SRS 011).
+ */
+export function subscribePermissionById(
+  permissionId: string,
+  onData: (item: PermissionRecord | null) => void,
+  onError?: ErrorListener,
+) {
+  if (!permissionId) {
+    onData(null);
+    return () => undefined;
+  }
+
+  return onSnapshot(
+    doc(db, "permissionRequests", permissionId),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onData(null);
+        return;
+      }
+      onData(
+        mapPermissionRecord(
+          snapshot.id,
+          snapshot.data() as Record<string, unknown>,
+        ),
+      );
+    },
+    (error) => onError?.(error),
+  );
 }

@@ -10,7 +10,6 @@ export interface User {
   id: string;
   nim: string;
   nama: string;
-  kelas?: string;
   password: string;
   roles: Role[];
 }
@@ -18,7 +17,6 @@ export interface User {
 // User tanpa password, aman disimpan di state.
 export interface SafeUser extends Omit<User, "password"> {
   email: string;
-  kelas?: string;
   activeRole: Role | null;
 }
 

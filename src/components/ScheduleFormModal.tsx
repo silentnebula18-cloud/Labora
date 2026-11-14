@@ -157,7 +157,7 @@ export default function ScheduleFormModal({
     >
       <KeyboardAvoidingView
         style={styles.backdrop}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -193,8 +193,10 @@ export default function ScheduleFormModal({
 
           <ScrollView
             style={styles.formScroll}
+            contentContainerStyle={styles.formScrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             {/* Pilih Kelas */}
             <Text style={styles.label}>Kelas Praktikum</Text>
@@ -455,6 +457,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 24,
     maxHeight: "90%",
+    flexShrink: 1,
   },
   handleWrap: {
     alignItems: "center",
@@ -470,7 +473,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   formScroll: {
-    maxHeight: 450,
+    flexShrink: 1,
+  },
+  formScrollContent: {
+    paddingBottom: 28,
   },
   title: {
     fontSize: 18,
