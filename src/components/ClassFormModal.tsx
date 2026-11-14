@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -75,7 +76,7 @@ export default function ClassFormModal({
     >
       <KeyboardAvoidingView
         style={styles.backdrop}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -84,86 +85,91 @@ export default function ClassFormModal({
         />
 
         <View style={styles.card} accessibilityViewIsModal>
-          <Text style={styles.title}>
-            {mode === "create" ? "Tambah Kelas" : "Ubah Kelas"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {mode === "create"
-              ? "Buat kelas praktikum baru untuk dikelola bersama peserta."
-              : "Perbarui informasi mata kuliah dan kode kelas."}
-          </Text>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={styles.title}>
+              {mode === "create" ? "Tambah Kelas" : "Ubah Kelas"}
+            </Text>
+            <Text style={styles.subtitle}>
+              {mode === "create"
+                ? "Buat kelas praktikum baru untuk dikelola bersama peserta."
+                : "Perbarui informasi mata kuliah dan kode kelas."}
+            </Text>
 
-          {error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorBoxText}>{error}</Text>
+            {error && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorBoxText}>{error}</Text>
+              </View>
+            )}
+
+            <Text style={styles.label}>Nama mata kuliah</Text>
+            <TextInput
+              style={[styles.input, errors.mataKuliah && styles.inputError]}
+              value={mataKuliah}
+              onChangeText={(text) => {
+                setMataKuliah(text);
+                setErrors((current) => ({ ...current, mataKuliah: undefined }));
+              }}
+              placeholder="Contoh: Pemrograman Berorientasi Objek"
+              placeholderTextColor="#9ca3af"
+              selectionColor="#2563eb"
+              maxLength={120}
+              editable={!submitting}
+            />
+            {errors.mataKuliah && (
+              <Text style={styles.errorText}>{errors.mataKuliah}</Text>
+            )}
+
+            <Text style={styles.label}>Kode kelas</Text>
+            <ClassCodeDropdown
+              value={kodeKelas}
+              onChange={(selected) => {
+                setKodeKelas(selected);
+                setErrors((current) => ({ ...current, kodeKelas: undefined }));
+              }}
+              placeholder="Pilih kode kelas (A1 – E2)"
+              disabled={submitting}
+              hasError={!!errors.kodeKelas}
+            />
+            {errors.kodeKelas && (
+              <Text style={styles.errorText}>{errors.kodeKelas}</Text>
+            )}
+
+            <View style={styles.actions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.cancelButton,
+                  pressed && styles.buttonPressed,
+                ]}
+                onPress={onClose}
+                disabled={submitting}
+              >
+                <Text style={styles.cancelText}>Batal</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.saveButton,
+                  pressed && styles.buttonPressed,
+                  submitting && styles.buttonDisabled,
+                ]}
+                onPress={handleSubmit}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.saveText}>
+                    {mode === "create" ? "Tambah Kelas" : "Simpan Perubahan"}
+                  </Text>
+                )}
+              </Pressable>
             </View>
-          )}
-
-          <Text style={styles.label}>Nama mata kuliah</Text>
-          <TextInput
-            style={[styles.input, errors.mataKuliah && styles.inputError]}
-            value={mataKuliah}
-            onChangeText={(text) => {
-              setMataKuliah(text);
-              setErrors((current) => ({ ...current, mataKuliah: undefined }));
-            }}
-            placeholder="Contoh: Pemrograman Berorientasi Objek"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
-            maxLength={120}
-            editable={!submitting}
-          />
-          {errors.mataKuliah && (
-            <Text style={styles.errorText}>{errors.mataKuliah}</Text>
-          )}
-
-          <Text style={styles.label}>Kode kelas</Text>
-          <ClassCodeDropdown
-            value={kodeKelas}
-            onChange={(selected) => {
-              setKodeKelas(selected);
-              setErrors((current) => ({ ...current, kodeKelas: undefined }));
-            }}
-            placeholder="Pilih kode kelas (A1 – E2)"
-            disabled={submitting}
-            hasError={!!errors.kodeKelas}
-          />
-          {errors.kodeKelas && (
-            <Text style={styles.errorText}>{errors.kodeKelas}</Text>
-          )}
-
-          <View style={styles.actions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                styles.cancelButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={onClose}
-              disabled={submitting}
-            >
-              <Text style={styles.cancelText}>Batal</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                styles.saveButton,
-                pressed && styles.buttonPressed,
-                submitting && styles.buttonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={submitting}
-            >
-              {submitting ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.saveText}>
-                  {mode === "create" ? "Tambah Kelas" : "Simpan Perubahan"}
-                </Text>
-              )}
-            </Pressable>
-          </View>
+          </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -181,6 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 20,
+    maxHeight: "88%",
     shadowColor: "#000",
     shadowOpacity: 0.2,
     shadowRadius: 16,

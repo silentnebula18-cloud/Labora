@@ -106,7 +106,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sessionsError, setSessionsError] = useState<string | null>(null);
 
   const currentSubscriptionKey =
-    user && activeRole ? `${user.id}:${activeRole}:${user.kelas ?? ""}` : null;
+    user && activeRole ? `${user.id}:${activeRole}` : null;
 
   const sessionsLoading =
     currentSubscriptionKey !== null && loadedKey !== currentSubscriptionKey;
@@ -118,7 +118,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const subKey = `${user.id}:${activeRole}:${user.kelas ?? ""}`;
+    const subKey = `${user.id}:${activeRole}`;
 
     if (activeRole === "asisten") {
       const unsubscribe = subscribeAssistantSchedulesWithSessions(
@@ -140,7 +140,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       user.id,
       (items) => {
         setStudentSessions(items);
-        setMyAttendances(getAttendancesByStudent(user.id));
+        if (items.length === 0) {
+          setMyAttendances([]);
+        }
         setSessionsError(null);
         setLoadedKey(subKey);
       },
@@ -148,7 +150,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setSessionsError(describeFirestoreError(error));
         setLoadedKey(subKey);
       },
-      user.kelas,
     );
     return unsubscribe;
   }, [user, activeRole]);
@@ -176,6 +177,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             b.waktuHadir.localeCompare(a.waktuHadir),
           );
           setMyAttendances(list);
+        },
+        (error) => {
+          setSessionsError(describeFirestoreError(error));
         },
       );
       unsubscribers.push(unsub);

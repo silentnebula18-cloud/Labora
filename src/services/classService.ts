@@ -132,68 +132,24 @@ export function subscribeAssistantClasses(
   );
 }
 
-/**
- * Kelas yang diikuti praktikan.
- * Mencakup kelas dengan `kodeKelas == userKelas` (misal "A1") serta kelas di mana `memberIds` memuat `uid`.
- */
+/** Kelas yang diikuti praktikan (filter server-side menggunakan memberIds). */
 export function subscribeStudentClasses(
   uid: string,
   onData: Listener<ClassRecord[]>,
   onError?: ErrorListener,
-  userKelas?: string,
 ) {
-  const byMemberMap = new Map<string, ClassRecord>();
-  const byKodeMap = new Map<string, ClassRecord>();
-
-  function emitMerged() {
-    const merged = new Map<string, ClassRecord>();
-    byMemberMap.forEach((val, key) => merged.set(key, val));
-    byKodeMap.forEach((val, key) => merged.set(key, val));
-    onData(sortClasses(Array.from(merged.values())));
-  }
-
-  const memberQuery = query(
+  const classesQuery = query(
     collection(db, "classes"),
     where("memberIds", "array-contains", uid),
   );
 
-  const unsubMember = onSnapshot(
-    memberQuery,
+  return onSnapshot(
+    classesQuery,
     (snapshot) => {
-      byMemberMap.clear();
-      snapshot.docs.forEach((d) => {
-        byMemberMap.set(d.id, mapClass(d.id, d.data()));
-      });
-      emitMerged();
+      onData(sortClasses(snapshot.docs.map((d) => mapClass(d.id, d.data()))));
     },
     (error) => onError?.(error),
   );
-
-  const normalizedKelas = userKelas?.trim().toUpperCase();
-  let unsubKode: (() => void) | null = null;
-
-  if (normalizedKelas) {
-    const kodeQuery = query(
-      collection(db, "classes"),
-      where("kodeKelas", "==", normalizedKelas),
-    );
-    unsubKode = onSnapshot(
-      kodeQuery,
-      (snapshot) => {
-        byKodeMap.clear();
-        snapshot.docs.forEach((d) => {
-          byKodeMap.set(d.id, mapClass(d.id, d.data()));
-        });
-        emitMerged();
-      },
-      (error) => onError?.(error),
-    );
-  }
-
-  return () => {
-    unsubMember();
-    unsubKode?.();
-  };
 }
 
 export function subscribeClass(
@@ -258,81 +214,26 @@ export function subscribeClassMembers(
   classId: string,
   onData: Listener<ClassMember[]>,
   onError?: ErrorListener,
-  kodeKelas?: string,
 ) {
-  const subcollectionMap = new Map<string, ClassMember>();
-  const registeredByKelasMap = new Map<string, ClassMember>();
-
-  function emitMerged() {
-    const merged = new Map<string, ClassMember>();
-    registeredByKelasMap.forEach((val, key) => merged.set(key, val));
-    subcollectionMap.forEach((val, key) => merged.set(key, val));
-    onData(
-      Array.from(merged.values()).sort((a, b) => a.nama.localeCompare(b.nama)),
-    );
-  }
-
-  const unsubMembers = onSnapshot(
+  return onSnapshot(
     collection(db, "classes", classId, "members"),
     (snapshot) => {
-      subcollectionMap.clear();
-      snapshot.docs.forEach((d) => {
-        const m = mapMember(d.id, d.data());
-        subcollectionMap.set(m.uid, m);
-      });
-      emitMerged();
+      const items = snapshot.docs
+        .map((d) => mapMember(d.id, d.data()))
+        .sort((a, b) => a.nama.localeCompare(b.nama));
+      onData(items);
     },
     (error) => onError?.(error),
   );
-
-  const normalizedKelas = kodeKelas?.trim().toUpperCase();
-  let unsubUsers: (() => void) | null = null;
-
-  if (normalizedKelas) {
-    const usersQuery = query(
-      collection(db, "users"),
-      where("kelas", "==", normalizedKelas),
-    );
-    unsubUsers = onSnapshot(
-      usersQuery,
-      (snapshot) => {
-        registeredByKelasMap.clear();
-        snapshot.docs.forEach((d) => {
-          const data = d.data() as Record<string, unknown>;
-          const roles = Array.isArray(data.roles)
-            ? data.roles.filter(isRole)
-            : [];
-          if (!roles.includes("praktikan")) return;
-          const uid = readString(data.uid) || d.id;
-          registeredByKelasMap.set(uid, {
-            uid,
-            nama: readString(data.nama),
-            nim: readString(data.nim),
-            email: readString(data.email),
-            joinedAt: toDate(data.createdAt),
-          });
-        });
-        emitMerged();
-      },
-      () => {
-        // Abaikan jika query users terkendala izin pada akun non-asisten
-      },
-    );
-  }
-
-  return () => {
-    unsubMembers();
-    unsubUsers?.();
-  };
 }
 
-export async function findUserByEmail(
-  email: string,
+export async function findUserByNim(
+  nim: string,
 ): Promise<UserLookup | null> {
-  const normalized = email.trim().toLowerCase();
+  const normalized = nim.trim();
   const usersQuery = query(
     collection(db, "users"),
-    where("email", "==", normalized),
+    where("nim", "==", normalized),
     limit(1),
   );
   const snapshot = await getDocs(usersQuery);

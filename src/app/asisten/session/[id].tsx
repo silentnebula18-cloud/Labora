@@ -162,19 +162,30 @@ export default function SessionDetailScreen() {
   const [realtimeAttendances, setRealtimeAttendances] = useState<
     AttendanceWithStudent[]
   >([]);
+  const [attendanceLoading, setAttendanceLoading] = useState(true);
+  const [attendanceError, setAttendanceError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    const unsubscribe = subscribeSessionAttendances(id, (items) => {
-      setRealtimeAttendances(items);
-    });
+    const unsubscribe = subscribeSessionAttendances(
+      id,
+      (items) => {
+        setRealtimeAttendances(items);
+        setAttendanceLoading(false);
+        setAttendanceError(null);
+      },
+      (err) => {
+        setAttendanceError(describeFirestoreError(err));
+        setAttendanceLoading(false);
+      },
+    );
     return unsubscribe;
   }, [id]);
 
   const attendances = useMemo(() => {
-    if (realtimeAttendances.length > 0) return realtimeAttendances;
+    if (!attendanceLoading) return realtimeAttendances;
     return id ? getAttendances(id) : [];
-  }, [id, realtimeAttendances, getAttendances]);
+  }, [id, attendanceLoading, realtimeAttendances, getAttendances]);
 
   const enrolledCount = useMemo(
     () => (session ? getEnrolled(session.classId) : 0),
@@ -473,6 +484,25 @@ export default function SessionDetailScreen() {
                   <Text style={styles.deleteScheduleBtnText}>Hapus Jadwal</Text>
                 </Pressable>
               </View>
+
+              {/* Pintasan Pemeriksaan Izin untuk Sesi Ini (SRS 011) */}
+              <Pressable
+                style={({ pressed }) => [
+                  styles.permissionShortcutBtn,
+                  pressed && styles.actionBtnPressed,
+                ]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/asisten/izin",
+                    params: { sessionId: session.id },
+                  } as any)
+                }
+              >
+                <AppIcon name="clipboard" size={14} color="#2563eb" />
+                <Text style={styles.permissionShortcutBtnText}>
+                  Periksa Pengajuan Izin Sesi Ini
+                </Text>
+              </Pressable>
             </View>
 
             {/* Tombol Aksi Buka / Tutup Sesi */}
@@ -572,15 +602,26 @@ export default function SessionDetailScreen() {
               </View>
             </View>
 
-            {hadirCount === 0 && (
+            {attendanceError ? (
               <View style={styles.emptyAttendance}>
                 <View style={styles.emptyAttendanceIconCircle}>
-                  <AppIcon name="users" size={24} color="#64748b" />
+                  <AppIcon name="alert" size={24} color="#dc2626" />
                 </View>
-                <Text style={styles.emptyAttendanceText}>
-                  Belum ada praktikan yang tercatat hadir
+                <Text style={[styles.emptyAttendanceText, { color: "#dc2626" }]}>
+                  {attendanceError}
                 </Text>
               </View>
+            ) : (
+              hadirCount === 0 && (
+                <View style={styles.emptyAttendance}>
+                  <View style={styles.emptyAttendanceIconCircle}>
+                    <AppIcon name="users" size={24} color="#64748b" />
+                  </View>
+                  <Text style={styles.emptyAttendanceText}>
+                    Belum ada praktikan yang tercatat hadir
+                  </Text>
+                </View>
+              )
             )}
           </>
         )}
@@ -1084,4 +1125,22 @@ const styles = StyleSheet.create({
     color: "#fff",
   },
   btnDisabled: { opacity: 0.6 },
+  permissionShortcutBtn: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+    backgroundColor: "#eff6ff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  permissionShortcutBtnText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#2563eb",
+  },
 });

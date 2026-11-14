@@ -13,14 +13,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import ClassCodeDropdown from "../components/ClassCodeDropdown";
-import { isClassCode } from "../constants/classes";
 import { useAuth } from "../context/AuthContext";
 
 interface FieldErrors {
   nama?: string;
   nim?: string;
-  kelas?: string;
   email?: string;
   password?: string;
   confirmPassword?: string;
@@ -38,7 +35,6 @@ export default function RegisterScreen() {
 
   const [nama, setNama] = useState("");
   const [nim, setNim] = useState("");
-  const [kelas, setKelas] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -54,11 +50,9 @@ export default function RegisterScreen() {
     if (!nama.trim()) nextErrors.nama = "Nama wajib diisi";
     if (!nim.trim()) {
       nextErrors.nim = "NIM wajib diisi";
-    } else if (!/^\d{5,20}$/.test(nim.trim())) {
-      nextErrors.nim = "NIM harus berupa 5–20 digit angka";
-    }
-    if (!kelas.trim() || !isClassCode(kelas)) {
-      nextErrors.kelas = "Kelas wajib dipilih";
+    } else if (!/^\d{14}$/.test(nim.trim())) {
+      nextErrors.nim =
+        "NIM harus terdiri dari 14 digit angka tanpa huruf atau karakter lain";
     }
     if (!email.trim()) {
       nextErrors.email = "Email wajib diisi";
@@ -86,7 +80,6 @@ export default function RegisterScreen() {
       const result = await register({
         nama: nama.trim(),
         nim: nim.trim(),
-        kelas: kelas.trim().toUpperCase(),
         email: email.trim(),
         password,
       });
@@ -154,10 +147,11 @@ export default function RegisterScreen() {
               setErrors((e) => ({ ...e, nim: undefined }));
               setFormError(null);
             }}
-            placeholder="Masukkan NIM"
+            placeholder="Masukkan 14 digit NIM"
             placeholderTextColor="#9ca3af"
             selectionColor="#2563eb"
             keyboardType="number-pad"
+            maxLength={14}
             autoCapitalize="none"
             autoCorrect={false}
             returnKeyType="next"
@@ -165,20 +159,6 @@ export default function RegisterScreen() {
             editable={!loading}
           />
           {errors.nim && <Text style={styles.errorText}>{errors.nim}</Text>}
-
-          <Text style={styles.label}>Kelas</Text>
-          <ClassCodeDropdown
-            value={kelas}
-            onChange={(selected) => {
-              setKelas(selected);
-              setErrors((e) => ({ ...e, kelas: undefined }));
-              setFormError(null);
-            }}
-            placeholder="Pilih kelas (A1 – E2)"
-            disabled={loading}
-            hasError={!!errors.kelas}
-          />
-          {errors.kelas && <Text style={styles.errorText}>{errors.kelas}</Text>}
 
           <Text style={styles.label}>Email</Text>
           <TextInput
@@ -285,6 +265,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     padding: 24,
+    paddingBottom: 48,
   },
   title: {
     fontSize: 32,

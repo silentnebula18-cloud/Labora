@@ -222,17 +222,6 @@ let _attendances: Attendance[] = attendances.map((a) => ({ ...a }));
 let _enrolledCountMap: Record<string, number> = {};
 let _studentClassIds = new Set<string>();
 
-function updateLocalSessionsCache(items: SessionWithMeta[]) {
-  const map = new Map<string, SessionWithMeta>();
-  for (const existing of _sessions) {
-    map.set(existing.id, existing);
-  }
-  for (const item of items) {
-    map.set(item.id, item);
-  }
-  _sessions = Array.from(map.values());
-}
-
 function withMeta(session: Session): SessionWithMeta {
   const practicum = practicums.find((p) => p.id === session.practicumId) ?? {
     id: session.practicumId,
@@ -246,6 +235,31 @@ function withMeta(session: Session): SessionWithMeta {
     practicumId: session.practicumId,
   };
   return { ...session, practicum, kelas };
+}
+
+function ensureSessionWithMeta(
+  session: Session | SessionWithMeta,
+): SessionWithMeta {
+  const maybe = session as Partial<SessionWithMeta>;
+  if (maybe.practicum && maybe.kelas) {
+    return session as SessionWithMeta;
+  }
+  return withMeta(session);
+}
+
+function updateLocalSessionsCache(items: SessionWithMeta[]) {
+  const map = new Map<string, SessionWithMeta>();
+  for (const existing of _sessions) {
+    if (existing?.id) {
+      map.set(existing.id, ensureSessionWithMeta(existing));
+    }
+  }
+  for (const item of items) {
+    if (item?.id) {
+      map.set(item.id, ensureSessionWithMeta(item));
+    }
+  }
+  _sessions = Array.from(map.values());
 }
 
 function byJadwalAsc(a: SessionWithMeta, b: SessionWithMeta): number {
@@ -339,25 +353,6 @@ export function subscribeAssistantSchedulesWithSessions(
   }
 
   // Pantau kelas asisten untuk jumlah peserta & metadata kelas terbaru
-  let classMemberIdsMap = new Map<string, string[]>();
-  let usersByKelasCount = new Map<string, Set<string>>();
-
-  function recalcAssistantEnrolledCounts(
-    metaMap: Map<string, { mataKuliah: string; kodeKelas: string }>,
-  ) {
-    metaMap.forEach((meta, classId) => {
-      const combinedUids = new Set<string>(
-        classMemberIdsMap.get(classId) ?? [],
-      );
-      const kode = meta.kodeKelas.trim().toUpperCase();
-      const fromKelas = usersByKelasCount.get(kode);
-      if (fromKelas) {
-        fromKelas.forEach((uid) => combinedUids.add(uid));
-      }
-      _enrolledCountMap[classId] = combinedUids.size;
-    });
-  }
-
   const classesQuery = query(
     collection(db, "classes"),
     where("assistants", "array-contains", assistantId),
@@ -369,50 +364,20 @@ export function subscribeAssistantSchedulesWithSessions(
         string,
         { mataKuliah: string; kodeKelas: string }
       >();
-      const nextMemberIdsMap = new Map<string, string[]>();
 
       snapshot.docs.forEach((docSnap) => {
         const data = docSnap.data() as Record<string, unknown>;
         const memberIds = readStringList(data.memberIds);
-        nextMemberIdsMap.set(docSnap.id, memberIds);
+        _enrolledCountMap[docSnap.id] = memberIds.length;
         nextClassMeta.set(docSnap.id, {
           mataKuliah: readString(data.mataKuliah),
           kodeKelas: readString(data.kodeKelas),
         });
       });
-      classMemberIdsMap = nextMemberIdsMap;
       classMetaMap = nextClassMeta;
-      recalcAssistantEnrolledCounts(nextClassMeta);
       emit();
     },
     (error) => onError?.(error),
-  );
-
-  const usersPraktikanQuery = query(
-    collection(db, "users"),
-    where("roles", "array-contains", "praktikan"),
-  );
-  const unsubUsersPraktikan = onSnapshot(
-    usersPraktikanQuery,
-    (snapshot) => {
-      const nextMap = new Map<string, Set<string>>();
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data() as Record<string, unknown>;
-        const kode = readString(data.kelas).trim().toUpperCase();
-        if (!kode) return;
-        const uid = readString(data.uid) || docSnap.id;
-        if (!nextMap.has(kode)) {
-          nextMap.set(kode, new Set());
-        }
-        nextMap.get(kode)?.add(uid);
-      });
-      usersByKelasCount = nextMap;
-      recalcAssistantEnrolledCounts(classMetaMap);
-      emit();
-    },
-    () => {
-      // Abaikan jika gagal memuat daftar user
-    },
   );
 
   // Pantau jadwal asisten
@@ -444,59 +409,34 @@ export function subscribeAssistantSchedulesWithSessions(
 
   return () => {
     unsubClasses();
-    unsubUsersPraktikan();
     unsubSchedules();
     sessionUnsubscribers.forEach((unsub) => unsub());
   };
 }
 
 /**
- * Pantau jadwal & sesi untuk praktikan berdasarkan kelas yang diikuti (`user.kelas` misal A1–E2, maupun `memberIds`).
+ * Pantau jadwal & sesi untuk praktikan berdasarkan kelas yang diikuti (`memberIds`).
  */
 export function subscribeStudentSchedulesWithSessions(
   studentId: string,
   onData: Listener<SessionWithMeta[]>,
   onError?: ErrorListener,
-  studentKelas?: string,
 ) {
   let schedulesByClassMap = new Map<string, ScheduleRecord>();
-  let schedulesByKodeMap = new Map<string, ScheduleRecord>();
   let sessionsBySchedule = new Map<string, SessionRecord>();
   let classMetaByMember = new Map<
-    string,
-    { mataKuliah: string; kodeKelas: string }
-  >();
-  let classMetaByKode = new Map<
     string,
     { mataKuliah: string; kodeKelas: string }
   >();
   let innerUnsubscribers: (() => void)[] = [];
   let activeClassIdsKey: string | null = null;
 
-  const normalizedKelas = studentKelas?.trim().toUpperCase() || "";
-
-  function getMergedClassMeta() {
-    const merged = new Map<string, { mataKuliah: string; kodeKelas: string }>();
-    classMetaByMember.forEach((val, key) => merged.set(key, val));
-    classMetaByKode.forEach((val, key) => merged.set(key, val));
-    return merged;
-  }
-
-  function getMergedSchedules() {
-    const merged = new Map<string, ScheduleRecord>();
-    schedulesByClassMap.forEach((val, key) => merged.set(key, val));
-    schedulesByKodeMap.forEach((val, key) => merged.set(key, val));
-    return merged;
-  }
-
   function emit() {
-    const classMetaMap = getMergedClassMeta();
-    const allSchedules = getMergedSchedules();
     const combined: SessionWithMeta[] = [];
 
-    allSchedules.forEach((sched) => {
+    schedulesByClassMap.forEach((sched) => {
       const sess = sessionsBySchedule.get(sched.id);
-      const classMeta = classMetaMap.get(sched.classId);
+      const classMeta = classMetaByMember.get(sched.classId);
       combined.push(combineScheduleAndSession(sched, sess, classMeta));
     });
     combined.sort(byJadwalAsc);
@@ -505,13 +445,7 @@ export function subscribeStudentSchedulesWithSessions(
   }
 
   function syncClassSubscriptions() {
-    const classMetaMap = getMergedClassMeta();
-    const classIdsSet = new Set<string>(classMetaMap.keys());
-    schedulesByKodeMap.forEach((sched) => {
-      if (sched.classId) classIdsSet.add(sched.classId);
-    });
-
-    const classIds = Array.from(classIdsSet);
+    const classIds = Array.from(classMetaByMember.keys());
     _studentClassIds = new Set(classIds);
     rebuildInnerListeners(classIds);
   }
@@ -595,7 +529,7 @@ export function subscribeStudentSchedulesWithSessions(
     });
   }
 
-  // 1. Pantau kelas di mana memberIds memuat studentId
+  // Pantau kelas di mana memberIds memuat studentId
   const memberClassesQuery = query(
     collection(db, "classes"),
     where("memberIds", "array-contains", studentId),
@@ -625,68 +559,8 @@ export function subscribeStudentSchedulesWithSessions(
     (error) => onError?.(error),
   );
 
-  // 2. Jika praktikan memiliki kode kelas (misal A1), pantau kelas & jadwal dengan kodeKelas == studentKelas
-  let unsubKodeClasses: (() => void) | null = null;
-  let unsubKodeSchedules: (() => void) | null = null;
-
-  if (normalizedKelas) {
-    const kodeClassesQuery = query(
-      collection(db, "classes"),
-      where("kodeKelas", "==", normalizedKelas),
-    );
-    unsubKodeClasses = onSnapshot(
-      kodeClassesQuery,
-      (snapshot) => {
-        const nextMeta = new Map<
-          string,
-          { mataKuliah: string; kodeKelas: string }
-        >();
-        snapshot.docs.forEach((docSnap) => {
-          const data = docSnap.data() as Record<string, unknown>;
-          const memberIds = readStringList(data.memberIds);
-          if (typeof _enrolledCountMap[docSnap.id] !== "number") {
-            _enrolledCountMap[docSnap.id] = memberIds.length;
-          }
-          nextMeta.set(docSnap.id, {
-            mataKuliah: readString(data.mataKuliah),
-            kodeKelas: readString(data.kodeKelas),
-          });
-        });
-
-        classMetaByKode = nextMeta;
-        syncClassSubscriptions();
-        emit();
-      },
-      (error) => onError?.(error),
-    );
-
-    const kodeSchedulesQuery = query(
-      collection(db, "schedules"),
-      where("kodeKelas", "==", normalizedKelas),
-    );
-    unsubKodeSchedules = onSnapshot(
-      kodeSchedulesQuery,
-      (snapshot) => {
-        const nextSchedMap = new Map<string, ScheduleRecord>();
-        snapshot.docs.forEach((docSnap) => {
-          const sched = mapSchedule(
-            docSnap.id,
-            docSnap.data() as Record<string, unknown>,
-          );
-          nextSchedMap.set(sched.id, sched);
-        });
-        schedulesByKodeMap = nextSchedMap;
-        syncClassSubscriptions();
-        emit();
-      },
-      (error) => onError?.(error),
-    );
-  }
-
   return () => {
     unsubMemberClasses();
-    unsubKodeClasses?.();
-    unsubKodeSchedules?.();
     innerUnsubscribers.forEach((unsub) => unsub());
   };
 }
@@ -867,6 +741,7 @@ export function getSessionsByAssistant(assistantId: string): SessionWithMeta[] {
         s.assistantId === assistantId ||
         (Array.isArray(s.assistants) && s.assistants.includes(assistantId)),
     )
+    .map(ensureSessionWithMeta)
     .sort(byJadwalDesc);
 }
 
@@ -877,7 +752,10 @@ export function getSessionsByStudent(studentId: string): SessionWithMeta[] {
     .map((e) => e.classId);
   const classIds = new Set([..._studentClassIds, ...mockClassIds]);
 
-  return _sessions.filter((s) => classIds.has(s.classId)).sort(byJadwalAsc);
+  return _sessions
+    .filter((s) => classIds.has(s.classId))
+    .map(ensureSessionWithMeta)
+    .sort(byJadwalAsc);
 }
 
 /** Ambil satu sesi lengkap berdasarkan id. */
@@ -885,7 +763,7 @@ export function getSessionById(sessionId: string): SessionWithMeta | null {
   const found = _sessions.find(
     (s) => s.id === sessionId || s.scheduleId === sessionId,
   );
-  if (found) return found;
+  if (found) return ensureSessionWithMeta(found);
 
   const mock = sessions.find((s) => s.id === sessionId);
   return mock ? withMeta(mock) : null;
@@ -1002,8 +880,9 @@ export function subscribeSessionAttendances(
         const existingIdx = _attendances.findIndex(
           (a) => a.sessionId === sessionId && a.studentId === studentId,
         );
+        const attendanceId = `${sessionId}_${docSnap.id}`;
         const attRecord: Attendance = {
-          id: docSnap.id,
+          id: attendanceId,
           sessionId,
           studentId,
           waktuHadir,
@@ -1015,7 +894,7 @@ export function subscribeSessionAttendances(
         }
 
         return {
-          id: docSnap.id,
+          id: attendanceId,
           sessionId,
           studentId,
           waktuHadir,
@@ -1057,7 +936,7 @@ export function subscribeStudentSessionAttendance(
         : new Date().toISOString();
 
       const record: Attendance = {
-        id: docSnap.id,
+        id: `${sessionId}_${docSnap.id}`,
         sessionId,
         studentId,
         waktuHadir,
@@ -1151,7 +1030,7 @@ export async function markAttendance(
   });
 
   const attendance: Attendance = {
-    id: studentId,
+    id: `${sessionId}_${studentId}`,
     sessionId,
     studentId,
     waktuHadir: nowIso,
