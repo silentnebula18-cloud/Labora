@@ -22,9 +22,11 @@ import {
   describeFirestoreError,
   subscribeAssistantClasses,
 } from "../../../services/classService";
-import type {
-  AttendanceWithStudent,
-  ScheduleInput,
+import {
+  isScheduleExpired as checkScheduleExpired,
+  subscribeSessionAttendances,
+  type AttendanceWithStudent,
+  type ScheduleInput,
 } from "../../../services/sessionService";
 import type { ClassRecord, SessionStatus } from "../../../types";
 
@@ -157,15 +159,50 @@ export default function SessionDetailScreen() {
     return fromList ?? (id ? getSession(id) : null);
   }, [id, sessions, getSession]);
 
-  const attendances = useMemo(
-    () => (id ? getAttendances(id) : []),
-    [id, getAttendances],
-  );
+  const [realtimeAttendances, setRealtimeAttendances] = useState<
+    AttendanceWithStudent[]
+  >([]);
+
+  useEffect(() => {
+    if (!id) return;
+    const unsubscribe = subscribeSessionAttendances(id, (items) => {
+      setRealtimeAttendances(items);
+    });
+    return unsubscribe;
+  }, [id]);
+
+  const attendances = useMemo(() => {
+    if (realtimeAttendances.length > 0) return realtimeAttendances;
+    return id ? getAttendances(id) : [];
+  }, [id, realtimeAttendances, getAttendances]);
 
   const enrolledCount = useMemo(
     () => (session ? getEnrolled(session.classId) : 0),
     [session, getEnrolled],
   );
+
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isScheduleExpired = useMemo(() => {
+    return checkScheduleExpired(
+      session?.tanggal,
+      session?.jamSelesai,
+      currentTime,
+    );
+  }, [session, currentTime]);
+
+  // Auto-close otomatis ke Firestore jika sesi masih berstatus open tetapi jadwal sudah lewat jam selesai
+  useEffect(() => {
+    if (!session || session.status !== "open" || !isScheduleExpired) return;
+    setSessionStatus(session.id, "closed", "system").catch(() => undefined);
+  }, [session, isScheduleExpired, setSessionStatus]);
 
   const [modalType, setModalType] = useState<ConfirmationType | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -196,9 +233,9 @@ export default function SessionDetailScreen() {
     setModalType(null);
     try {
       if (action === "buka") {
-        await setSessionStatus(session.id, "open");
+        await setSessionStatus(session.id, "open", user?.id);
       } else if (action === "tutup") {
-        await setSessionStatus(session.id, "closed");
+        await setSessionStatus(session.id, "closed", user?.id);
       }
     } catch (error) {
       setStatusError(describeFirestoreError(error));
@@ -397,6 +434,9 @@ export default function SessionDetailScreen() {
                       <Text style={styles.detailLabel}>Waktu Sesi Ditutup</Text>
                       <Text style={styles.detailValue}>
                         {formatTimestamp(session.closedAt)}
+                        {session.closedBy === "system"
+                          ? " (Otomatis oleh Sistem)"
+                          : ""}
                       </Text>
                     </View>
                   </View>
@@ -451,26 +491,75 @@ export default function SessionDetailScreen() {
             )}
 
             {session.status === "open" && (
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionBtn,
-                  styles.actionBtnClose,
-                  pressed && styles.actionBtnPressed,
-                ]}
-                onPress={handleTutupSesi}
-              >
-                <AppIcon name="stop" size={16} color="#ffffff" />
-                <Text style={styles.actionBtnText}>Tutup Sesi Praktikum</Text>
-              </Pressable>
+              <>
+                {isScheduleExpired && (
+                  <View style={styles.sessionWarningBox}>
+                    <AppIcon name="alert" size={15} color="#b45309" />
+                    <Text style={styles.sessionWarningText}>
+                      Waktu jadwal telah melewati pukul {session.jamSelesai} WIB.
+                      Silakan tutup sesi jika praktikum telah selesai.
+                    </Text>
+                  </View>
+                )}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.actionBtn,
+                    styles.actionBtnClose,
+                    pressed && styles.actionBtnPressed,
+                  ]}
+                  onPress={handleTutupSesi}
+                >
+                  <AppIcon name="stop" size={16} color="#ffffff" />
+                  <Text style={styles.actionBtnText}>Tutup Sesi Praktikum</Text>
+                </Pressable>
+              </>
             )}
 
             {session.status === "closed" && (
-              <View style={styles.closedBanner}>
-                <AppIcon name="lock" size={16} color="#475569" />
-                <Text style={styles.closedBannerText}>
-                  Sesi telah ditutup dan dikunci
-                </Text>
-              </View>
+              <>
+                {!isScheduleExpired ? (
+                  <>
+                    <View style={styles.closedReopenNotice}>
+                      <AppIcon name="info" size={16} color="#2563eb" />
+                      <Text style={styles.closedReopenNoticeText}>
+                        Sesi saat ini sedang ditutup. Anda dapat membukanya
+                        kembali selama rentang waktu praktikum masih berlangsung
+                        (sebelum pukul {session.jamSelesai} WIB).
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionBtn,
+                        styles.actionBtnReopen,
+                        pressed && styles.actionBtnPressed,
+                      ]}
+                      onPress={handleBukaSesi}
+                    >
+                      <AppIcon name="play" size={16} color="#ffffff" />
+                      <Text style={styles.actionBtnText}>
+                        Buka Kembali Sesi Praktikum
+                      </Text>
+                    </Pressable>
+                  </>
+                ) : (
+                  <View style={styles.closedBanner}>
+                    <AppIcon name="lock" size={18} color="#475569" />
+                    <View style={styles.closedBannerContent}>
+                      <Text style={styles.closedBannerText}>
+                        {session.closedBy === "system"
+                          ? "Sesi Ditutup Otomatis oleh Sistem"
+                          : "Sesi telah ditutup dan dikunci"}
+                      </Text>
+                      <Text style={styles.closedBannerSubtext}>
+                        Waktu jadwal praktikum telah berakhir (melewati pk{" "}
+                        {session.jamSelesai} WIB). Untuk membuka sesi ini
+                        kembali, silakan sesuaikan jam selesai melalui tombol
+                        &quot;Ubah Jadwal&quot; di atas.
+                      </Text>
+                    </View>
+                  </View>
+                )}
+              </>
             )}
 
             {/* Header Tabel Presensi */}
@@ -793,21 +882,70 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   actionBtnOpen: { backgroundColor: "#2563eb" },
+  actionBtnReopen: { backgroundColor: "#15803d" },
   actionBtnClose: { backgroundColor: "#991b1b" },
   actionBtnPressed: { opacity: 0.85 },
   actionBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
 
+  sessionWarningBox: {
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "#fefce8",
+    borderColor: "#fde047",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 12,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  sessionWarningText: {
+    flex: 1,
+    color: "#854d0e",
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+
   closedBanner: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#e2e8f0",
+    gap: 12,
+    backgroundColor: "#f8fafc",
+    borderColor: "#cbd5e1",
+    borderWidth: 1,
     borderRadius: 12,
-    paddingVertical: 13,
-    alignItems: "center",
+    padding: 14,
+    alignItems: "flex-start",
     marginBottom: 16,
   },
-  closedBannerText: { color: "#475569", fontSize: 14, fontWeight: "700" },
+  closedBannerContent: {
+    flex: 1,
+  },
+  closedBannerText: { color: "#334155", fontSize: 14, fontWeight: "700" },
+  closedBannerSubtext: {
+    color: "#64748b",
+    fontSize: 12.5,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+
+  closedReopenNotice: {
+    flexDirection: "row",
+    gap: 10,
+    backgroundColor: "#eff6ff",
+    borderColor: "#bfdbfe",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 13,
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  closedReopenNoticeText: {
+    flex: 1,
+    color: "#1e40af",
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
 
   // Presensi
   attendanceHeader: {

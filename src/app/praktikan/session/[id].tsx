@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   ScrollView,
@@ -13,7 +14,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import AppIcon from "../../../components/AppIcon";
 import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../context/SessionContext";
-import type { SessionStatus } from "../../../types";
+import { describeFirestoreError } from "../../../services/classService";
+import { getExistingPermission } from "../../../services/permissionService";
+import {
+  isScheduleExpired as checkScheduleExpired,
+  subscribeStudentSessionAttendance,
+} from "../../../services/sessionService";
+import type { Attendance, PermissionRecord, SessionStatus } from "../../../types";
 import { formatTanggal, formatWaktuLengkap } from "../../../utils/format";
 
 // ─── Konfigurasi Status ───────────────────────────────────────────────────────
@@ -100,12 +107,54 @@ export default function SessionDetailPraktikan() {
     return fromList ?? (id ? getSession(id) : null);
   }, [id, studentSessions, getSession]);
 
+  const [realtimeAttendance, setRealtimeAttendance] = useState<Attendance | null>(null);
+  const [permission, setPermission] = useState<PermissionRecord | null>(null);
+
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const isScheduleExpired = useMemo(() => {
+    return checkScheduleExpired(
+      session?.tanggal,
+      session?.jamSelesai,
+      currentTime,
+    );
+  }, [session, currentTime]);
+
+  // Pantau presensi sesi ini secara langsung dari Firestore (SRS 007 & 008)
+  useEffect(() => {
+    if (!id || !user) return;
+    const unsubscribe = subscribeStudentSessionAttendance(
+      id,
+      user.id,
+      (att) => {
+        setRealtimeAttendance(att);
+      },
+    );
+    return unsubscribe;
+  }, [id, user]);
+
+  // Cek apakah ada pengajuan izin untuk sesi ini
+  useEffect(() => {
+    if (!id || !user) return;
+    getExistingPermission(user.id, id)
+      .then((rec) => setPermission(rec))
+      .catch(() => undefined);
+  }, [id, user]);
+
   const attendance = useMemo(() => {
+    if (realtimeAttendance) return realtimeAttendance;
     if (!id) return null;
     return myAttendances.find((a) => a.sessionId === id) ?? null;
-  }, [id, myAttendances]);
+  }, [id, realtimeAttendance, myAttendances]);
 
-  function lakukanPresensi() {
+  async function lakukanPresensi() {
     if (
       !session ||
       !user ||
@@ -118,7 +167,10 @@ export default function SessionDetailPraktikan() {
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      const result = markAttendance(session.id, user.id);
+      const result = await markAttendance(session.id, user.id, {
+        nama: user.nama,
+        nim: user.nim,
+      });
       if (result.ok) {
         lastSuccessSessionRef.current = session.id;
         setFeedback({
@@ -130,6 +182,11 @@ export default function SessionDetailPraktikan() {
       } else {
         setFeedback({ status: "error", message: result.message });
       }
+    } catch (err) {
+      setFeedback({
+        status: "error",
+        message: describeFirestoreError(err),
+      });
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -141,7 +198,15 @@ export default function SessionDetailPraktikan() {
   }
 
   function bukaKonfirmasiPresensi() {
-    if (!session || !user || attendance || session.status !== "open") return;
+    if (
+      !session ||
+      !user ||
+      attendance ||
+      session.status !== "open" ||
+      isScheduleExpired
+    ) {
+      return;
+    }
     setIsConfirmVisible(true);
   }
 
@@ -235,7 +300,11 @@ export default function SessionDetailPraktikan() {
             {session.closedAt && (
               <DetailRow
                 label="Ditutup Pada"
-                value={formatTimestamp(session.closedAt)}
+                value={`${formatTimestamp(session.closedAt)}${
+                  session.closedBy === "system"
+                    ? " (Otomatis oleh Sistem)"
+                    : ""
+                }`}
               />
             )}
           </View>
@@ -253,11 +322,38 @@ export default function SessionDetailPraktikan() {
               {formatWaktuLengkap(attendance.waktuHadir)}.
             </Text>
             <Text style={styles.presenceNote}>
-              Presensi hanya dapat dilakukan satu kali untuk setiap sesi.
+              Presensi berhasil disimpan ke Cloud Firestore.
+            </Text>
+            {permission && (
+              <View style={styles.permissionOverriddenBanner}>
+                <AppIcon name="info" size={13} color="#0f5132" />
+                <Text style={styles.permissionOverriddenText}>
+                  Pengajuan izin Anda sebelumnya tercatat dan digantikan oleh kehadiran fisik ini.
+                </Text>
+              </View>
+            )}
+          </View>
+        ) : permission?.status === "approved" ? (
+          <View style={[styles.presenceCard, styles.presenceApproved]}>
+            <View style={styles.presenceIconCircleSuccess}>
+              <AppIcon name="check" size={22} color="#0f5132" />
+            </View>
+            <Text style={styles.presenceTitle}>Izin Telah Disetujui</Text>
+            <Text style={styles.presenceSuccessText}>
+              Pengajuan izin ketidakhadiran Anda untuk sesi ini telah disetujui oleh asisten. Anda tidak perlu melakukan presensi.
             </Text>
           </View>
-        ) : session.status === "open" ? (
+        ) : session.status === "open" && !isScheduleExpired ? (
           <>
+            {permission?.status === "pending" && (
+              <View style={styles.pendingPermissionAlert}>
+                <AppIcon name="info" size={15} color="#854d0e" />
+                <Text style={styles.pendingPermissionAlertText}>
+                  Pengajuan izin Anda sedang menunggu pemeriksaan. Jika Anda hadir langsung di lab, silakan lakukan presensi di bawah.
+                </Text>
+              </View>
+            )}
+
             <View style={[styles.presenceCard, styles.presenceOpen]}>
               <View style={styles.presenceIconCircleOpen}>
                 <AppIcon name="unlock" size={20} color="#2563eb" />
@@ -273,11 +369,19 @@ export default function SessionDetailPraktikan() {
               style={({ pressed }) => [
                 styles.actionBtn,
                 pressed && styles.actionBtnPressed,
+                isSubmitting && styles.actionBtnDisabled,
               ]}
               onPress={bukaKonfirmasiPresensi}
+              disabled={isSubmitting}
             >
-              <AppIcon name="check" size={16} color="#ffffff" />
-              <Text style={styles.actionBtnText}>Lakukan Presensi</Text>
+              {isSubmitting ? (
+                <ActivityIndicator color="#ffffff" />
+              ) : (
+                <>
+                  <AppIcon name="check" size={16} color="#ffffff" />
+                  <Text style={styles.actionBtnText}>Lakukan Presensi</Text>
+                </>
+              )}
             </Pressable>
           </>
         ) : session.status === "scheduled" ? (
@@ -296,11 +400,39 @@ export default function SessionDetailPraktikan() {
             <View style={styles.presenceIconCircleNeutral}>
               <AppIcon name="lock" size={20} color="#475569" />
             </View>
-            <Text style={styles.presenceTitle}>Sesi Telah Ditutup</Text>
+            <Text style={styles.presenceTitle}>
+              {session.closedBy === "system" || isScheduleExpired
+                ? "Waktu Sesi Telah Berakhir"
+                : "Sesi Telah Ditutup"}
+            </Text>
             <Text style={styles.presenceClosedText}>
-              Sesi ini sudah ditutup dan tidak dapat digunakan untuk presensi.
+              {session.closedBy === "system" || isScheduleExpired
+                ? `Sesi praktikum telah ditutup otomatis karena melewati jam selesai (${session.jamSelesai} WIB). Presensi mandiri tidak dapat dilakukan.`
+                : "Sesi ini sudah ditutup dan tidak dapat digunakan untuk presensi."}
             </Text>
           </View>
+        )}
+
+        {!attendance && permission?.status !== "approved" && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.izinSecondaryBtn,
+              pressed && styles.izinSecondaryBtnPressed,
+            ]}
+            onPress={() =>
+              router.push({
+                pathname: "/praktikan/izin",
+                params: { sessionId: session.id },
+              } as any)
+            }
+          >
+            <AppIcon name="clipboard" size={16} color="#2563eb" />
+            <Text style={styles.izinSecondaryBtnText}>
+              {permission
+                ? "Lihat Status Pengajuan Izin"
+                : "Ajukan Izin Ketidakhadiran"}
+            </Text>
+          </Pressable>
         )}
 
         <View style={styles.bottomPad} />
@@ -583,11 +715,49 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#b7dfc2",
   },
+  presenceApproved: {
+    backgroundColor: "#ecfdf5",
+    borderWidth: 1,
+    borderColor: "#a7f3d0",
+  },
   presenceSuccessText: {
     fontSize: 13.5,
     color: "#0f5132",
     fontWeight: "600",
     textAlign: "center",
+  },
+  permissionOverriddenBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "#d1fae5",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 8,
+  },
+  permissionOverriddenText: {
+    fontSize: 11.5,
+    color: "#065f46",
+    flex: 1,
+    lineHeight: 16,
+  },
+  pendingPermissionAlert: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fef9c3",
+    borderColor: "#fde047",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 14,
+  },
+  pendingPermissionAlertText: {
+    fontSize: 12,
+    color: "#854d0e",
+    flex: 1,
+    lineHeight: 17,
   },
 
   presenceOpen: {
@@ -637,7 +807,25 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   actionBtnPressed: { opacity: 0.85 },
+  actionBtnDisabled: {
+    backgroundColor: "#94a3b8",
+  },
   actionBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+
+  izinSecondaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#eff6ff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    borderRadius: 12,
+    paddingVertical: 13,
+    marginBottom: 16,
+  },
+  izinSecondaryBtnPressed: { opacity: 0.8 },
+  izinSecondaryBtnText: { color: "#2563eb", fontSize: 14, fontWeight: "700" },
 
   modalBackdrop: {
     flex: 1,

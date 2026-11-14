@@ -25,6 +25,7 @@ import {
   resetSessionStore,
   subscribeAssistantSchedulesWithSessions,
   subscribeStudentSchedulesWithSessions,
+  subscribeStudentSessionAttendance,
   updateScheduleAndSession,
   updateSessionStatus,
   type AttendanceWithSession,
@@ -63,8 +64,12 @@ interface SessionContextValue {
   getAttendance: (sessionId: string, studentId: string) => Attendance | null;
   /** Hitung total mahasiswa terdaftar di kelas */
   getEnrolled: (classId: string) => number;
-  /** Update status sesi (scheduled / open / closed) */
-  setSessionStatus: (sessionId: string, status: SessionStatus) => Promise<void>;
+  /** Update status sesi (scheduled / open / closed). actor default adalah UID user aktif atau "system" jika auto-close. */
+  setSessionStatus: (
+    sessionId: string,
+    status: SessionStatus,
+    actor?: string,
+  ) => Promise<void>;
   /** Buat jadwal & sesi baru di Firestore */
   createSchedule: (kelas: ClassRecord, input: ScheduleInput) => Promise<string>;
   /** Ubah jadwal di Firestore */
@@ -79,7 +84,8 @@ interface SessionContextValue {
   markAttendance: (
     sessionId: string,
     studentId: string,
-  ) => MarkAttendanceResult;
+    studentInfo?: { nama?: string; nim?: string },
+  ) => Promise<MarkAttendanceResult>;
   /** Reset semua data (saat logout) */
   reset: () => void;
 }
@@ -147,6 +153,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return unsubscribe;
   }, [user, activeRole]);
 
+  // Pantau presensi praktikan di setiap sesi miliknya secara real-time dari Firestore (SRS 007 & 008)
+  useEffect(() => {
+    if (!user || activeRole !== "praktikan" || studentSessions.length === 0) {
+      return;
+    }
+
+    const unsubscribers: (() => void)[] = [];
+    const attendanceMap = new Map<string, AttendanceWithSession>();
+
+    studentSessions.forEach((sess) => {
+      const unsub = subscribeStudentSessionAttendance(
+        sess.id,
+        user.id,
+        (att) => {
+          if (att) {
+            attendanceMap.set(sess.id, { ...att, session: sess });
+          } else {
+            attendanceMap.delete(sess.id);
+          }
+          const list = Array.from(attendanceMap.values()).sort((a, b) =>
+            b.waktuHadir.localeCompare(a.waktuHadir),
+          );
+          setMyAttendances(list);
+        },
+      );
+      unsubscribers.push(unsub);
+    });
+
+    return () => {
+      unsubscribers.forEach((u) => u());
+    };
+  }, [user, activeRole, studentSessions]);
+
   const refreshSessions = useCallback((assistantId: string) => {
     setSessions(getSessionsByAssistant(assistantId));
   }, []);
@@ -172,9 +211,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSessionStatus = useCallback(
-    async (sessionId: string, status: SessionStatus) => {
+    async (sessionId: string, status: SessionStatus, actor?: string) => {
       const now = new Date();
-      const uid = user?.id ?? "";
+      const uid =
+        actor !== undefined
+          ? actor
+          : status === "closed"
+            ? (user?.id || "system")
+            : (user?.id || "");
 
       updateSessionStatus(sessionId, status);
 
@@ -185,7 +229,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                 ...s,
                 status,
                 openedAt: status === "open" ? now : s.openedAt,
-                closedAt: status === "closed" ? now : s.closedAt,
+                closedAt: status === "closed" ? now : (status === "open" ? null : s.closedAt),
+                closedBy: status === "closed" ? uid : (status === "open" ? null : s.closedBy),
                 updatedBy: uid || s.updatedBy,
                 updatedAt: now,
               }
@@ -199,7 +244,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
                 ...s,
                 status,
                 openedAt: status === "open" ? now : s.openedAt,
-                closedAt: status === "closed" ? now : s.closedAt,
+                closedAt: status === "closed" ? now : (status === "open" ? null : s.closedAt),
+                closedBy: status === "closed" ? uid : (status === "open" ? null : s.closedBy),
                 updatedBy: uid || s.updatedBy,
                 updatedAt: now,
               }
@@ -207,7 +253,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         ),
       );
 
-      if (!uid) return;
       if (status === "open") {
         await openSessionInFirestore(sessionId, uid);
       } else if (status === "closed") {
@@ -241,14 +286,30 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const markAttendance = useCallback(
-    (sessionId: string, studentId: string) => {
-      const result = markAttendanceService(sessionId, studentId);
+    async (
+      sessionId: string,
+      studentId: string,
+      studentInfo?: { nama?: string; nim?: string },
+    ): Promise<MarkAttendanceResult> => {
+      const studentName = studentInfo?.nama || user?.nama || "Praktikan";
+      const studentNim = studentInfo?.nim || user?.nim || "—";
+      const result = await markAttendanceService(sessionId, studentId, {
+        nama: studentName,
+        nim: studentNim,
+      });
       if (result.ok) {
-        setMyAttendances(getAttendancesByStudent(studentId));
+        const session = getSessionById(sessionId);
+        if (session) {
+          setMyAttendances((prev) => {
+            const exists = prev.some((a) => a.sessionId === sessionId);
+            if (exists) return prev;
+            return [{ ...result.attendance, session }, ...prev];
+          });
+        }
       }
       return result;
     },
-    [],
+    [user],
   );
 
   const reset = useCallback(() => {

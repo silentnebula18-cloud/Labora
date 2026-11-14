@@ -127,7 +127,9 @@ export default function ConfirmationBottomSheet({
 
               <Text style={styles.title}>
                 {isBuka
-                  ? "Buka Sesi Praktikum"
+                  ? sessionData.status === "closed"
+                    ? "Buka Kembali Sesi Praktikum"
+                    : "Buka Sesi Praktikum"
                   : isTutup
                     ? "Tutup Sesi Praktikum"
                     : "Rincian Operasional Sesi"}
@@ -135,9 +137,11 @@ export default function ConfirmationBottomSheet({
 
               <Text style={styles.subtitle}>
                 {isBuka
-                  ? "Praktikan akan dapat melakukan presensi kehadiran secara mandiri setelah sesi dibuka."
+                  ? sessionData.status === "closed"
+                    ? "Sesi akan diaktifkan kembali. Praktikan dapat melakukan presensi kehadiran mandiri hingga sesi ditutup atau jadwal berakhir."
+                    : "Praktikan akan dapat melakukan presensi kehadiran secara mandiri setelah sesi dibuka."
                   : isTutup
-                    ? "Tinjau ringkasan kehadiran di bawah ini. Sesi yang telah ditutup tidak dapat dibuka kembali."
+                    ? "Tinjau ringkasan kehadiran di bawah ini. Sesi dapat dibuka kembali selama rentang jam praktikum belum berakhir."
                     : "Rincian operasional, jadwal, dan panduan pelaksanaan sesi praktikum."}
               </Text>
             </View>
@@ -243,8 +247,9 @@ export default function ConfirmationBottomSheet({
                 <AppIcon name="info" size={16} color="#2563eb" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Catatan: </Text>
-                  Setelah sesi dibuka, waktu pembukaan sesi dicatat di sistem
-                  dan praktikan dapat langsung melakukan presensi.
+                  {sessionData.status === "closed"
+                    ? "Waktu pembukaan kembali dicatat di sistem dan praktikan yang belum presensi dapat segera mencatatkan kehadirannya."
+                    : "Setelah sesi dibuka, waktu pembukaan sesi dicatat di sistem dan praktikan dapat langsung melakukan presensi."}
                 </Text>
               </View>
             )}
@@ -254,8 +259,8 @@ export default function ConfirmationBottomSheet({
                 <AppIcon name="alert" size={16} color="#991b1b" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Perhatian: </Text>
-                  Sesi yang ditutup bersifat final dan tidak dapat digunakan
-                  lagi untuk presensi.
+                  Praktikan tidak dapat melakukan presensi saat sesi ditutup. Anda
+                  dapat membukanya kembali selama rentang jam jadwal masih berlaku.
                 </Text>
               </View>
             )}
@@ -307,7 +312,11 @@ export default function ConfirmationBottomSheet({
                   onPress={onConfirm}
                 >
                   <Text style={styles.actionBtnText}>
-                    {isBuka ? "Buka Sesi Sekarang" : "Ya, Tutup Sesi"}
+                    {isBuka
+                      ? sessionData.status === "closed"
+                        ? "Buka Kembali Sesi"
+                        : "Buka Sesi Sekarang"
+                      : "Ya, Tutup Sesi"}
                   </Text>
                 </Pressable>
               </View>

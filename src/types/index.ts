@@ -117,3 +117,27 @@ export interface Attendance {
   studentId: string;
   waktuHadir: string;
 }
+
+export type PermissionStatus = "pending" | "approved" | "rejected";
+
+export interface PermissionRecord {
+  id: string;
+  uid: string;
+  nama: string;
+  nim: string;
+  classId: string;
+  sessionId: string;
+  mataKuliah?: string;
+  namaPraktikum?: string;
+  nomorPraktikum?: number;
+  alasan: string;
+  status: PermissionStatus;
+  aiStatus: "success" | "failed";
+  aiCategory: "positif" | "netral" | "negatif" | null;
+  aiConfidence?: number | null;
+  aiProcessedAt?: Date | null;
+  decidedBy?: string | null;
+  decidedAt?: Date | null;
+  createdAt: Date | null;
+}
+

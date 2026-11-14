@@ -257,11 +257,22 @@ export default function HomePraktikan() {
                 <Text style={styles.rolePillText}>PRAKTIKAN</Text>
               </View>
             </View>
-            <Text style={styles.name}>{user.nama}</Text>
-            <Text style={styles.nim}>
-              NIM {user.nim}
-              {user.kelas ? ` · Kelas ${user.kelas}` : ""}
-            </Text>
+            <View style={styles.headerInfoRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.name}>{user.nama}</Text>
+                <Text style={styles.nim}>
+                  NIM {user.nim}
+                  {user.kelas ? ` · Kelas ${user.kelas}` : ""}
+                </Text>
+              </View>
+              <Pressable
+                style={styles.headerIzinBtn}
+                onPress={() => router.push("/praktikan/izin" as any)}
+              >
+                <AppIcon name="clipboard" size={13} color="#ffffff" />
+                <Text style={styles.headerIzinText}>Izin</Text>
+              </Pressable>
+            </View>
           </View>
 
           {/* Segment */}
@@ -573,6 +584,25 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 0.6,
+  },
+  headerInfoRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+  },
+  headerIzinBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  headerIzinText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
   },
   name: { color: "#ffffff", fontSize: 19, fontWeight: "800" },
   nim: { color: "#dbeafe", fontSize: 12, marginTop: 2, fontWeight: "500" },

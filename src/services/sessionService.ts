@@ -1,10 +1,11 @@
 import {
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   serverTimestamp,
-  updateDoc,
+  setDoc,
   where,
   writeBatch,
 } from "@react-native-firebase/firestore";
@@ -793,34 +794,67 @@ export async function deleteScheduleAndSession(
 
 /**
  * Buka sesi praktikum (`status = "open"`).
+ * Jika sebelumnya berstatus closed, closedAt dan closedBy dibersihkan.
  */
 export async function openSessionInFirestore(
   sessionId: string,
   assistantUid: string,
 ): Promise<void> {
-  await updateDoc(doc(db, "sessions", sessionId), {
-    status: "open",
-    openedAt: serverTimestamp(),
-    openedBy: assistantUid,
-    updatedBy: assistantUid,
-    updatedAt: serverTimestamp(),
-  });
+  await setDoc(
+    doc(db, "sessions", sessionId),
+    {
+      status: "open",
+      openedAt: serverTimestamp(),
+      openedBy: assistantUid,
+      closedAt: null,
+      closedBy: null,
+      updatedBy: assistantUid,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+/**
+ * Periksa apakah rentang waktu jadwal sesi telah berakhir.
+ * Membandingkan tanggal (YYYY-MM-DD) dan jamSelesai (HH:mm) dengan waktu saat ini.
+ */
+export function isScheduleExpired(
+  tanggal?: string,
+  jamSelesai?: string,
+  currentEpoch: number = Date.now(),
+): boolean {
+  if (!tanggal || !jamSelesai) return false;
+  try {
+    const [year, month, day] = tanggal.split("-").map(Number);
+    const [hours, minutes] = jamSelesai.split(":").map(Number);
+    if (!year || !month || !day || isNaN(hours) || isNaN(minutes)) return false;
+    const end = new Date(year, month - 1, day, hours, minutes, 0);
+    return currentEpoch > end.getTime();
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Tutup sesi praktikum (`status = "closed"`).
+ * closedBy default adalah "system" jika ditutup otomatis oleh sistem, atau UID asisten jika manual.
  */
 export async function closeSessionInFirestore(
   sessionId: string,
-  assistantUid: string,
+  closedBy: string = "system",
 ): Promise<void> {
-  await updateDoc(doc(db, "sessions", sessionId), {
-    status: "closed",
-    closedAt: serverTimestamp(),
-    closedBy: assistantUid,
-    updatedBy: assistantUid,
-    updatedAt: serverTimestamp(),
-  });
+  await setDoc(
+    doc(db, "sessions", sessionId),
+    {
+      status: "closed",
+      closedAt: serverTimestamp(),
+      closedBy,
+      updatedBy: closedBy,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
 }
 
 // ─── Query & Helper Kompatibilitas ────────────────────────────────────────────
@@ -941,13 +975,121 @@ export function updateSessionStatus(
 }
 
 /**
- * Catat presensi praktikan pada sesi yang sedang dibuka (`status === "open"`).
- * Menolak presensi ganda dan sesi yang tidak dapat dihadiri (`scheduled` / `closed`).
+ * Pantau rekap presensi suatu sesi secara real-time dari Firestore (SRS 007 & SRS 008).
+ * Asisten dapat membaca rekap kehadiran seluruh mahasiswa yang presensi.
  */
-export function markAttendance(
+export function subscribeSessionAttendances(
+  sessionId: string,
+  onData: Listener<AttendanceWithStudent[]>,
+  onError?: ErrorListener,
+) {
+  const attendancesQuery = collection(db, "sessions", sessionId, "attendance");
+
+  return onSnapshot(
+    attendancesQuery,
+    (snapshot) => {
+      const items: AttendanceWithStudent[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as Record<string, unknown>;
+        const studentId = readString(data.studentId) || docSnap.id;
+        const studentName = readString(data.nama);
+        const studentNim = readString(data.nim);
+        const waktuHadirDate = toDate(data.waktuHadir);
+        const waktuHadir = waktuHadirDate
+          ? waktuHadirDate.toISOString()
+          : new Date().toISOString();
+
+        // Update cache lokal juga
+        const existingIdx = _attendances.findIndex(
+          (a) => a.sessionId === sessionId && a.studentId === studentId,
+        );
+        const attRecord: Attendance = {
+          id: docSnap.id,
+          sessionId,
+          studentId,
+          waktuHadir,
+        };
+        if (existingIdx === -1) {
+          _attendances.push(attRecord);
+        } else {
+          _attendances[existingIdx] = attRecord;
+        }
+
+        return {
+          id: docSnap.id,
+          sessionId,
+          studentId,
+          waktuHadir,
+          namaStudentId: studentId,
+          namaStudent: studentName || "Praktikan",
+          nimStudent: studentNim || "—",
+        };
+      });
+
+      items.sort((a, b) => a.waktuHadir.localeCompare(b.waktuHadir));
+      onData(items);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+/**
+ * Pantau presensi seorang praktikan pada sesi tertentu secara real-time (SRS 007).
+ */
+export function subscribeStudentSessionAttendance(
   sessionId: string,
   studentId: string,
-): MarkAttendanceResult {
+  onData: (attendance: Attendance | null) => void,
+  onError?: ErrorListener,
+) {
+  const attendanceRef = doc(db, "sessions", sessionId, "attendance", studentId);
+
+  return onSnapshot(
+    attendanceRef,
+    (docSnap) => {
+      if (!docSnap.exists()) {
+        onData(null);
+        return;
+      }
+      const data = docSnap.data() as Record<string, unknown>;
+      const waktuHadirDate = toDate(data.waktuHadir);
+      const waktuHadir = waktuHadirDate
+        ? waktuHadirDate.toISOString()
+        : new Date().toISOString();
+
+      const record: Attendance = {
+        id: docSnap.id,
+        sessionId,
+        studentId,
+        waktuHadir,
+      };
+
+      // Sinkronkan ke cache lokal
+      const existingIdx = _attendances.findIndex(
+        (a) => a.sessionId === sessionId && a.studentId === studentId,
+      );
+      if (existingIdx === -1) {
+        _attendances.push(record);
+      } else {
+        _attendances[existingIdx] = record;
+      }
+
+      onData(record);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+/**
+ * Catat presensi praktikan pada sesi yang sedang dibuka (`status === "open"`) ke Firestore (SRS 007).
+ * - Menolak presensi ganda (SRS 007)
+ * - Menolak presensi pada sesi scheduled atau closed (SRS 007)
+ * - Menyimpan UID, nama, nim, dan serverTimestamp ke sessions/{sessionId}/attendance/{studentId}
+ */
+export async function markAttendance(
+  sessionId: string,
+  studentId: string,
+  studentInfo?: { nama?: string; nim?: string },
+): Promise<MarkAttendanceResult> {
   const session = getSessionById(sessionId);
   if (!session) return failAttendance("SESI_TIDAK_DITEMUKAN");
 
@@ -955,7 +1097,7 @@ export function markAttendance(
   const enrolledInMock = enrollments.some(
     (e) => e.studentId === studentId && e.classId === session.classId,
   );
-  if (!enrolledInFirestore && !enrolledInMock) {
+  if (!enrolledInFirestore && !enrolledInMock && _studentClassIds.size > 0) {
     return failAttendance("TIDAK_TERDAFTAR");
   }
 
@@ -965,21 +1107,66 @@ export function markAttendance(
   if (session.status === "closed") {
     return failAttendance("SESI_DITUTUP");
   }
+  if (isScheduleExpired(session.tanggal, session.jamSelesai)) {
+    return {
+      ok: false,
+      code: "SESI_DITUTUP",
+      message:
+        "Waktu praktikum telah berakhir (melewati jam selesai). Presensi tidak dapat dilakukan.",
+    };
+  }
 
-  const already = _attendances.some(
-    (a) => a.sessionId === sessionId && a.studentId === studentId,
-  );
-  if (already) return failAttendance("SUDAH_PRESENSI");
+  // Cek apakah sudah presensi di Firestore (mencegah presensi ganda di level database)
+  const attendanceRef = doc(db, "sessions", sessionId, "attendance", studentId);
+  try {
+    const snap = await getDoc(attendanceRef);
+    if (snap.exists()) {
+      return failAttendance("SUDAH_PRESENSI");
+    }
+  } catch {
+    // Jika getDoc gagal (misal offline/rules), periksa cache lokal
+    const alreadyLocal = _attendances.some(
+      (a) => a.sessionId === sessionId && a.studentId === studentId,
+    );
+    if (alreadyLocal) return failAttendance("SUDAH_PRESENSI");
+  }
+
+  const nowIso = new Date().toISOString();
+  const studentName =
+    studentInfo?.nama?.trim() ||
+    users.find((u) => u.id === studentId)?.nama ||
+    "Praktikan";
+  const studentNim =
+    studentInfo?.nim?.trim() ||
+    users.find((u) => u.id === studentId)?.nim ||
+    "—";
+
+  // Tulis ke subcollection attendance di Firestore (SRS 007)
+  await setDoc(attendanceRef, {
+    studentId,
+    nama: studentName,
+    nim: studentNim,
+    sessionId,
+    waktuHadir: serverTimestamp(),
+  });
 
   const attendance: Attendance = {
-    id: `A-${Date.now()}`,
+    id: studentId,
     sessionId,
     studentId,
-    waktuHadir: new Date().toISOString(),
+    waktuHadir: nowIso,
   };
-  _attendances.push(attendance);
 
-  return { ok: true, attendance: { ...attendance } };
+  const existingIdx = _attendances.findIndex(
+    (a) => a.sessionId === sessionId && a.studentId === studentId,
+  );
+  if (existingIdx === -1) {
+    _attendances.push(attendance);
+  } else {
+    _attendances[existingIdx] = attendance;
+  }
+
+  return { ok: true, attendance };
 }
 
 /** Reset store saat logout. */
