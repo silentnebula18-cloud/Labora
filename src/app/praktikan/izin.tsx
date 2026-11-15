@@ -201,9 +201,10 @@ export default function IzinPraktikanScreen() {
         nim: user.nim,
         classId: selectedSession.classId,
         sessionId: selectedSession.id,
-        mataKuliah: selectedSession.practicum.mataKuliah,
-        namaPraktikum: selectedSession.practicum.namaPraktikum,
-        nomorPraktikum: selectedSession.practicum.nomorPraktikum,
+        mataKuliah: selectedSession.practicum?.mataKuliah ?? "Mata Kuliah",
+        namaPraktikum:
+          selectedSession.practicum?.namaPraktikum ?? "Sesi Praktikum",
+        nomorPraktikum: selectedSession.practicum?.nomorPraktikum ?? 1,
         alasan,
       });
 
@@ -281,13 +282,16 @@ export default function IzinPraktikanScreen() {
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         {activeTab === "form" ? (
           <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
             {/* 1. Pilih Sesi Praktikum */}
             <View style={styles.card}>
@@ -328,7 +332,7 @@ export default function IzinPraktikanScreen() {
                             ]}
                             numberOfLines={1}
                           >
-                            {s.practicum.mataKuliah}
+                            {s.practicum?.mataKuliah ?? "Mata Kuliah"}
                           </Text>
                           <View
                             style={[
@@ -340,8 +344,8 @@ export default function IzinPraktikanScreen() {
                           </View>
                         </View>
                         <Text style={styles.sessionItemSub}>
-                          Pertemuan {s.practicum.nomorPraktikum} · Kelas{" "}
-                          {s.kelas.namaKelas}
+                          Pertemuan {s.practicum?.nomorPraktikum ?? 1} · Kelas{" "}
+                          {s.kelas?.namaKelas ?? "—"}
                         </Text>
                         <Text style={styles.sessionItemTime}>
                           {formatTanggal(s.tanggal)} ({s.jamMulai} -{" "}
@@ -468,7 +472,7 @@ export default function IzinPraktikanScreen() {
               )}
             </Pressable>
 
-            <View style={{ height: 40 }} />
+            <View style={{ height: 120 }} />
           </ScrollView>
         ) : (
           /* TAB RIWAYAT */
@@ -614,13 +618,19 @@ export default function IzinPraktikanScreen() {
                             ? formatWaktuLengkap(item.createdAt.toISOString())
                             : "—"}
                         </Text>
+                        {item.status !== "pending" && item.decidedAt && (
+                          <Text style={styles.historyTime}>
+                            Diputuskan:{" "}
+                            {formatWaktuLengkap(item.decidedAt.toISOString())}
+                          </Text>
+                        )}
                       </View>
                     </View>
                   );
                 })}
               </View>
             )}
-            <View style={{ height: 40 }} />
+            <View style={{ height: 120 }} />
           </ScrollView>
         )}
       </KeyboardAvoidingView>

@@ -26,8 +26,13 @@ import {
   describeFirestoreError,
   subscribeAssistantClasses,
 } from "../../services/classService";
+import { subscribeAssistantPermissions } from "../../services/permissionService";
 import type { ScheduleInput } from "../../services/sessionService";
-import type { ClassRecord, SessionStatus } from "../../types";
+import type {
+  ClassRecord,
+  PermissionRecord,
+  SessionStatus,
+} from "../../types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -172,6 +177,7 @@ export default function HomeAsisten() {
 
   const [activeTab, setActiveTab] = useState<BottomNavTab>("beranda");
   const [classes, setClasses] = useState<ClassRecord[]>([]);
+  const [permissions, setPermissions] = useState<PermissionRecord[]>([]);
 
   const [formVisible, setFormVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -179,14 +185,42 @@ export default function HomeAsisten() {
 
   useEffect(() => {
     if (!user) return;
-    const unsubscribe = subscribeAssistantClasses(user.id, (items) => {
-      setClasses(items);
-    });
+    const unsubscribe = subscribeAssistantClasses(
+      user.id,
+      (items) => {
+        setClasses(items);
+        if (items.length === 0) {
+          setPermissions([]);
+        }
+      },
+      () => {
+        setClasses([]);
+        setPermissions([]);
+      },
+    );
     return unsubscribe;
   }, [user]);
 
+  useEffect(() => {
+    if (classes.length === 0) return;
+    const classIds = classes.map((c) => c.id);
+    const unsubscribe = subscribeAssistantPermissions(
+      classIds,
+      (items) => {
+        setPermissions(items);
+      },
+      () => {
+        setPermissions([]);
+      },
+    );
+    return unsubscribe;
+  }, [classes]);
+
   if (!user) return null;
 
+  const pendingPermissionsCount = permissions.filter(
+    (p) => p.status === "pending",
+  ).length;
   const upcoming = sessions.filter((s) => s.status !== "closed");
   const past = sessions.filter((s) => s.status === "closed");
 
@@ -274,6 +308,38 @@ export default function HomeAsisten() {
               </Pressable>
             </View>
 
+            {/* Menu Pemeriksaan Pengajuan Izin (SRS 011) */}
+            <Pressable
+              style={({ pressed }) => [
+                styles.permissionActionBanner,
+                pressed && styles.cardPressed,
+              ]}
+              onPress={() => router.push("/asisten/izin" as any)}
+              android_ripple={{ color: "#e2e8f0" }}
+            >
+              <View style={styles.permissionActionIconBox}>
+                <AppIcon name="clipboard" size={20} color="#2563eb" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.permissionActionTitle}>
+                  Pemeriksaan Pengajuan Izin
+                </Text>
+                <Text style={styles.permissionActionSub}>
+                  {pendingPermissionsCount > 0
+                    ? `${pendingPermissionsCount} pengajuan menunggu keputusan`
+                    : `${permissions.length} total pengajuan izin`}
+                </Text>
+              </View>
+              {pendingPermissionsCount > 0 && (
+                <View style={styles.pendingCountBadge}>
+                  <Text style={styles.pendingCountBadgeText}>
+                    {pendingPermissionsCount}
+                  </Text>
+                </View>
+              )}
+              <AppIcon name="chevron-right" size={16} color="#64748b" />
+            </Pressable>
+
             {sessionsLoading && (
               <View style={styles.loadingBox}>
                 <ActivityIndicator color="#2563eb" />
@@ -313,10 +379,12 @@ export default function HomeAsisten() {
                   <SessionCard
                     key={s.id}
                     id={s.id}
-                    mataKuliah={s.practicum.mataKuliah}
-                    nomorPraktikum={s.practicum.nomorPraktikum}
-                    namaPraktikum={s.practicum.namaPraktikum}
-                    namaKelas={s.kelas.namaKelas}
+                    mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
+                    nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
+                    namaPraktikum={
+                      s.practicum?.namaPraktikum ?? "Sesi Praktikum"
+                    }
+                    namaKelas={s.kelas?.namaKelas ?? "—"}
                     tanggal={s.tanggal}
                     jamMulai={s.jamMulai}
                     jamSelesai={s.jamSelesai}
@@ -340,10 +408,12 @@ export default function HomeAsisten() {
                   <SessionCard
                     key={s.id}
                     id={s.id}
-                    mataKuliah={s.practicum.mataKuliah}
-                    nomorPraktikum={s.practicum.nomorPraktikum}
-                    namaPraktikum={s.practicum.namaPraktikum}
-                    namaKelas={s.kelas.namaKelas}
+                    mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
+                    nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
+                    namaPraktikum={
+                      s.practicum?.namaPraktikum ?? "Sesi Praktikum"
+                    }
+                    namaKelas={s.kelas?.namaKelas ?? "—"}
                     tanggal={s.tanggal}
                     jamMulai={s.jamMulai}
                     jamSelesai={s.jamSelesai}
@@ -447,7 +517,7 @@ const styles = StyleSheet.create({
   quickActionsGrid: {
     flexDirection: "row",
     gap: 12,
-    marginBottom: 18,
+    marginBottom: 12,
   },
   quickActionTile: {
     flex: 1,
@@ -498,6 +568,49 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: "#dbeafe",
     marginTop: 2,
+  },
+
+  permissionActionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 18,
+  },
+  permissionActionIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  permissionActionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0f172a",
+  },
+  permissionActionSub: {
+    fontSize: 12,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  pendingCountBadge: {
+    backgroundColor: "#fef9c3",
+    borderWidth: 1,
+    borderColor: "#fde047",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+  },
+  pendingCountBadgeText: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#854d0e",
   },
 
   loadingBox: {

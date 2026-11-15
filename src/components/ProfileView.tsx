@@ -44,17 +44,6 @@ export default function ProfileView() {
           <Text style={styles.infoValue}>{user.nim || "—"}</Text>
         </View>
 
-        {user.kelas && (
-          <>
-            <View style={styles.divider} />
-
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>Kelas Praktikum</Text>
-              <Text style={styles.infoValue}>Kelas {user.kelas}</Text>
-            </View>
-          </>
-        )}
-
         <View style={styles.divider} />
 
         <View style={styles.infoItem}>

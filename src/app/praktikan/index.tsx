@@ -163,7 +163,7 @@ function SessionCard({
 // ─── Kartu Riwayat Kehadiran ──────────────────────────────────────────────────
 
 function AttendanceCard({ item }: { item: AttendanceWithSession }) {
-  const tanggal = tanggalRingkas(item.session.tanggal);
+  const tanggal = tanggalRingkas(item.session?.tanggal ?? "");
 
   return (
     <View style={styles.attendanceCard}>
@@ -175,14 +175,15 @@ function AttendanceCard({ item }: { item: AttendanceWithSession }) {
 
       <View style={styles.attendanceInfo}>
         <Text style={styles.attendanceCourse} numberOfLines={1}>
-          {item.session.practicum.mataKuliah}
+          {item.session?.practicum?.mataKuliah ?? "Praktikum"}
         </Text>
         <Text style={styles.attendanceSub} numberOfLines={1}>
-          Pertemuan {item.session.practicum.nomorPraktikum} ·{" "}
-          {item.session.practicum.namaPraktikum}
+          Pertemuan {item.session?.practicum?.nomorPraktikum ?? 1} ·{" "}
+          {item.session?.practicum?.namaPraktikum ?? "Sesi Praktikum"}
         </Text>
         <Text style={styles.attendanceSub} numberOfLines={1}>
-          Kelas {item.session.kelas.namaKelas} · {item.session.ruang}
+          Kelas {item.session?.kelas?.namaKelas ?? "—"} ·{" "}
+          {item.session?.ruang ?? "—"}
         </Text>
         <View style={styles.attendanceTimeRow}>
           <View style={styles.attendanceDot} />
@@ -228,7 +229,6 @@ export default function HomePraktikan() {
         setClassesError(describeFirestoreError(error));
         setClassesLoading(false);
       },
-      user.kelas,
     );
 
     return unsubscribe;
@@ -260,10 +260,7 @@ export default function HomePraktikan() {
             <View style={styles.headerInfoRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.name}>{user.nama}</Text>
-                <Text style={styles.nim}>
-                  NIM {user.nim}
-                  {user.kelas ? ` · Kelas ${user.kelas}` : ""}
-                </Text>
+                <Text style={styles.nim}>NIM {user.nim}</Text>
               </View>
               <Pressable
                 style={styles.headerIzinBtn}
@@ -418,10 +415,12 @@ export default function HomePraktikan() {
                       <SessionCard
                         key={s.id}
                         id={s.id}
-                        mataKuliah={s.practicum.mataKuliah}
-                        namaPraktikum={s.practicum.namaPraktikum}
-                        nomorPraktikum={s.practicum.nomorPraktikum}
-                        namaKelas={s.kelas.namaKelas}
+                        mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
+                        namaPraktikum={
+                          s.practicum?.namaPraktikum ?? "Sesi Praktikum"
+                        }
+                        nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
+                        namaKelas={s.kelas?.namaKelas ?? "—"}
                         tanggal={s.tanggal}
                         jamMulai={s.jamMulai}
                         jamSelesai={s.jamSelesai}
@@ -444,10 +443,12 @@ export default function HomePraktikan() {
                       <SessionCard
                         key={s.id}
                         id={s.id}
-                        mataKuliah={s.practicum.mataKuliah}
-                        namaPraktikum={s.practicum.namaPraktikum}
-                        nomorPraktikum={s.practicum.nomorPraktikum}
-                        namaKelas={s.kelas.namaKelas}
+                        mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
+                        namaPraktikum={
+                          s.practicum?.namaPraktikum ?? "Sesi Praktikum"
+                        }
+                        nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
+                        namaKelas={s.kelas?.namaKelas ?? "—"}
                         tanggal={s.tanggal}
                         jamMulai={s.jamMulai}
                         jamSelesai={s.jamSelesai}
@@ -478,7 +479,10 @@ export default function HomePraktikan() {
                   <>
                     <Text style={styles.sectionTitle}>Catatan Kehadiran</Text>
                     {myAttendances.map((item) => (
-                      <AttendanceCard key={item.id} item={item} />
+                      <AttendanceCard
+                        key={`${item.sessionId}_${item.studentId}`}
+                        item={item}
+                      />
                     ))}
                   </>
                 )}

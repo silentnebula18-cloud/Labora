@@ -15,7 +15,7 @@ import AppIcon from "../../../components/AppIcon";
 import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../context/SessionContext";
 import { describeFirestoreError } from "../../../services/classService";
-import { getExistingPermission } from "../../../services/permissionService";
+import { subscribeStudentSessionPermission } from "../../../services/permissionService";
 import {
   isScheduleExpired as checkScheduleExpired,
   subscribeStudentSessionAttendance,
@@ -109,6 +109,7 @@ export default function SessionDetailPraktikan() {
 
   const [realtimeAttendance, setRealtimeAttendance] = useState<Attendance | null>(null);
   const [permission, setPermission] = useState<PermissionRecord | null>(null);
+  const [listenerError, setListenerError] = useState<string | null>(null);
 
   const [currentTime, setCurrentTime] = useState(() => Date.now());
 
@@ -135,17 +136,30 @@ export default function SessionDetailPraktikan() {
       user.id,
       (att) => {
         setRealtimeAttendance(att);
+        setListenerError(null);
+      },
+      (err) => {
+        setListenerError(describeFirestoreError(err));
       },
     );
     return unsubscribe;
   }, [id, user]);
 
-  // Cek apakah ada pengajuan izin untuk sesi ini
+  // Pantau pengajuan izin untuk sesi ini secara real-time (SRS 008 & 011)
   useEffect(() => {
     if (!id || !user) return;
-    getExistingPermission(user.id, id)
-      .then((rec) => setPermission(rec))
-      .catch(() => undefined);
+    const unsubscribe = subscribeStudentSessionPermission(
+      user.id,
+      id,
+      (rec) => {
+        setPermission(rec);
+        setListenerError(null);
+      },
+      (err) => {
+        setListenerError(describeFirestoreError(err));
+      },
+    );
+    return unsubscribe;
   }, [id, user]);
 
   const attendance = useMemo(() => {
@@ -258,6 +272,13 @@ export default function SessionDetailPraktikan() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        {listenerError && (
+          <View style={styles.errorBanner}>
+            <AppIcon name="alert" size={16} color="#dc2626" />
+            <Text style={styles.errorBannerText}>{listenerError}</Text>
+          </View>
+        )}
+
         {/* Info Sesi */}
         <View style={styles.sessionCard}>
           <View
@@ -610,6 +631,23 @@ const styles = StyleSheet.create({
     fontSize: 15.5,
     fontWeight: "800",
     color: "#0f172a",
+  },
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#fef2f2",
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  errorBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: "#dc2626",
+    fontWeight: "600",
   },
 
   sessionCard: {
