@@ -1,0 +1,405 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper ──────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function currentUid() {
+      return request.auth.uid;
+    }
+
+    function userPath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function classPath(classId) {
+      return /databases/$(database)/documents/classes/$(classId);
+    }
+
+    function sessionPath(sessionId) {
+      return /databases/$(database)/documents/sessions/$(sessionId);
+    }
+
+    function userExists(uid) {
+      return exists(userPath(uid));
+    }
+
+    function rolesOf(uid) {
+      return get(userPath(uid)).data.roles;
+    }
+
+    function isAssistant() {
+      return isSignedIn()
+        && userExists(currentUid())
+        && 'asisten' in rolesOf(currentUid());
+    }
+
+    function classExists(classId) {
+      return exists(classPath(classId));
+    }
+
+    function isClassAssistant(classId) {
+      return isSignedIn()
+        && classExists(classId)
+        && currentUid() in get(classPath(classId)).data.assistants;
+    }
+
+    function isClassMember(classId) {
+      return isSignedIn()
+        && classExists(classId)
+        && currentUid() in get(classPath(classId)).data.memberIds;
+    }
+
+    function onlyFields(allowed) {
+      return request.resource.data.keys().hasOnly(allowed);
+    }
+
+    function changedOnly(allowed) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowed);
+    }
+
+    function changedAny(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny(keys);
+    }
+
+    // ─── users ───────────────────────────────────────────────────────────────
+    // Role hanya boleh diberikan lewat jalur tepercaya (Firebase Console /
+    // Admin SDK). Pengguna tidak pernah boleh mengubah `roles` miliknya.
+
+    match /users/{userId} {
+      function isSelf() {
+        return isSignedIn() && currentUid() == userId;
+      }
+
+      // Profil sendiri, atau dibaca asisten untuk pencarian peserta kelas.
+      allow read: if isSelf() || isAssistant();
+
+      allow create: if isSelf()
+        && onlyFields(['uid', 'nama', 'nim', 'email', 'roles', 'activeRole', 'createdAt'])
+        && request.resource.data.keys().hasAll(['uid', 'nama', 'nim', 'email', 'roles', 'activeRole', 'createdAt'])
+        && request.resource.data.uid == userId
+        && request.resource.data.nama is string
+        && request.resource.data.nama.size() >= 1
+        && request.resource.data.nama.size() <= 100
+        && request.resource.data.nim is string
+        && request.resource.data.nim.size() >= 1
+        && request.resource.data.nim.size() <= 20
+        && request.resource.data.email is string
+        && request.resource.data.email.size() >= 3
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.roles == ['praktikan']
+        && request.resource.data.activeRole == null
+        && request.resource.data.createdAt == request.time;
+
+      // `roles` dan `uid` tidak boleh berubah: cegah eskalasi peran.
+      allow update: if isSelf()
+        && changedOnly(['nama', 'nim', 'activeRole'])
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.roles == resource.data.roles
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.nama is string
+        && request.resource.data.nim is string
+        && (request.resource.data.activeRole == null
+            || request.resource.data.activeRole in resource.data.roles);
+
+      allow delete: if false;
+    }
+
+    // ─── classes ─────────────────────────────────────────────────────────────
+
+    match /classes/{classId} {
+      allow read: if isSignedIn()
+        && (currentUid() in resource.data.assistants
+            || currentUid() in resource.data.memberIds);
+
+      allow create: if isAssistant()
+        && onlyFields(['mataKuliah', 'kodeKelas', 'assistants', 'createdBy', 'memberIds', 'createdAt'])
+        && request.resource.data.keys().hasAll(['mataKuliah', 'kodeKelas', 'assistants', 'createdBy', 'memberIds', 'createdAt'])
+        && request.resource.data.createdBy == currentUid()
+        && request.resource.data.assistants == [currentUid()]
+        && request.resource.data.memberIds == []
+        && request.resource.data.mataKuliah is string
+        && request.resource.data.mataKuliah.size() >= 1
+        && request.resource.data.mataKuliah.size() <= 100
+        && request.resource.data.kodeKelas is string
+        && request.resource.data.kodeKelas.size() >= 1
+        && request.resource.data.kodeKelas.size() <= 10
+        && request.resource.data.createdAt == request.time;
+
+      // Asisten boleh mengubah info kelas dan daftar anggota (memberIds),
+      // tetapi tidak boleh memindah kepemilikan kelas.
+      allow update: if isClassAssistant(classId)
+        && changedOnly(['mataKuliah', 'kodeKelas', 'memberIds'])
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.assistants == resource.data.assistants
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.memberIds is list
+        && request.resource.data.mataKuliah is string
+        && request.resource.data.mataKuliah.size() >= 1
+        && request.resource.data.mataKuliah.size() <= 100
+        && request.resource.data.kodeKelas is string
+        && request.resource.data.kodeKelas.size() >= 1
+        && request.resource.data.kodeKelas.size() <= 10;
+
+      allow delete: if isClassAssistant(classId);
+
+      // ─── classes/{classId}/members ─────────────────────────────────────────
+
+      match /members/{memberId} {
+        allow read: if isClassAssistant(classId)
+          || (isSignedIn() && currentUid() == memberId);
+
+        allow create: if isClassAssistant(classId)
+          && memberId != classId
+          && userExists(memberId)
+          && 'praktikan' in rolesOf(memberId)
+          && onlyFields(['uid', 'nama', 'nim', 'email', 'joinedAt'])
+          && request.resource.data.keys().hasAll(['uid', 'nama', 'nim', 'email', 'joinedAt'])
+          && request.resource.data.uid == memberId
+          && request.resource.data.nama is string
+          && request.resource.data.nim is string
+          && request.resource.data.email is string
+          && request.resource.data.joinedAt == request.time;
+
+        allow update: if isClassAssistant(classId)
+          && changedOnly(['nama', 'nim', 'email'])
+          && request.resource.data.uid == resource.data.uid
+          && request.resource.data.joinedAt == resource.data.joinedAt;
+
+        allow delete: if isClassAssistant(classId);
+      }
+    }
+
+    // ─── schedules ───────────────────────────────────────────────────────────
+
+    match /schedules/{scheduleId} {
+      allow read: if isSignedIn()
+        && (currentUid() in resource.data.assistants
+            || isClassMember(resource.data.classId));
+
+      allow create: if isAssistant()
+        && isClassAssistant(request.resource.data.classId)
+        && onlyFields([
+          'classId', 'mataKuliah', 'kodeKelas', 'nomorPraktikum',
+          'namaPraktikum', 'tanggal', 'jamMulai', 'jamSelesai', 'ruang',
+          'assistants', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'classId', 'mataKuliah', 'kodeKelas', 'nomorPraktikum',
+          'namaPraktikum', 'tanggal', 'jamMulai', 'jamSelesai', 'ruang',
+          'assistants', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.createdBy == currentUid()
+        && request.resource.data.assistants == get(classPath(request.resource.data.classId)).data.assistants
+        && request.resource.data.mataKuliah is string
+        && request.resource.data.mataKuliah.size() >= 1
+        && request.resource.data.kodeKelas is string
+        && request.resource.data.nomorPraktikum is number
+        && request.resource.data.nomorPraktikum > 0
+        && request.resource.data.nomorPraktikum <= 100
+        && request.resource.data.namaPraktikum is string
+        && request.resource.data.namaPraktikum.size() >= 1
+        && request.resource.data.namaPraktikum.size() <= 150
+        && request.resource.data.tanggal is string
+        && request.resource.data.tanggal.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.jamMulai is string
+        && request.resource.data.jamMulai.matches('^[0-9]{2}:[0-9]{2}$')
+        && request.resource.data.jamSelesai is string
+        && request.resource.data.jamSelesai.matches('^[0-9]{2}:[0-9]{2}$')
+        && request.resource.data.ruang is string
+        && request.resource.data.ruang.size() >= 1
+        && request.resource.data.ruang.size() <= 100
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Jadwal tidak boleh dipindah ke kelas lain / diubah kepemilikannya.
+      allow update: if isClassAssistant(resource.data.classId)
+        && changedOnly([
+          'mataKuliah', 'kodeKelas', 'nomorPraktikum', 'namaPraktikum',
+          'tanggal', 'jamMulai', 'jamSelesai', 'ruang', 'updatedAt'
+        ])
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.assistants == resource.data.assistants
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.mataKuliah is string
+        && request.resource.data.kodeKelas is string
+        && request.resource.data.nomorPraktikum is number
+        && request.resource.data.nomorPraktikum > 0
+        && request.resource.data.nomorPraktikum <= 100
+        && request.resource.data.namaPraktikum is string
+        && request.resource.data.namaPraktikum.size() >= 1
+        && request.resource.data.namaPraktikum.size() <= 150
+        && request.resource.data.tanggal is string
+        && request.resource.data.tanggal.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.jamMulai is string
+        && request.resource.data.jamMulai.matches('^[0-9]{2}:[0-9]{2}$')
+        && request.resource.data.jamSelesai is string
+        && request.resource.data.jamSelesai.matches('^[0-9]{2}:[0-9]{2}$')
+        && request.resource.data.ruang is string
+        && request.resource.data.ruang.size() >= 1
+        && request.resource.data.ruang.size() <= 100
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if isClassAssistant(resource.data.classId);
+    }
+
+    // ─── sessions ────────────────────────────────────────────────────────────
+    // Hanya asisten pengampu kelas yang boleh membuka/menutup sesi.
+
+    match /sessions/{sessionId} {
+      allow read: if isSignedIn()
+        && (isClassAssistant(resource.data.classId)
+            || isClassMember(resource.data.classId));
+
+      allow create: if isAssistant()
+        && request.resource.data.scheduleId == sessionId
+        && isClassAssistant(request.resource.data.classId)
+        && exists(/databases/$(database)/documents/schedules/$(sessionId))
+        && onlyFields([
+          'scheduleId', 'classId', 'kodeKelas', 'status', 'openedAt', 'closedAt',
+          'openedBy', 'closedBy', 'updatedBy', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'scheduleId', 'classId', 'kodeKelas', 'status', 'openedAt', 'closedAt',
+          'openedBy', 'closedBy', 'updatedBy', 'updatedAt'
+        ])
+        && request.resource.data.status == 'scheduled'
+        && request.resource.data.openedAt == null
+        && request.resource.data.closedAt == null
+        && request.resource.data.openedBy == null
+        && request.resource.data.closedBy == null
+        && request.resource.data.updatedBy == currentUid()
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isClassAssistant(resource.data.classId)
+        && request.resource.data.scheduleId == resource.data.scheduleId
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.updatedBy == currentUid()
+        && changedOnly([
+          'status', 'openedAt', 'closedAt', 'openedBy', 'closedBy',
+          'updatedBy', 'updatedAt', 'kodeKelas'
+        ])
+        && request.resource.data.status in ['scheduled', 'open', 'closed']
+        && request.resource.data.kodeKelas is string
+        && request.resource.data.updatedAt == request.time
+        && (
+          !changedAny(['status'])
+          || (
+            request.resource.data.status == 'open'
+            && request.resource.data.openedBy == currentUid()
+            && request.resource.data.openedAt == request.time
+            && request.resource.data.closedAt == null
+            && request.resource.data.closedBy == null
+          )
+          || (
+            request.resource.data.status == 'closed'
+            && request.resource.data.closedBy == currentUid()
+            && request.resource.data.closedAt == request.time
+          )
+        );
+
+      allow delete: if isClassAssistant(resource.data.classId);
+
+      // ─── sessions/{sessionId}/attendance ───────────────────────────────────
+
+      match /attendance/{studentId} {
+        allow read: if isSignedIn()
+          && (studentId == currentUid()
+              || isClassAssistant(get(sessionPath(sessionId)).data.classId));
+
+        // Praktikan hanya boleh mencatat kehadirannya sendiri, pada sesi
+        // yang sedang dibuka dan di kelas yang ia ikuti.
+        allow create: if isSignedIn()
+          && studentId == currentUid()
+          && exists(sessionPath(sessionId))
+          && get(sessionPath(sessionId)).data.status == 'open'
+          && isClassMember(get(sessionPath(sessionId)).data.classId)
+          && onlyFields(['studentId', 'nama', 'nim', 'sessionId', 'waktuHadir'])
+          && request.resource.data.keys().hasAll(['studentId', 'nama', 'nim', 'sessionId', 'waktuHadir'])
+          && request.resource.data.studentId == currentUid()
+          && request.resource.data.sessionId == sessionId
+          && request.resource.data.nama is string
+          && request.resource.data.nama.size() >= 1
+          && request.resource.data.nim is string
+          && request.resource.data.waktuHadir == request.time;
+
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── permissionRequests ──────────────────────────────────────────────────
+    // Praktikan hanya membuat & membaca pengajuannya sendiri. Keputusan izin
+    // hanya boleh diubah sekali oleh asisten pengampu kelas terkait.
+
+    match /permissionRequests/{permissionId} {
+      allow read: if isSignedIn()
+        && (resource.data.uid == currentUid()
+            || isClassAssistant(resource.data.classId));
+
+      allow create: if isSignedIn()
+        && onlyFields([
+          'uid', 'nama', 'nim', 'classId', 'sessionId', 'mataKuliah',
+          'namaPraktikum', 'nomorPraktikum', 'alasan', 'status', 'aiStatus',
+          'aiCategory', 'aiConfidence', 'aiProcessedAt', 'decidedBy',
+          'decidedAt', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'uid', 'nama', 'nim', 'classId', 'sessionId', 'mataKuliah',
+          'namaPraktikum', 'nomorPraktikum', 'alasan', 'status', 'aiStatus',
+          'aiCategory', 'aiConfidence', 'aiProcessedAt', 'decidedBy',
+          'decidedAt', 'createdAt'
+        ])
+        && request.resource.data.uid == currentUid()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.decidedBy == null
+        && request.resource.data.decidedAt == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.aiStatus in ['success', 'failed']
+        && (request.resource.data.aiCategory == null
+            || request.resource.data.aiCategory in ['positif', 'netral', 'negatif'])
+        && (request.resource.data.aiConfidence == null
+            || (request.resource.data.aiConfidence is number
+                && request.resource.data.aiConfidence >= 0
+                && request.resource.data.aiConfidence <= 1))
+        && (request.resource.data.aiProcessedAt == null
+            || request.resource.data.aiProcessedAt == request.time)
+        && request.resource.data.alasan is string
+        && request.resource.data.alasan.size() >= 1
+        && request.resource.data.alasan.size() <= 2000
+        && request.resource.data.nama is string
+        && request.resource.data.nim is string
+        && request.resource.data.mataKuliah is string
+        && request.resource.data.namaPraktikum is string
+        && request.resource.data.nomorPraktikum is number
+        && request.resource.data.nomorPraktikum > 0
+        && request.resource.data.nomorPraktikum <= 100
+        && isClassMember(request.resource.data.classId)
+        && exists(sessionPath(request.resource.data.sessionId))
+        && get(sessionPath(request.resource.data.sessionId)).data.classId == request.resource.data.classId;
+
+      // Keputusan hanya boleh dari pending → approved/rejected, sekali saja,
+      // dan tidak boleh memutuskan pengajuan milik sendiri.
+      allow update: if isClassAssistant(resource.data.classId)
+        && resource.data.uid != currentUid()
+        && changedOnly(['status', 'decidedBy', 'decidedAt'])
+        && resource.data.status == 'pending'
+        && request.resource.data.status in ['approved', 'rejected']
+        && request.resource.data.decidedBy == currentUid()
+        && request.resource.data.decidedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    // Tolak semua akses ke collection lain.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
