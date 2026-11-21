@@ -45,9 +45,9 @@ Berikut adalah struktur *collection*, *subcollection*, dan *field* **Cloud Fires
   - `kodeKelas`: `string` *(kode kelas `"A1"`–`"E2"`)*
   - `nomorPraktikum`: `number`
   - `namaPraktikum`: `string`
-  - `tanggal`: `string` *(format `"YYYY-MM-DD"`)*
-  - `jamMulai`: `string` *(format `"HH:mm"`)*
-  - `jamSelesai`: `string` *(format `"HH:mm"`)*
+  - `tanggal`: `Timestamp` *(tanggal pelaksanaan praktikum)*
+  - `jamMulai`: `Timestamp` *(waktu mulai praktikum, rentang `07:40` – `18:10` WIB)*
+  - `jamSelesai`: `Timestamp` *(waktu selesai praktikum, wajib berdurasi tepat 2 jam / 120 menit dari `jamMulai`, rentang `09:40` – `20:10` WIB)*
   - `ruang`: `string`
   - `assistants`: `string[]` *(array UID asisten dari kelas)*
   - `createdBy`: `string` *(UID asisten pembuat)*
@@ -62,6 +62,7 @@ Berikut adalah struktur *collection*, *subcollection*, dan *field* **Cloud Fires
   - `scheduleId`: `string` *(referensi ke `schedules/{scheduleId}`)*
   - `classId`: `string` *(referensi ke `classes/{classId}`)*
   - `kodeKelas`: `string` *(kode kelas `"A1"`–`"E2"`)*
+  - `kodePresensi`: `string` *(kode unik beridentitas kelas & pertemuan, format `<KodeKelas><Pertemuan><4DigitAcak>`, contoh `"A114829"`)*
   - `status`: `"scheduled" | "open" | "closed"`
   - `openedAt`: `Timestamp | null`
   - `closedAt`: `Timestamp | null`
@@ -77,6 +78,10 @@ Berikut adalah struktur *collection*, *subcollection*, dan *field* **Cloud Fires
     - `nim`: `string`
     - `sessionId`: `string`
     - `waktuHadir`: `Timestamp`
+    - `latitude`: `number` *(koordinat latitude perangkat praktikan saat presensi — SRS-014)*
+    - `longitude`: `number` *(koordinat longitude perangkat praktikan saat presensi — SRS-014)*
+    - `jarakMeter`: `number` *(jarak praktikan ke laboratorium dalam meter saat presensi — SRS-014)*
+    - `radiusMeter`: `number` *(batas radius laboratorium dalam meter — SRS-014)*
 
 ---
 
@@ -100,4 +105,17 @@ Berikut adalah struktur *collection*, *subcollection*, dan *field* **Cloud Fires
   - `decidedBy`: `string | null` *(UID asisten yang memutuskan, null saat pending)*
   - `decidedAt`: `Timestamp | null` *(waktu keputusan asisten, null saat pending)*
   - `createdAt`: `Timestamp`
+
+---
+
+### 6. Collection `laboratories/{labId}` *(SRS-014 & SRS-015)*
+- **Document ID:** Auto-generated ID atau slug ruangan
+- **Fields:**
+  - `nama`: `string` *(nama laboratorium, contoh `"Laboratorium Komputer B"`, `"Laboratorium Komputer C"`, `"Laboratorium Komputer D"`, `"Laboratorium Komputer AP"` — cocok dengan field `ruang` pada `schedules` & `sessions`)*
+  - `latitude`: `number` *(koordinat titik pusat laboratorium)*
+  - `longitude`: `number` *(koordinat titik pusat laboratorium)*
+  - `radius`: `number` *(batas jarak presensi dalam satuan meter, contoh `50`)*
+  - `updatedAt`: `Timestamp` *(opsional)*
+  - `updatedBy`: `string` *(opsional, UID asisten)*
+
 

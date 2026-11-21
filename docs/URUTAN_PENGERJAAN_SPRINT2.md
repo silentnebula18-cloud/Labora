@@ -100,15 +100,15 @@ Pengujian juga harus mencakup presensi ganda, sesi tertutup, pengguna dengan rol
 
 ### Ringkasan Urutan Pengerjaan
 
-| Tahap | Penanggung jawab | SRS / pekerjaan | Hasil utama |
-|---|---|---|---|
-| 0 | Project Manager | Persiapan Firebase dan kontrak data | Firebase Project dan struktur Firestore disepakati |
-| 1 | Rahmat | SRS 004 dan SRS 005 | Authentication, role, kelas, dan peserta tersedia |
-| 2 | Farhan | SRS 006 | Jadwal dan sesi tersedia |
-| 3 | Christianna | SRS 007, SRS 009, dan SRS 010 | Presensi, pengajuan izin, dan hasil klasifikasi AI tersedia |
-| 4 | Farhan | SRS 011 dan SRS 008 | Pemeriksaan izin dan sinkronisasi real-time tersedia |
-| 5 | Rahmat | Finalisasi SRS 012 | Security Rules diterapkan untuk seluruh collection |
-| 6 | Seluruh anggota | Pengujian integrasi | Kedua alur demonstrasi berhasil diuji |
+| Tahap | Penanggung jawab | SRS / pekerjaan                     | Hasil utama                                                 |
+| ----- | ---------------- | ----------------------------------- | ----------------------------------------------------------- |
+| 0     | Project Manager  | Persiapan Firebase dan kontrak data | Firebase Project dan struktur Firestore disepakati          |
+| 1     | Rahmat           | SRS 004 dan SRS 005                 | Authentication, role, kelas, dan peserta tersedia           |
+| 2     | Farhan           | SRS 006                             | Jadwal dan sesi tersedia                                    |
+| 3     | Christianna      | SRS 007, SRS 009, dan SRS 010       | Presensi, pengajuan izin, dan hasil klasifikasi AI tersedia |
+| 4     | Farhan           | SRS 011 dan SRS 008                 | Pemeriksaan izin dan sinkronisasi real-time tersedia        |
+| 5     | Rahmat           | Finalisasi SRS 012                  | Security Rules diterapkan untuk seluruh collection          |
+| 6     | Seluruh anggota  | Pengujian integrasi                 | Kedua alur demonstrasi berhasil diuji                       |
 
 ### Ketentuan Koordinasi dan Penyerahan Pekerjaan
 

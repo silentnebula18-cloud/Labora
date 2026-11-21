@@ -92,22 +92,22 @@ export function describeFirestoreError(error: unknown): string {
       : "";
 
   if (code.includes("permission-denied")) {
-    return "Anda tidak memiliki akses untuk mengubah data ini.";
+    return "Akses ditolak";
   }
   if (
     code.includes("unavailable") ||
     code.includes("network-request-failed") ||
     code.includes("failed-precondition")
   ) {
-    return "Koneksi ke database bermasalah. Periksa jaringan Anda.";
+    return "Koneksi bermasalah";
   }
   if (code.includes("not-found")) {
-    return "Data tidak ditemukan.";
+    return "Data tidak ditemukan";
   }
   if (code.includes("already-exists")) {
-    return "Data tersebut sudah ada.";
+    return "Data sudah ada";
   }
-  return "Terjadi kesalahan saat menyimpan data.";
+  return "Gagal memproses data";
 }
 
 // ─── Kelas ────────────────────────────────────────────────────────────────────
@@ -258,7 +258,12 @@ export async function findUserByNim(
 export async function addClassMember(
   classId: string,
   user: UserLookup,
+  assistantUids: string[] = [],
 ): Promise<void> {
+  if (assistantUids.includes(user.uid)) {
+    throw new Error("Tidak dapat mendaftarkan asisten kelas");
+  }
+
   const batch = writeBatch(db);
   batch.set(doc(db, "classes", classId, "members", user.uid), {
     uid: user.uid,

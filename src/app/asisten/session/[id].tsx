@@ -29,20 +29,9 @@ import {
   type ScheduleInput,
 } from "../../../services/sessionService";
 import type { ClassRecord, SessionStatus } from "../../../types";
+import { formatJam, formatTanggal } from "../../../utils/format";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatTanggal(iso: string) {
-  if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 function formatWaktu(isoString: string) {
   const d = new Date(isoString);
@@ -407,7 +396,8 @@ export default function SessionDetailScreen() {
                   <View>
                     <Text style={styles.detailLabel}>Waktu Pelaksanaan</Text>
                     <Text style={styles.detailValue}>
-                      {session.jamMulai} – {session.jamSelesai} WIB
+                      {formatJam(session.jamMulai)} –{" "}
+                      {formatJam(session.jamSelesai)} WIB
                     </Text>
                   </View>
                 </View>
@@ -419,6 +409,19 @@ export default function SessionDetailScreen() {
                   <View>
                     <Text style={styles.detailLabel}>Ruang Laboratorium</Text>
                     <Text style={styles.detailValue}>{session.ruang}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailItem}>
+                  <View style={styles.detailIconBox}>
+                    <AppIcon name="check" size={16} color="#2563eb" />
+                  </View>
+                  <View>
+                    <Text style={styles.detailLabel}>Kode Presensi Sesi</Text>
+                    <Text style={styles.attendanceCodeValue}>
+                      {session.kodePresensi ||
+                        "Otomatis dibuat saat sesi dibuka"}
+                    </Text>
                   </View>
                 </View>
 
@@ -526,8 +529,9 @@ export default function SessionDetailScreen() {
                   <View style={styles.sessionWarningBox}>
                     <AppIcon name="alert" size={15} color="#b45309" />
                     <Text style={styles.sessionWarningText}>
-                      Waktu jadwal telah melewati pukul {session.jamSelesai} WIB.
-                      Silakan tutup sesi jika praktikum telah selesai.
+                      Waktu jadwal telah melewati pukul{" "}
+                      {formatJam(session.jamSelesai)} WIB. Silakan tutup sesi
+                      jika praktikum telah selesai.
                     </Text>
                   </View>
                 )}
@@ -554,7 +558,7 @@ export default function SessionDetailScreen() {
                       <Text style={styles.closedReopenNoticeText}>
                         Sesi saat ini sedang ditutup. Anda dapat membukanya
                         kembali selama rentang waktu praktikum masih berlangsung
-                        (sebelum pukul {session.jamSelesai} WIB).
+                        (sebelum pukul {formatJam(session.jamSelesai)} WIB).
                       </Text>
                     </View>
                     <Pressable
@@ -582,8 +586,8 @@ export default function SessionDetailScreen() {
                       </Text>
                       <Text style={styles.closedBannerSubtext}>
                         Waktu jadwal praktikum telah berakhir (melewati pk{" "}
-                        {session.jamSelesai} WIB). Untuk membuka sesi ini
-                        kembali, silakan sesuaikan jam selesai melalui tombol
+                        {formatJam(session.jamSelesai)} WIB). Untuk membuka sesi
+                        ini kembali, silakan sesuaikan jam selesai melalui tombol
                         &quot;Ubah Jadwal&quot; di atas.
                       </Text>
                     </View>
@@ -874,6 +878,13 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: "#0f172a",
     fontWeight: "600",
+    marginTop: 1,
+  },
+  attendanceCodeValue: {
+    fontSize: 16,
+    color: "#1d4ed8",
+    fontWeight: "800",
+    letterSpacing: 1.5,
     marginTop: 1,
   },
 

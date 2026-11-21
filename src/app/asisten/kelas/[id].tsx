@@ -170,13 +170,15 @@ export default function KelasDetailScreen() {
     const nim = addNim.trim();
 
     if (!nim) {
-      setAddError("NIM peserta wajib diisi");
+      setAddError("NIM wajib diisi");
       return;
     }
     if (!NIM_PATTERN.test(nim)) {
-      setAddError(
-        "NIM harus terdiri dari 14 digit angka tanpa huruf atau karakter lain",
-      );
+      setAddError("NIM tidak valid");
+      return;
+    }
+    if (user?.nim && nim === user.nim.trim()) {
+      setAddError("Tidak dapat mendaftarkan NIM sendiri");
       return;
     }
 
@@ -187,21 +189,26 @@ export default function KelasDetailScreen() {
       const found = await findUserByNim(nim);
 
       if (!found) {
-        setAddError(
-          "Akun dengan NIM tersebut tidak ditemukan. Pastikan praktikan sudah registrasi.",
-        );
+        setAddError("NIM tidak ditemukan");
+        return;
+      }
+      if (
+        found.uid === user?.id ||
+        (classData && classData.assistants.includes(found.uid))
+      ) {
+        setAddError("Tidak dapat mendaftarkan asisten kelas");
         return;
       }
       if (!found.roles.includes("praktikan")) {
-        setAddError("Akun ini tidak memiliki peran praktikan.");
+        setAddError("Akun bukan praktikan");
         return;
       }
       if (members.some((member) => member.uid === found.uid)) {
-        setAddError("Peserta sudah terdaftar di kelas ini.");
+        setAddError("Peserta sudah terdaftar");
         return;
       }
 
-      await addClassMember(classId, found);
+      await addClassMember(classId, found, classData?.assistants ?? []);
       setAddVisible(false);
       setAddNim("");
     } catch (error) {
@@ -501,7 +508,9 @@ export default function KelasDetailScreen() {
                 </View>
               )}
 
-              <Text style={styles.inputLabel}>NIM peserta</Text>
+              <Text style={styles.inputLabel}>
+                NIM peserta <Text style={styles.requiredMark}>*</Text>
+              </Text>
               <TextInput
                 style={styles.input}
                 value={addNim}
@@ -831,6 +840,10 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginTop: 10,
     marginBottom: 6,
+  },
+  requiredMark: {
+    color: "#dc2626",
+    fontWeight: "700",
   },
   input: {
     borderWidth: 1,

@@ -323,20 +323,20 @@ export async function decidePermissionRequest(
   decision: Exclude<PermissionStatus, "pending">,
 ): Promise<void> {
   if (!permissionId) {
-    throw new Error("ID pengajuan izin tidak valid.");
+    throw new Error("ID pengajuan tidak valid");
   }
   if (!assistantUid) {
-    throw new Error("Identitas asisten tidak ditemukan.");
+    throw new Error("Asisten tidak valid");
   }
   if (decision !== "approved" && decision !== "rejected") {
-    throw new Error("Keputusan harus berupa approved atau rejected.");
+    throw new Error("Keputusan tidak valid");
   }
 
   const docRef = doc(db, "permissionRequests", permissionId);
   const snapshot = await getDoc(docRef);
 
   if (!snapshot.exists()) {
-    throw new Error("Data pengajuan izin tidak ditemukan.");
+    throw new Error("Pengajuan tidak ditemukan");
   }
 
   const currentData = snapshot.data() as Record<string, unknown>;
@@ -345,9 +345,7 @@ export async function decidePermissionRequest(
     : "pending";
 
   if (currentStatus !== "pending") {
-    throw new Error(
-      "Pengajuan izin ini sudah diputuskan sebelumnya dan tidak dapat diubah.",
-    );
+    throw new Error("Pengajuan sudah diputuskan");
   }
 
   await updateDoc(docRef, {

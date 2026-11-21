@@ -24,7 +24,7 @@ import type {
   PermissionRecord,
   PermissionStatus,
 } from "../../../types";
-import { formatTanggal } from "../../../utils/format";
+import { formatJam, formatTanggal } from "../../../utils/format";
 
 // ─── Konfigurasi Status ──────────────────────────────────────────────────────
 
@@ -146,9 +146,9 @@ export default function IzinAsistenListScreen() {
     const map = new Map<
       string,
       {
-        tanggal: string;
-        jamMulai: string;
-        jamSelesai: string;
+        tanggal: Date;
+        jamMulai: Date;
+        jamSelesai: Date;
         ruang: string;
         namaKelas: string;
         mataKuliah: string;
@@ -379,7 +379,7 @@ export default function IzinAsistenListScreen() {
                 sessInfo?.namaPraktikum ||
                 "Sesi Praktikum";
               const jadwalStr = sessInfo
-                ? `${formatTanggal(sessInfo.tanggal)} · ${sessInfo.jamMulai} – ${sessInfo.jamSelesai} WIB`
+                ? `${formatTanggal(sessInfo.tanggal)} · ${formatJam(sessInfo.jamMulai)} – ${formatJam(sessInfo.jamSelesai)} WIB`
                 : "Jadwal mengikuti sesi praktikum";
 
               return (

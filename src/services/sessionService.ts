@@ -1,16 +1,19 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
+  Timestamp,
   where,
   writeBatch,
 } from "@react-native-firebase/firestore";
 
 import { db } from "../lib/firebase";
+import { validateStudentLabProximity } from "./locationService";
 import { attendances } from "../mocks/attendances";
 import { classes } from "../mocks/classes";
 import { enrollments } from "../mocks/enrollments";
@@ -34,9 +37,9 @@ export interface ScheduleInput {
   classId: string;
   nomorPraktikum: number;
   namaPraktikum: string;
-  tanggal: string; // "YYYY-MM-DD"
-  jamMulai: string; // "HH:mm"
-  jamSelesai: string; // "HH:mm"
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
   ruang: string;
 }
 
@@ -60,18 +63,28 @@ export type AttendanceErrorCode =
   | "TIDAK_TERDAFTAR"
   | "SESI_BELUM_DIBUKA"
   | "SESI_DITUTUP"
-  | "SUDAH_PRESENSI";
+  | "SUDAH_PRESENSI"
+  | "LAB_TIDAK_DITEMUKAN"
+  | "IZIN_LOKASI_DITOLAK"
+  | "GPS_TIDAK_AKTIF"
+  | "LOKASI_GAGAL"
+  | "DI_LUAR_RADIUS";
 
 export type MarkAttendanceResult =
   | { ok: true; attendance: Attendance }
   | { ok: false; code: AttendanceErrorCode; message: string };
 
 const ATTENDANCE_ERROR_MESSAGES: Record<AttendanceErrorCode, string> = {
-  SESI_TIDAK_DITEMUKAN: "Sesi praktikum tidak ditemukan",
-  TIDAK_TERDAFTAR: "Anda tidak terdaftar pada kelas sesi ini",
-  SESI_BELUM_DIBUKA: "Sesi belum dibuka oleh asisten",
-  SESI_DITUTUP: "Sesi sudah ditutup, presensi tidak dapat dilakukan",
-  SUDAH_PRESENSI: "Anda sudah melakukan presensi pada sesi ini",
+  SESI_TIDAK_DITEMUKAN: "Sesi tidak ditemukan",
+  TIDAK_TERDAFTAR: "Anda tidak terdaftar di kelas ini",
+  SESI_BELUM_DIBUKA: "Sesi belum dibuka",
+  SESI_DITUTUP: "Sesi sudah ditutup",
+  SUDAH_PRESENSI: "Anda sudah melakukan presensi",
+  LAB_TIDAK_DITEMUKAN: "Data lokasi laboratorium belum tersedia",
+  IZIN_LOKASI_DITOLAK: "Izin akses lokasi ditolak",
+  GPS_TIDAK_AKTIF: "GPS perangkat tidak aktif",
+  LOKASI_GAGAL: "Gagal mendapatkan lokasi perangkat",
+  DI_LUAR_RADIUS: "Lokasi di luar radius laboratorium",
 };
 
 const failAttendance = (code: AttendanceErrorCode): MarkAttendanceResult => ({
@@ -123,10 +136,42 @@ function normalizeSessionStatus(value: unknown): SessionStatus {
   return "scheduled";
 }
 
+function parseScheduleDate(value: unknown): Date {
+  const asDate = toDate(value);
+  if (asDate) return asDate;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
+    const parsed = new Date(`${value.trim()}T00:00:00`);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return new Date();
+}
+
+function parseScheduleTime(
+  value: unknown,
+  baseDate: Date,
+  fallbackHours: number,
+  fallbackMinutes: number,
+): Date {
+  const asDate = toDate(value);
+  if (asDate) return asDate;
+  const result = new Date(baseDate);
+  if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value.trim())) {
+    const [h, m] = value.trim().split(":").map(Number);
+    result.setHours(h, m, 0, 0);
+    return result;
+  }
+  result.setHours(fallbackHours, fallbackMinutes, 0, 0);
+  return result;
+}
+
 function mapSchedule(
   id: string,
   data: Record<string, unknown>,
 ): ScheduleRecord {
+  const tanggal = parseScheduleDate(data.tanggal);
+  const jamMulai = parseScheduleTime(data.jamMulai, tanggal, 7, 40);
+  const jamSelesai = parseScheduleTime(data.jamSelesai, tanggal, 9, 40);
+
   return {
     id,
     classId: readString(data.classId),
@@ -134,9 +179,9 @@ function mapSchedule(
     kodeKelas: readString(data.kodeKelas),
     nomorPraktikum: readNumber(data.nomorPraktikum, 1),
     namaPraktikum: readString(data.namaPraktikum),
-    tanggal: readString(data.tanggal),
-    jamMulai: readString(data.jamMulai),
-    jamSelesai: readString(data.jamSelesai),
+    tanggal,
+    jamMulai,
+    jamSelesai,
     ruang: readString(data.ruang),
     assistants: readStringList(data.assistants),
     createdBy: readString(data.createdBy),
@@ -145,16 +190,41 @@ function mapSchedule(
   };
 }
 
+/**
+ * Bangkitkan kode presensi unik beridentitas kelas & pertemuan:
+ * `<2 Karakter Kode Kelas><Nomor Pertemuan><4 Digit Angka Acak>` (contoh: "A114829").
+ */
+export function generateAttendanceCode(
+  kodeKelas?: string,
+  nomorPraktikum?: number,
+): string {
+  const cleanPrefix = (kodeKelas ?? "")
+    .replace(/[^A-Z0-9]/gi, "")
+    .toUpperCase()
+    .slice(0, 2);
+  const prefix = cleanPrefix.length === 2 ? cleanPrefix : "LB";
+  const pertemuan =
+    typeof nomorPraktikum === "number" &&
+    Number.isFinite(nomorPraktikum) &&
+    nomorPraktikum > 0
+      ? String(Math.floor(nomorPraktikum))
+      : "1";
+  const randomDigits = Math.floor(1000 + Math.random() * 9000);
+  return `${prefix}${pertemuan}${randomDigits}`;
+}
+
 function mapSessionRecord(
   id: string,
   data: Record<string, unknown>,
 ): SessionRecord {
   const kodeKelas = readString(data.kodeKelas).trim().toUpperCase();
+  const kodePresensi = readString(data.kodePresensi).trim().toUpperCase();
   return {
     id,
     scheduleId: readString(data.scheduleId) || id,
     classId: readString(data.classId),
     kodeKelas: kodeKelas || undefined,
+    kodePresensi: kodePresensi || undefined,
     status: normalizeSessionStatus(data.status),
     openedAt: toDate(data.openedAt),
     closedAt: toDate(data.closedAt),
@@ -186,6 +256,7 @@ function combineScheduleAndSession(
     ruang: schedule.ruang,
     assistantId: schedule.createdBy || schedule.assistants[0] || "",
     assistants: schedule.assistants,
+    kodePresensi: session?.kodePresensi,
     status: session?.status ?? "scheduled",
     openedAt: session?.openedAt ?? null,
     closedAt: session?.closedAt ?? null,
@@ -263,13 +334,15 @@ function updateLocalSessionsCache(items: SessionWithMeta[]) {
 }
 
 function byJadwalAsc(a: SessionWithMeta, b: SessionWithMeta): number {
-  if (a.tanggal !== b.tanggal) return a.tanggal.localeCompare(b.tanggal);
-  return a.jamMulai.localeCompare(b.jamMulai);
+  const diffTanggal = a.tanggal.getTime() - b.tanggal.getTime();
+  if (diffTanggal !== 0) return diffTanggal;
+  return a.jamMulai.getTime() - b.jamMulai.getTime();
 }
 
 function byJadwalDesc(a: SessionWithMeta, b: SessionWithMeta): number {
-  if (b.tanggal !== a.tanggal) return b.tanggal.localeCompare(a.tanggal);
-  return b.jamMulai.localeCompare(a.jamMulai);
+  const diffTanggal = b.tanggal.getTime() - a.tanggal.getTime();
+  if (diffTanggal !== 0) return diffTanggal;
+  return b.jamMulai.getTime() - a.jamMulai.getTime();
 }
 
 // ─── Listener Real-Time Firestore (SRS 006) ───────────────────────────────────
@@ -578,17 +651,17 @@ export async function createScheduleAndSession(
   const scheduleRef = doc(collection(db, "schedules"));
   const sessionRef = doc(db, "sessions", scheduleRef.id);
 
-  const batch = writeBatch(db);
-
-  batch.set(scheduleRef, {
+  // Simpan dokumen jadwal terlebih dahulu agar pengecekan `exists` pada rule
+  // `sessions/{sessionId}` terpenuhi saat dokumen sesi dibuat.
+  await setDoc(scheduleRef, {
     classId: kelas.id,
     mataKuliah: kelas.mataKuliah.trim(),
     kodeKelas: kelas.kodeKelas.trim().toUpperCase(),
     nomorPraktikum: Number(input.nomorPraktikum),
     namaPraktikum: input.namaPraktikum.trim(),
-    tanggal: input.tanggal.trim(),
-    jamMulai: input.jamMulai.trim(),
-    jamSelesai: input.jamSelesai.trim(),
+    tanggal: Timestamp.fromDate(input.tanggal),
+    jamMulai: Timestamp.fromDate(input.jamMulai),
+    jamSelesai: Timestamp.fromDate(input.jamSelesai),
     ruang: input.ruang.trim(),
     assistants: kelas.assistants,
     createdBy: assistantUid,
@@ -596,20 +669,31 @@ export async function createScheduleAndSession(
     updatedAt: serverTimestamp(),
   });
 
-  batch.set(sessionRef, {
-    scheduleId: scheduleRef.id,
-    classId: kelas.id,
-    kodeKelas: kelas.kodeKelas.trim().toUpperCase(),
-    status: "scheduled",
-    openedAt: null,
-    closedAt: null,
-    openedBy: null,
-    closedBy: null,
-    updatedBy: assistantUid,
-    updatedAt: serverTimestamp(),
-  });
+  const normalizedKodeKelas = kelas.kodeKelas.trim().toUpperCase();
+  const kodePresensi = generateAttendanceCode(
+    normalizedKodeKelas,
+    input.nomorPraktikum,
+  );
 
-  await batch.commit();
+  try {
+    await setDoc(sessionRef, {
+      scheduleId: scheduleRef.id,
+      classId: kelas.id,
+      kodeKelas: normalizedKodeKelas,
+      kodePresensi,
+      status: "scheduled",
+      openedAt: null,
+      closedAt: null,
+      openedBy: null,
+      closedBy: null,
+      updatedBy: assistantUid,
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    await deleteDoc(scheduleRef).catch(() => undefined);
+    throw error;
+  }
+
   return scheduleRef.id;
 }
 
@@ -633,9 +717,9 @@ export async function updateScheduleAndSession(
     kodeKelas: kelas.kodeKelas.trim().toUpperCase(),
     nomorPraktikum: Number(input.nomorPraktikum),
     namaPraktikum: input.namaPraktikum.trim(),
-    tanggal: input.tanggal.trim(),
-    jamMulai: input.jamMulai.trim(),
-    jamSelesai: input.jamSelesai.trim(),
+    tanggal: Timestamp.fromDate(input.tanggal),
+    jamMulai: Timestamp.fromDate(input.jamMulai),
+    jamSelesai: Timestamp.fromDate(input.jamSelesai),
     ruang: input.ruang.trim(),
     assistants: kelas.assistants,
     updatedAt: serverTimestamp(),
@@ -674,10 +758,39 @@ export async function openSessionInFirestore(
   sessionId: string,
   assistantUid: string,
 ): Promise<void> {
+  const sessionRef = doc(db, "sessions", sessionId);
+  const existing = getSessionById(sessionId);
+  let kodePresensi = existing?.kodePresensi;
+
+  if (!kodePresensi) {
+    try {
+      const snap = await getDoc(sessionRef);
+      const snapData = snap.data() as Record<string, unknown> | undefined;
+      const storedCode = readString(snapData?.kodePresensi)
+        .trim()
+        .toUpperCase();
+      const storedKelas =
+        readString(snapData?.kodeKelas).trim().toUpperCase() ||
+        existing?.kelas?.namaKelas;
+      kodePresensi =
+        storedCode ||
+        generateAttendanceCode(
+          storedKelas,
+          existing?.practicum?.nomorPraktikum,
+        );
+    } catch {
+      kodePresensi = generateAttendanceCode(
+        existing?.kelas?.namaKelas,
+        existing?.practicum?.nomorPraktikum,
+      );
+    }
+  }
+
   await setDoc(
-    doc(db, "sessions", sessionId),
+    sessionRef,
     {
       status: "open",
+      kodePresensi,
       openedAt: serverTimestamp(),
       openedBy: assistantUid,
       closedAt: null,
@@ -691,17 +804,25 @@ export async function openSessionInFirestore(
 
 /**
  * Periksa apakah rentang waktu jadwal sesi telah berakhir.
- * Membandingkan tanggal (YYYY-MM-DD) dan jamSelesai (HH:mm) dengan waktu saat ini.
+ * Membandingkan jamSelesai (Date / Timestamp) dengan waktu saat ini.
  */
 export function isScheduleExpired(
-  tanggal?: string,
-  jamSelesai?: string,
+  tanggal?: Date | string,
+  jamSelesai?: Date | string,
   currentEpoch: number = Date.now(),
 ): boolean {
-  if (!tanggal || !jamSelesai) return false;
+  if (!jamSelesai) return false;
+  if (jamSelesai instanceof Date) {
+    return currentEpoch > jamSelesai.getTime();
+  }
+  if (!tanggal) return false;
   try {
-    const [year, month, day] = tanggal.split("-").map(Number);
-    const [hours, minutes] = jamSelesai.split(":").map(Number);
+    const dateStr =
+      tanggal instanceof Date
+        ? tanggal.toISOString().slice(0, 10)
+        : String(tanggal);
+    const [year, month, day] = dateStr.split("-").map(Number);
+    const [hours, minutes] = String(jamSelesai).split(":").map(Number);
     if (!year || !month || !day || isNaN(hours) || isNaN(minutes)) return false;
     const end = new Date(year, month - 1, day, hours, minutes, 0);
     return currentEpoch > end.getTime();
@@ -875,6 +996,23 @@ export function subscribeSessionAttendances(
         const waktuHadir = waktuHadirDate
           ? waktuHadirDate.toISOString()
           : new Date().toISOString();
+        const latitude =
+          typeof data.latitude === "number" && Number.isFinite(data.latitude)
+            ? data.latitude
+            : undefined;
+        const longitude =
+          typeof data.longitude === "number" && Number.isFinite(data.longitude)
+            ? data.longitude
+            : undefined;
+        const jarakMeter =
+          typeof data.jarakMeter === "number" && Number.isFinite(data.jarakMeter)
+            ? data.jarakMeter
+            : undefined;
+        const radiusMeter =
+          typeof data.radiusMeter === "number" &&
+          Number.isFinite(data.radiusMeter)
+            ? data.radiusMeter
+            : undefined;
 
         // Update cache lokal juga
         const existingIdx = _attendances.findIndex(
@@ -886,6 +1024,10 @@ export function subscribeSessionAttendances(
           sessionId,
           studentId,
           waktuHadir,
+          latitude,
+          longitude,
+          jarakMeter,
+          radiusMeter,
         };
         if (existingIdx === -1) {
           _attendances.push(attRecord);
@@ -898,6 +1040,10 @@ export function subscribeSessionAttendances(
           sessionId,
           studentId,
           waktuHadir,
+          latitude,
+          longitude,
+          jarakMeter,
+          radiusMeter,
           namaStudentId: studentId,
           namaStudent: studentName || "Praktikan",
           nimStudent: studentNim || "—",
@@ -934,12 +1080,32 @@ export function subscribeStudentSessionAttendance(
       const waktuHadir = waktuHadirDate
         ? waktuHadirDate.toISOString()
         : new Date().toISOString();
+      const latitude =
+        typeof data.latitude === "number" && Number.isFinite(data.latitude)
+          ? data.latitude
+          : undefined;
+      const longitude =
+        typeof data.longitude === "number" && Number.isFinite(data.longitude)
+          ? data.longitude
+          : undefined;
+      const jarakMeter =
+        typeof data.jarakMeter === "number" && Number.isFinite(data.jarakMeter)
+          ? data.jarakMeter
+          : undefined;
+      const radiusMeter =
+        typeof data.radiusMeter === "number" && Number.isFinite(data.radiusMeter)
+          ? data.radiusMeter
+          : undefined;
 
       const record: Attendance = {
         id: `${sessionId}_${docSnap.id}`,
         sessionId,
         studentId,
         waktuHadir,
+        latitude,
+        longitude,
+        jarakMeter,
+        radiusMeter,
       };
 
       // Sinkronkan ke cache lokal
@@ -990,8 +1156,7 @@ export async function markAttendance(
     return {
       ok: false,
       code: "SESI_DITUTUP",
-      message:
-        "Waktu praktikum telah berakhir (melewati jam selesai). Presensi tidak dapat dilakukan.",
+      message: "Waktu presensi telah berakhir",
     };
   }
 
@@ -1010,6 +1175,16 @@ export async function markAttendance(
     if (alreadyLocal) return failAttendance("SUDAH_PRESENSI");
   }
 
+  // Validasi Lokasi GPS & Radius Laboratorium (SRS-014)
+  const proximity = await validateStudentLabProximity(session.ruang);
+  if (!proximity.ok) {
+    return {
+      ok: false,
+      code: proximity.code,
+      message: proximity.message,
+    };
+  }
+
   const nowIso = new Date().toISOString();
   const studentName =
     studentInfo?.nama?.trim() ||
@@ -1020,13 +1195,17 @@ export async function markAttendance(
     users.find((u) => u.id === studentId)?.nim ||
     "—";
 
-  // Tulis ke subcollection attendance di Firestore (SRS 007)
+  // Tulis ke subcollection attendance di Firestore (SRS 007 & SRS 014)
   await setDoc(attendanceRef, {
     studentId,
     nama: studentName,
     nim: studentNim,
     sessionId,
     waktuHadir: serverTimestamp(),
+    latitude: proximity.studentCoords.latitude,
+    longitude: proximity.studentCoords.longitude,
+    jarakMeter: proximity.distanceMeters,
+    radiusMeter: proximity.labLocation.radius,
   });
 
   const attendance: Attendance = {
@@ -1034,6 +1213,10 @@ export async function markAttendance(
     sessionId,
     studentId,
     waktuHadir: nowIso,
+    latitude: proximity.studentCoords.latitude,
+    longitude: proximity.studentCoords.longitude,
+    jarakMeter: proximity.distanceMeters,
+    radiusMeter: proximity.labLocation.radius,
   };
 
   const existingIdx = _attendances.findIndex(

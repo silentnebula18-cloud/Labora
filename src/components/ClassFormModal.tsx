@@ -52,7 +52,7 @@ export default function ClassFormModal({
     const nextErrors: FieldErrors = {};
 
     if (!mataKuliah.trim()) {
-      nextErrors.mataKuliah = "Nama mata kuliah wajib diisi";
+      nextErrors.mataKuliah = "Mata kuliah wajib diisi";
     }
     if (!kodeKelas.trim() || !isClassCode(kodeKelas)) {
       nextErrors.kodeKelas = "Kode kelas wajib dipilih";
@@ -104,7 +104,9 @@ export default function ClassFormModal({
               </View>
             )}
 
-            <Text style={styles.label}>Nama mata kuliah</Text>
+            <Text style={styles.label}>
+              Nama mata kuliah <Text style={styles.requiredMark}>*</Text>
+            </Text>
             <TextInput
               style={[styles.input, errors.mataKuliah && styles.inputError]}
               value={mataKuliah}
@@ -122,7 +124,9 @@ export default function ClassFormModal({
               <Text style={styles.errorText}>{errors.mataKuliah}</Text>
             )}
 
-            <Text style={styles.label}>Kode kelas</Text>
+            <Text style={styles.label}>
+              Kode kelas <Text style={styles.requiredMark}>*</Text>
+            </Text>
             <ClassCodeDropdown
               value={kodeKelas}
               onChange={(selected) => {
@@ -221,6 +225,10 @@ const styles = StyleSheet.create({
     color: "#374151",
     marginTop: 16,
     marginBottom: 6,
+  },
+  requiredMark: {
+    color: "#dc2626",
+    fontWeight: "700",
   },
   input: {
     borderWidth: 1,

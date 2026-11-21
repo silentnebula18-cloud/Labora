@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import type { SessionStatus } from "../types";
+import { formatJam, formatTanggal } from "../utils/format";
 import AppIcon from "./AppIcon";
 
 export type ConfirmationType = "buka" | "tutup" | "info";
@@ -19,9 +20,9 @@ export interface SessionData {
   namaPraktikum: string;
   namaKelas: string;
   ruang: string;
-  tanggal: string;
-  jamMulai: string;
-  jamSelesai: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
   status: SessionStatus;
   enrolledCount: number;
   hadirCount: number;
@@ -34,18 +35,6 @@ export interface ConfirmationBottomSheetProps {
   sessionData: SessionData | null;
   onConfirm: () => void;
   onClose: () => void;
-}
-
-function formatTanggal(iso: string) {
-  if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 export default function ConfirmationBottomSheet({
@@ -189,7 +178,8 @@ export default function ConfirmationBottomSheet({
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>Waktu</Text>
                 <Text style={styles.infoValue}>
-                  {sessionData.jamMulai} – {sessionData.jamSelesai} WIB
+                  {formatJam(sessionData.jamMulai)} –{" "}
+                  {formatJam(sessionData.jamSelesai)} WIB
                 </Text>
               </View>
             </View>
