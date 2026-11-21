@@ -1,8 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,12 +14,13 @@ import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../context/SessionContext";
 import { describeFirestoreError } from "../../../services/classService";
 import { subscribeStudentSessionPermission } from "../../../services/permissionService";
-import {
-  isScheduleExpired as checkScheduleExpired,
-  subscribeStudentSessionAttendance,
-} from "../../../services/sessionService";
+import { subscribeStudentSessionAttendance } from "../../../services/sessionService";
 import type { Attendance, PermissionRecord, SessionStatus } from "../../../types";
-import { formatTanggal, formatWaktuLengkap } from "../../../utils/format";
+import {
+  formatJam,
+  formatTanggal,
+  formatWaktuLengkap,
+} from "../../../utils/format";
 
 // ─── Konfigurasi Status ───────────────────────────────────────────────────────
 
@@ -77,11 +76,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-type AttendanceFeedback = {
-  status: "success" | "error";
-  message: string;
-};
-
 // ─── Layar Detail Sesi Praktikan ──────────────────────────────────────────────
 
 export default function SessionDetailPraktikan() {
@@ -91,14 +85,7 @@ export default function SessionDetailPraktikan() {
     studentSessions,
     myAttendances,
     getSession,
-    markAttendance,
   } = useSession();
-
-  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<AttendanceFeedback | null>(null);
-  const submittingRef = useRef(false);
-  const lastSuccessSessionRef = useRef<string | null>(null);
 
   const session = useMemo(() => {
     const fromList = id
@@ -110,23 +97,6 @@ export default function SessionDetailPraktikan() {
   const [realtimeAttendance, setRealtimeAttendance] = useState<Attendance | null>(null);
   const [permission, setPermission] = useState<PermissionRecord | null>(null);
   const [listenerError, setListenerError] = useState<string | null>(null);
-
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 15000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const isScheduleExpired = useMemo(() => {
-    return checkScheduleExpired(
-      session?.tanggal,
-      session?.jamSelesai,
-      currentTime,
-    );
-  }, [session, currentTime]);
 
   // Pantau presensi sesi ini secara langsung dari Firestore (SRS 007 & 008)
   useEffect(() => {
@@ -167,72 +137,6 @@ export default function SessionDetailPraktikan() {
     if (!id) return null;
     return myAttendances.find((a) => a.sessionId === id) ?? null;
   }, [id, realtimeAttendance, myAttendances]);
-
-  async function lakukanPresensi() {
-    if (
-      !session ||
-      !user ||
-      submittingRef.current ||
-      lastSuccessSessionRef.current === session.id
-    ) {
-      return;
-    }
-
-    submittingRef.current = true;
-    setIsSubmitting(true);
-    try {
-      const result = await markAttendance(session.id, user.id, {
-        nama: user.nama,
-        nim: user.nim,
-      });
-      if (result.ok) {
-        lastSuccessSessionRef.current = session.id;
-        setFeedback({
-          status: "success",
-          message: `Kehadiran Anda tercatat pada ${formatWaktuLengkap(
-            result.attendance.waktuHadir,
-          )}.`,
-        });
-      } else {
-        setFeedback({ status: "error", message: result.message });
-      }
-    } catch (err) {
-      setFeedback({
-        status: "error",
-        message: describeFirestoreError(err),
-      });
-    } finally {
-      submittingRef.current = false;
-      setIsSubmitting(false);
-    }
-  }
-
-  function tutupFeedback() {
-    setFeedback(null);
-  }
-
-  function bukaKonfirmasiPresensi() {
-    if (
-      !session ||
-      !user ||
-      attendance ||
-      session.status !== "open" ||
-      isScheduleExpired
-    ) {
-      return;
-    }
-    setIsConfirmVisible(true);
-  }
-
-  function tutupKonfirmasiPresensi() {
-    setIsConfirmVisible(false);
-  }
-
-  function konfirmasiPresensi() {
-    if (!session || !user) return;
-    setIsConfirmVisible(false);
-    lakukanPresensi();
-  }
 
   if (!session) {
     return (
@@ -310,7 +214,7 @@ export default function SessionDetailPraktikan() {
             <DetailRow label="Tanggal" value={formatTanggal(session.tanggal)} />
             <DetailRow
               label="Waktu"
-              value={`${session.jamMulai} – ${session.jamSelesai} WIB`}
+              value={`${formatJam(session.jamMulai)} – ${formatJam(session.jamSelesai)} WIB`}
             />
             {session.openedAt && (
               <DetailRow
@@ -331,25 +235,25 @@ export default function SessionDetailPraktikan() {
           </View>
         </View>
 
-        {/* Panel Presensi */}
+        {/* Kartu Riwayat / Status Kehadiran Praktikan pada Sesi Ini (SRS 013) */}
         {attendance ? (
           <View style={[styles.presenceCard, styles.presenceSuccess]}>
             <View style={styles.presenceIconCircleSuccess}>
               <AppIcon name="check" size={22} color="#0f5132" />
             </View>
-            <Text style={styles.presenceTitle}>Presensi Tercatat</Text>
+            <Text style={styles.presenceTitle}>Riwayat Kehadiran: Hadir</Text>
             <Text style={styles.presenceSuccessText}>
-              Anda tercatat hadir pada{" "}
+              Anda tercatat hadir pada pukul{" "}
               {formatWaktuLengkap(attendance.waktuHadir)}.
             </Text>
             <Text style={styles.presenceNote}>
-              Presensi berhasil disimpan ke Cloud Firestore.
+              Data kehadiran tersimpan di Cloud Firestore.
             </Text>
             {permission && (
               <View style={styles.permissionOverriddenBanner}>
                 <AppIcon name="info" size={13} color="#0f5132" />
                 <Text style={styles.permissionOverriddenText}>
-                  Pengajuan izin Anda sebelumnya tercatat dan digantikan oleh kehadiran fisik ini.
+                  Pengajuan izin Anda sebelumnya digantikan oleh kehadiran ini.
                 </Text>
               </View>
             )}
@@ -359,77 +263,51 @@ export default function SessionDetailPraktikan() {
             <View style={styles.presenceIconCircleSuccess}>
               <AppIcon name="check" size={22} color="#0f5132" />
             </View>
-            <Text style={styles.presenceTitle}>Izin Telah Disetujui</Text>
+            <Text style={styles.presenceTitle}>
+              Riwayat Kehadiran: Izin Disetujui
+            </Text>
             <Text style={styles.presenceSuccessText}>
-              Pengajuan izin ketidakhadiran Anda untuk sesi ini telah disetujui oleh asisten. Anda tidak perlu melakukan presensi.
+              Pengajuan izin ketidakhadiran Anda untuk sesi ini telah disetujui
+              oleh asisten.
             </Text>
           </View>
-        ) : session.status === "open" && !isScheduleExpired ? (
-          <>
-            {permission?.status === "pending" && (
-              <View style={styles.pendingPermissionAlert}>
-                <AppIcon name="info" size={15} color="#854d0e" />
-                <Text style={styles.pendingPermissionAlertText}>
-                  Pengajuan izin Anda sedang menunggu pemeriksaan. Jika Anda hadir langsung di lab, silakan lakukan presensi di bawah.
-                </Text>
-              </View>
-            )}
-
-            <View style={[styles.presenceCard, styles.presenceOpen]}>
-              <View style={styles.presenceIconCircleOpen}>
-                <AppIcon name="unlock" size={20} color="#2563eb" />
-              </View>
-              <Text style={styles.presenceTitle}>Sesi Sedang Dibuka</Text>
-              <Text style={styles.presenceOpenText}>
-                Asisten telah membuka sesi ini. Silakan konfirmasi kehadiran
-                Anda sebelum sesi ditutup.
-              </Text>
-            </View>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionBtn,
-                pressed && styles.actionBtnPressed,
-                isSubmitting && styles.actionBtnDisabled,
-              ]}
-              onPress={bukaKonfirmasiPresensi}
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <>
-                  <AppIcon name="check" size={16} color="#ffffff" />
-                  <Text style={styles.actionBtnText}>Lakukan Presensi</Text>
-                </>
-              )}
-            </Pressable>
-          </>
-        ) : session.status === "scheduled" ? (
+        ) : permission?.status === "pending" ? (
           <View style={[styles.presenceCard, styles.presencePending]}>
             <View style={styles.presenceIconCircleNeutral}>
-              <AppIcon name="clock" size={20} color="#475569" />
+              <AppIcon name="clock" size={20} color="#854d0e" />
             </View>
-            <Text style={styles.presenceTitle}>Sesi Belum Dibuka</Text>
+            <Text style={styles.presenceTitle}>
+              Riwayat Kehadiran: Izin Menunggu Pemeriksaan
+            </Text>
             <Text style={styles.presencePendingText}>
-              Tombol presensi akan aktif secara otomatis setelah asisten membuka
-              sesi ini.
+              Pengajuan izin Anda sedang ditinjau oleh asisten. Untuk melakukan
+              presensi kehadiran, gunakan menu Presensi pada navigasi bawah.
+            </Text>
+          </View>
+        ) : permission?.status === "rejected" ? (
+          <View style={[styles.presenceCard, styles.presenceClosed]}>
+            <View style={styles.presenceIconCircleNeutral}>
+              <AppIcon name="alert" size={20} color="#991b1b" />
+            </View>
+            <Text style={styles.presenceTitle}>
+              Riwayat Kehadiran: Izin Ditolak & Belum Hadir
+            </Text>
+            <Text style={styles.presenceClosedText}>
+              Pengajuan izin Anda ditolak. Jika sesi masih dibuka, silakan
+              lakukan presensi melalui menu Presensi pada navigasi bawah.
             </Text>
           </View>
         ) : (
-          <View style={[styles.presenceCard, styles.presenceClosed]}>
+          <View style={[styles.presenceCard, styles.presencePending]}>
             <View style={styles.presenceIconCircleNeutral}>
-              <AppIcon name="lock" size={20} color="#475569" />
+              <AppIcon name="clipboard" size={20} color="#475569" />
             </View>
             <Text style={styles.presenceTitle}>
-              {session.closedBy === "system" || isScheduleExpired
-                ? "Waktu Sesi Telah Berakhir"
-                : "Sesi Telah Ditutup"}
+              Riwayat Kehadiran: Belum Tercatat Hadir
             </Text>
-            <Text style={styles.presenceClosedText}>
-              {session.closedBy === "system" || isScheduleExpired
-                ? `Sesi praktikum telah ditutup otomatis karena melewati jam selesai (${session.jamSelesai} WIB). Presensi mandiri tidak dapat dilakukan.`
-                : "Sesi ini sudah ditutup dan tidak dapat digunakan untuk presensi."}
+            <Text style={styles.presencePendingText}>
+              Anda belum tercatat hadir pada sesi ini. Presensi hanya dapat
+              dilakukan melalui menu Presensi pada navigasi bawah (navbar).
             </Text>
           </View>
         )}
@@ -458,148 +336,6 @@ export default function SessionDetailPraktikan() {
 
         <View style={styles.bottomPad} />
       </ScrollView>
-
-      <Modal
-        visible={isConfirmVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={tutupKonfirmasiPresensi}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={tutupKonfirmasiPresensi}
-            accessibilityLabel="Tutup konfirmasi presensi"
-          />
-
-          <View style={styles.modalCard} accessibilityViewIsModal>
-            <View style={styles.modalIconWrap}>
-              <AppIcon name="check" size={22} color="#2563eb" />
-            </View>
-
-            <Text style={styles.modalTitle}>Konfirmasi Presensi</Text>
-            <Text style={styles.modalDescription}>
-              Pastikan data sesi berikut sudah sesuai sebelum kehadiran Anda
-              dicatat.
-            </Text>
-
-            <View style={styles.modalInfo}>
-              <DetailRow
-                label="Mata Kuliah"
-                value={session.practicum.mataKuliah}
-              />
-              <DetailRow
-                label="Praktikum"
-                value={`Pertemuan ${session.practicum.nomorPraktikum} · ${session.practicum.namaPraktikum}`}
-              />
-              <DetailRow label="Kelas" value={session.kelas.namaKelas} />
-              <DetailRow
-                label="Tanggal"
-                value={formatTanggal(session.tanggal)}
-              />
-              <DetailRow
-                label="Waktu"
-                value={`${session.jamMulai} – ${session.jamSelesai}`}
-              />
-              <DetailRow label="Ruang" value={session.ruang} />
-            </View>
-
-            <Text style={styles.modalNote}>
-              Presensi hanya dapat dilakukan satu kali untuk setiap sesi.
-            </Text>
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalCancelBtn,
-                  pressed && styles.modalBtnPressed,
-                ]}
-                onPress={tutupKonfirmasiPresensi}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.modalCancelText}>Batal</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalConfirmBtn,
-                  pressed && styles.modalBtnPressed,
-                  isSubmitting && styles.modalBtnDisabled,
-                ]}
-                onPress={konfirmasiPresensi}
-                disabled={isSubmitting}
-              >
-                <Text style={styles.modalConfirmText}>
-                  {isSubmitting ? "Memproses..." : "Konfirmasi Presensi"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={feedback !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={tutupFeedback}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={tutupFeedback}
-            accessibilityLabel="Tutup umpan balik presensi"
-          />
-
-          <View style={styles.modalCard} accessibilityViewIsModal>
-            <View
-              style={[
-                styles.modalIconWrap,
-                feedback?.status === "error" && styles.feedbackIconError,
-              ]}
-            >
-              <AppIcon
-                name={feedback?.status === "error" ? "alert" : "check"}
-                size={22}
-                color={feedback?.status === "error" ? "#991b1b" : "#2563eb"}
-              />
-            </View>
-
-            <Text style={styles.modalTitle}>
-              {feedback?.status === "error"
-                ? "Presensi Gagal"
-                : "Presensi Berhasil"}
-            </Text>
-
-            <View style={styles.feedbackSession}>
-              <Text style={styles.feedbackSessionTitle}>
-                {session.practicum.mataKuliah}
-              </Text>
-              <Text style={styles.feedbackSessionText}>
-                Pertemuan {session.practicum.nomorPraktikum} ·{" "}
-                {session.practicum.namaPraktikum}
-              </Text>
-              <Text style={styles.feedbackSessionText}>
-                Kelas {session.kelas.namaKelas} · {session.ruang}
-              </Text>
-            </View>
-
-            <Text style={styles.feedbackMessage}>
-              {feedback?.message ?? ""}
-            </Text>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.modalResultBtn,
-                pressed && styles.modalBtnPressed,
-              ]}
-              onPress={tutupFeedback}
-            >
-              <Text style={styles.modalConfirmText}>Selesai</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }

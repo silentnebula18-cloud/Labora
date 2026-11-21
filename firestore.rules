@@ -87,8 +87,7 @@ service cloud.firestore {
         && request.resource.data.nama.size() >= 1
         && request.resource.data.nama.size() <= 100
         && request.resource.data.nim is string
-        && request.resource.data.nim.size() >= 1
-        && request.resource.data.nim.size() <= 20
+        && request.resource.data.nim.matches('^[0-9]{14}$')
         && request.resource.data.email is string
         && request.resource.data.email.size() >= 3
         && request.resource.data.email == request.auth.token.email
@@ -133,13 +132,14 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       // Asisten boleh mengubah info kelas dan daftar anggota (memberIds),
-      // tetapi tidak boleh memindah kepemilikan kelas.
+      // tetapi tidak boleh memindah kepemilikan kelas maupun memasukkan UID asisten ke memberIds.
       allow update: if isClassAssistant(classId)
         && changedOnly(['mataKuliah', 'kodeKelas', 'memberIds'])
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.assistants == resource.data.assistants
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.memberIds is list
+        && !(currentUid() in request.resource.data.memberIds)
         && request.resource.data.mataKuliah is string
         && request.resource.data.mataKuliah.size() >= 1
         && request.resource.data.mataKuliah.size() <= 100
@@ -155,8 +155,11 @@ service cloud.firestore {
         allow read: if isClassAssistant(classId)
           || (isSignedIn() && currentUid() == memberId);
 
+        // Asisten tidak boleh mendaftarkan dirinya sendiri / asisten pengampu kelas sebagai peserta.
         allow create: if isClassAssistant(classId)
           && memberId != classId
+          && memberId != currentUid()
+          && !(memberId in get(classPath(classId)).data.assistants)
           && userExists(memberId)
           && 'praktikan' in rolesOf(memberId)
           && onlyFields(['uid', 'nama', 'nim', 'email', 'joinedAt'])
@@ -206,12 +209,9 @@ service cloud.firestore {
         && request.resource.data.namaPraktikum is string
         && request.resource.data.namaPraktikum.size() >= 1
         && request.resource.data.namaPraktikum.size() <= 150
-        && request.resource.data.tanggal is string
-        && request.resource.data.tanggal.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && request.resource.data.jamMulai is string
-        && request.resource.data.jamMulai.matches('^[0-9]{2}:[0-9]{2}$')
-        && request.resource.data.jamSelesai is string
-        && request.resource.data.jamSelesai.matches('^[0-9]{2}:[0-9]{2}$')
+        && request.resource.data.tanggal is timestamp
+        && request.resource.data.jamMulai is timestamp
+        && request.resource.data.jamSelesai is timestamp
         && request.resource.data.ruang is string
         && request.resource.data.ruang.size() >= 1
         && request.resource.data.ruang.size() <= 100
@@ -221,8 +221,8 @@ service cloud.firestore {
       // Jadwal tidak boleh dipindah ke kelas lain / diubah kepemilikannya.
       allow update: if isClassAssistant(resource.data.classId)
         && changedOnly([
-          'mataKuliah', 'kodeKelas', 'nomorPraktikum', 'namaPraktikum',
-          'tanggal', 'jamMulai', 'jamSelesai', 'ruang', 'updatedAt'
+          'classId', 'mataKuliah', 'kodeKelas', 'nomorPraktikum', 'namaPraktikum',
+          'tanggal', 'jamMulai', 'jamSelesai', 'ruang', 'assistants', 'updatedAt'
         ])
         && request.resource.data.classId == resource.data.classId
         && request.resource.data.assistants == resource.data.assistants
@@ -236,12 +236,9 @@ service cloud.firestore {
         && request.resource.data.namaPraktikum is string
         && request.resource.data.namaPraktikum.size() >= 1
         && request.resource.data.namaPraktikum.size() <= 150
-        && request.resource.data.tanggal is string
-        && request.resource.data.tanggal.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && request.resource.data.jamMulai is string
-        && request.resource.data.jamMulai.matches('^[0-9]{2}:[0-9]{2}$')
-        && request.resource.data.jamSelesai is string
-        && request.resource.data.jamSelesai.matches('^[0-9]{2}:[0-9]{2}$')
+        && request.resource.data.tanggal is timestamp
+        && request.resource.data.jamMulai is timestamp
+        && request.resource.data.jamSelesai is timestamp
         && request.resource.data.ruang is string
         && request.resource.data.ruang.size() >= 1
         && request.resource.data.ruang.size() <= 100
@@ -261,15 +258,18 @@ service cloud.firestore {
       allow create: if isAssistant()
         && request.resource.data.scheduleId == sessionId
         && isClassAssistant(request.resource.data.classId)
-        && exists(/databases/$(database)/documents/schedules/$(sessionId))
+        && existsAfter(/databases/$(database)/documents/schedules/$(sessionId))
         && onlyFields([
-          'scheduleId', 'classId', 'kodeKelas', 'status', 'openedAt', 'closedAt',
-          'openedBy', 'closedBy', 'updatedBy', 'updatedAt'
+          'scheduleId', 'classId', 'kodeKelas', 'kodePresensi', 'status',
+          'openedAt', 'closedAt', 'openedBy', 'closedBy', 'updatedBy', 'updatedAt'
         ])
         && request.resource.data.keys().hasAll([
           'scheduleId', 'classId', 'kodeKelas', 'status', 'openedAt', 'closedAt',
           'openedBy', 'closedBy', 'updatedBy', 'updatedAt'
         ])
+        && (!('kodePresensi' in request.resource.data)
+            || (request.resource.data.kodePresensi is string
+                && request.resource.data.kodePresensi.matches('^[A-Z0-9]{4,8}$')))
         && request.resource.data.status == 'scheduled'
         && request.resource.data.openedAt == null
         && request.resource.data.closedAt == null
@@ -281,11 +281,15 @@ service cloud.firestore {
       allow update: if isClassAssistant(resource.data.classId)
         && request.resource.data.scheduleId == resource.data.scheduleId
         && request.resource.data.classId == resource.data.classId
-        && request.resource.data.updatedBy == currentUid()
+        && (request.resource.data.updatedBy == currentUid()
+            || request.resource.data.updatedBy == 'system')
         && changedOnly([
           'status', 'openedAt', 'closedAt', 'openedBy', 'closedBy',
-          'updatedBy', 'updatedAt', 'kodeKelas'
+          'updatedBy', 'updatedAt', 'kodeKelas', 'kodePresensi'
         ])
+        && (!('kodePresensi' in request.resource.data)
+            || (request.resource.data.kodePresensi is string
+                && request.resource.data.kodePresensi.matches('^[A-Z0-9]{4,8}$')))
         && request.resource.data.status in ['scheduled', 'open', 'closed']
         && request.resource.data.kodeKelas is string
         && request.resource.data.updatedAt == request.time
@@ -300,7 +304,8 @@ service cloud.firestore {
           )
           || (
             request.resource.data.status == 'closed'
-            && request.resource.data.closedBy == currentUid()
+            && (request.resource.data.closedBy == currentUid()
+                || request.resource.data.closedBy == 'system')
             && request.resource.data.closedAt == request.time
           )
         );
@@ -321,14 +326,21 @@ service cloud.firestore {
           && exists(sessionPath(sessionId))
           && get(sessionPath(sessionId)).data.status == 'open'
           && isClassMember(get(sessionPath(sessionId)).data.classId)
-          && onlyFields(['studentId', 'nama', 'nim', 'sessionId', 'waktuHadir'])
+          && onlyFields([
+            'studentId', 'nama', 'nim', 'sessionId', 'waktuHadir',
+            'latitude', 'longitude', 'jarakMeter', 'radiusMeter'
+          ])
           && request.resource.data.keys().hasAll(['studentId', 'nama', 'nim', 'sessionId', 'waktuHadir'])
           && request.resource.data.studentId == currentUid()
           && request.resource.data.sessionId == sessionId
           && request.resource.data.nama is string
           && request.resource.data.nama.size() >= 1
           && request.resource.data.nim is string
-          && request.resource.data.waktuHadir == request.time;
+          && request.resource.data.waktuHadir == request.time
+          && (!('latitude' in request.resource.data) || request.resource.data.latitude is number)
+          && (!('longitude' in request.resource.data) || request.resource.data.longitude is number)
+          && (!('jarakMeter' in request.resource.data) || request.resource.data.jarakMeter is number)
+          && (!('radiusMeter' in request.resource.data) || request.resource.data.radiusMeter is number);
 
         allow update, delete: if false;
       }
@@ -395,6 +407,15 @@ service cloud.firestore {
         && request.resource.data.decidedAt == request.time;
 
       allow delete: if false;
+    }
+
+    // ─── laboratories ────────────────────────────────────────────────────────
+    // Lokasi & radius laboratorium dibaca oleh praktikan dan asisten untuk
+    // validasi lokasi presensi (SRS-014), serta dikelola oleh asisten (SRS-015).
+
+    match /laboratories/{labId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAssistant();
     }
 
     // Tolak semua akses ke collection lain.

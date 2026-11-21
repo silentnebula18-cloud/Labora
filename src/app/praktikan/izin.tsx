@@ -25,7 +25,7 @@ import {
   subscribeStudentPermissions,
 } from "../../services/permissionService";
 import type { PermissionRecord, PermissionStatus } from "../../types";
-import { formatTanggal, formatWaktuLengkap } from "../../utils/format";
+import { formatJam, formatTanggal, formatWaktuLengkap } from "../../utils/format";
 
 // ─── Konfigurasi Status & Tema ───────────────────────────────────────────────
 
@@ -146,7 +146,7 @@ export default function IzinPraktikanScreen() {
     if (!alasan.trim()) {
       setFeedbackMessage({
         type: "error",
-        text: "Tuliskan alasan terlebih dahulu untuk dianalisis oleh AI.",
+        text: "Alasan wajib diisi",
       });
       return;
     }
@@ -159,7 +159,7 @@ export default function IzinPraktikanScreen() {
     if (!user) {
       setFeedbackMessage({
         type: "error",
-        text: "Anda harus login terlebih dahulu.",
+        text: "Sesi login tidak valid",
       });
       return;
     }
@@ -167,7 +167,7 @@ export default function IzinPraktikanScreen() {
     if (!selectedSession) {
       setFeedbackMessage({
         type: "error",
-        text: "Silakan pilih sesi praktikum yang ingin diajukan izinnya.",
+        text: "Sesi praktikum wajib dipilih",
       });
       return;
     }
@@ -175,7 +175,7 @@ export default function IzinPraktikanScreen() {
     if (!alasan.trim()) {
       setFeedbackMessage({
         type: "error",
-        text: "Alasan ketidakhadiran tidak boleh kosong.",
+        text: "Alasan wajib diisi",
       });
       return;
     }
@@ -187,9 +187,7 @@ export default function IzinPraktikanScreen() {
       if (existing) {
         setFeedbackMessage({
           type: "error",
-          text: `Anda sudah pernah mengajukan izin untuk sesi ini (Status: ${
-            STATUS_PERMISSION_CONFIG[existing.status]?.label ?? existing.status
-          }).`,
+          text: "Izin untuk sesi ini sudah diajukan",
         });
         setIsSubmitting(false);
         return;
@@ -295,7 +293,10 @@ export default function IzinPraktikanScreen() {
           >
             {/* 1. Pilih Sesi Praktikum */}
             <View style={styles.card}>
-              <Text style={styles.sectionHeader}>1. Pilih Sesi Praktikum</Text>
+              <Text style={styles.sectionHeader}>
+                1. Pilih Sesi Praktikum{" "}
+                <Text style={styles.requiredMark}>*</Text>
+              </Text>
               <Text style={styles.sectionSub}>
                 Pilih pertemuan praktikum yang berhalangan Anda ikuti.
               </Text>
@@ -348,8 +349,8 @@ export default function IzinPraktikanScreen() {
                           {s.kelas?.namaKelas ?? "—"}
                         </Text>
                         <Text style={styles.sessionItemTime}>
-                          {formatTanggal(s.tanggal)} ({s.jamMulai} -{" "}
-                          {s.jamSelesai} WIB)
+                          {formatTanggal(s.tanggal)} ({formatJam(s.jamMulai)} -{" "}
+                          {formatJam(s.jamSelesai)} WIB)
                         </Text>
                       </Pressable>
                     );
@@ -361,7 +362,8 @@ export default function IzinPraktikanScreen() {
             {/* 2. Alasan Ketidakhadiran */}
             <View style={styles.card}>
               <Text style={styles.sectionHeader}>
-                2. Alasan Ketidakhadiran
+                2. Alasan Ketidakhadiran{" "}
+                <Text style={styles.requiredMark}>*</Text>
               </Text>
               <Text style={styles.sectionSub}>
                 Jelaskan alasan izin Anda. Model AI akan menganalisis sentimen
@@ -1159,5 +1161,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  requiredMark: {
+    color: "#dc2626",
+    fontWeight: "700",
   },
 });

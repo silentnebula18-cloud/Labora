@@ -59,9 +59,9 @@ export interface ScheduleRecord {
   kodeKelas: string;
   nomorPraktikum: number;
   namaPraktikum: string;
-  tanggal: string;
-  jamMulai: string;
-  jamSelesai: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
   ruang: string;
   assistants: string[];
   createdBy: string;
@@ -74,6 +74,7 @@ export interface SessionRecord {
   scheduleId: string;
   classId: string;
   kodeKelas?: string;
+  kodePresensi?: string;
   status: SessionStatus;
   openedAt: Date | null;
   closedAt: Date | null;
@@ -88,12 +89,13 @@ export interface Session {
   scheduleId?: string;
   practicumId: string;
   classId: string;
-  tanggal: string;
-  jamMulai: string;
-  jamSelesai: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
   ruang: string;
   assistantId: string;
   assistants?: string[];
+  kodePresensi?: string;
   status: SessionStatus;
   openedAt?: Date | null;
   closedAt?: Date | null;
@@ -109,11 +111,23 @@ export interface Enrollment {
   classId: string;
 }
 
+export interface LabLocation {
+  id: string;
+  nama: string;
+  latitude: number;
+  longitude: number;
+  radius: number; // dalam meter
+}
+
 export interface Attendance {
   id: string;
   sessionId: string;
   studentId: string;
   waktuHadir: string;
+  latitude?: number;
+  longitude?: number;
+  jarakMeter?: number;
+  radiusMeter?: number;
 }
 
 export type PermissionStatus = "pending" | "approved" | "rejected";

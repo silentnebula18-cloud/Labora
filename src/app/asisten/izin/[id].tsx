@@ -27,7 +27,11 @@ import type {
   PermissionRecord,
   PermissionStatus,
 } from "../../../types";
-import { formatTanggal, formatWaktuLengkap } from "../../../utils/format";
+import {
+  formatJam,
+  formatTanggal,
+  formatWaktuLengkap,
+} from "../../../utils/format";
 
 // ─── Konfigurasi Status & Sentimen AI ────────────────────────────────────────
 
@@ -363,8 +367,9 @@ export default function IzinAsistenDetailScreen() {
                 <View style={styles.infoRow}>
                   <Text style={styles.infoLabel}>Jadwal Pelaksanaan</Text>
                   <Text style={styles.infoValue}>
-                    {formatTanggal(sessionInfo.tanggal)} ({sessionInfo.jamMulai}{" "}
-                    – {sessionInfo.jamSelesai} WIB)
+                    {formatTanggal(sessionInfo.tanggal)} (
+                    {formatJam(sessionInfo.jamMulai)} –{" "}
+                    {formatJam(sessionInfo.jamSelesai)} WIB)
                   </Text>
                 </View>
                 <View style={styles.infoDivider} />

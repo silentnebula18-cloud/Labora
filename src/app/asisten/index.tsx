@@ -33,20 +33,9 @@ import type {
   PermissionRecord,
   SessionStatus,
 } from "../../types";
+import { formatJam, formatTanggal } from "../../utils/format";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function formatTanggal(iso: string) {
-  if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
 
 const STATUS_CONFIG: Record<
   SessionStatus,
@@ -83,9 +72,9 @@ interface SessionCardProps {
   nomorPraktikum: number;
   namaPraktikum: string;
   namaKelas: string;
-  tanggal: string;
-  jamMulai: string;
-  jamSelesai: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
   ruang: string;
   status: SessionStatus;
 }
@@ -148,7 +137,7 @@ function SessionCard({
           <View style={styles.infoItemInline}>
             <AppIcon name="clock" size={14} color="#64748b" />
             <Text style={styles.infoText}>
-              {jamMulai} – {jamSelesai}
+              {formatJam(jamMulai)} – {formatJam(jamSelesai)}
             </Text>
           </View>
           <View style={styles.infoItemInline}>

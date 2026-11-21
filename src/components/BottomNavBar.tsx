@@ -2,16 +2,18 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import AppIcon from "./AppIcon";
 
-export type BottomNavTab = "beranda" | "profil";
+export type BottomNavTab = "beranda" | "presensi" | "profil";
 
 interface BottomNavBarProps {
   activeTab: BottomNavTab;
   onChangeTab: (tab: BottomNavTab) => void;
+  showPresensiTab?: boolean;
 }
 
 export default function BottomNavBar({
   activeTab,
   onChangeTab,
+  showPresensiTab = false,
 }: BottomNavBarProps) {
   return (
     <View style={styles.container}>
@@ -42,6 +44,36 @@ export default function BottomNavBar({
           Beranda
         </Text>
       </Pressable>
+
+      {showPresensiTab && (
+        <Pressable
+          style={styles.tabItem}
+          onPress={() => onChangeTab("presensi")}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === "presensi" }}
+        >
+          <View
+            style={[
+              styles.pill,
+              activeTab === "presensi" && styles.pillActive,
+            ]}
+          >
+            <AppIcon
+              name="check"
+              size={20}
+              color={activeTab === "presensi" ? "#2563eb" : "#64748b"}
+            />
+          </View>
+          <Text
+            style={[
+              styles.tabLabel,
+              activeTab === "presensi" && styles.tabLabelActive,
+            ]}
+          >
+            Presensi
+          </Text>
+        </Pressable>
+      )}
 
       <Pressable
         style={styles.tabItem}

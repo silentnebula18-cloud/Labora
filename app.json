@@ -43,7 +43,13 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      "@react-native-firebase/auth",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Izinkan Labora mengakses lokasi Anda untuk memvalidasi jarak presensi di laboratorium."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -18,6 +18,7 @@ import AppIcon from "../../components/AppIcon";
 import BottomNavBar, {
   type BottomNavTab,
 } from "../../components/BottomNavBar";
+import PraktikanPresensiView from "../../components/PraktikanPresensiView";
 import ProfileView from "../../components/ProfileView";
 import { useAuth } from "../../context/AuthContext";
 import { useSession } from "../../context/SessionContext";
@@ -28,6 +29,7 @@ import {
 import type { AttendanceWithSession } from "../../services/sessionService";
 import type { ClassRecord, SessionStatus } from "../../types";
 import {
+  formatJam,
   formatTanggal,
   formatWaktuLengkap,
   tanggalRingkas,
@@ -70,9 +72,9 @@ interface SessionCardProps {
   namaPraktikum: string;
   nomorPraktikum: number;
   namaKelas: string;
-  tanggal: string;
-  jamMulai: string;
-  jamSelesai: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
   ruang: string;
   status: SessionStatus;
   sudahPresensi: boolean;
@@ -145,7 +147,7 @@ function SessionCard({
           <View style={styles.infoItemInline}>
             <AppIcon name="clock" size={14} color="#64748b" />
             <Text style={styles.infoText}>
-              {jamMulai} – {jamSelesai}
+              {formatJam(jamMulai)} – {formatJam(jamSelesai)}
             </Text>
           </View>
           <View style={styles.infoItemInline}>
@@ -163,7 +165,7 @@ function SessionCard({
 // ─── Kartu Riwayat Kehadiran ──────────────────────────────────────────────────
 
 function AttendanceCard({ item }: { item: AttendanceWithSession }) {
-  const tanggal = tanggalRingkas(item.session?.tanggal ?? "");
+  const tanggal = tanggalRingkas(item.session?.tanggal);
 
   return (
     <View style={styles.attendanceCard}>
@@ -537,6 +539,15 @@ export default function HomePraktikan() {
             <View style={styles.bottomPad} />
           </ScrollView>
         </>
+      ) : activeNavTab === "presensi" ? (
+        <>
+          <View
+            style={[styles.profileHeader, { paddingTop: insets.top + 15 }]}
+          >
+            <Text style={styles.profileHeaderTitle}>Presensi Praktikum</Text>
+          </View>
+          <PraktikanPresensiView />
+        </>
       ) : (
         <>
           <View
@@ -548,8 +559,12 @@ export default function HomePraktikan() {
         </>
       )}
 
-      {/* Bottom Navbar 2 Menu */}
-      <BottomNavBar activeTab={activeNavTab} onChangeTab={setActiveNavTab} />
+      {/* Bottom Navbar 3 Menu untuk Praktikan */}
+      <BottomNavBar
+        activeTab={activeNavTab}
+        onChangeTab={setActiveNavTab}
+        showPresensiTab
+      />
     </SafeAreaView>
   );
 }
