@@ -119,6 +119,20 @@ export interface LabLocation {
   radius: number; // dalam meter
 }
 
+/**
+ * Data master laboratorium (SRS-015).
+ * `nama` harus konsisten dengan field `ruang` pada `schedules`/`sessions`
+ * agar validasi presensi dapat mencocokkan laboratorium yang dimaksud.
+ */
+export interface Laboratory extends LabLocation {
+  deskripsi: string;
+  alamat: string;
+  aktif: boolean;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+  updatedBy: string | null;
+}
+
 export interface Attendance {
   id: string;
   sessionId: string;

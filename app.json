@@ -49,7 +49,10 @@
         {
           "locationAlwaysAndWhenInUsePermission": "Izinkan Labora mengakses lokasi Anda untuk memvalidasi jarak presensi di laboratorium."
         }
-      ]
+      ],
+      "expo-image",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

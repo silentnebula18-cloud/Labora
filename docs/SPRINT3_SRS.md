@@ -17,17 +17,32 @@ SRS-014 – Validasi Lokasi dan Pencatatan Presensi
 # Quin
 ## 2 SRS
 
-SRS-015 – Pengelolaan Lokasi Laboratorium
-- Menambahkan dan mengelola data laboratorium.
-- Menyimpan koordinat latitude dan longitude.
-- Mengatur radius validasi presensi.
-- Mengintegrasikan data lokasi dengan Firestore.
-SRS-016 – Peta Interaktif dan Informasi Aktivitas Laboratorium
-- Mengintegrasikan Maps.
-- Menampilkan marker laboratorium dan lokasi pengguna.
-- Memperbarui posisi pengguna secara berkala.
-- Menampilkan detail laboratorium.
-- Menampilkan praktikum yang berlangsung dan berikutnya berdasarkan jadwal dan sesi.
+SRS-015 – Pengelolaan Lokasi Laboratorium [SELESAI]
+- Menambahkan dan mengelola data laboratorium (CRUD oleh Asisten).
+- Menyimpan koordinat latitude dan longitude (manual dan bantuan GPS perangkat).
+- Mengatur radius validasi presensi (satuan meter: 5 - 10.000m).
+- Mengintegrasikan data lokasi dengan Firestore (`laboratories/{labId}`) secara realtime.
+- Implementasi:
+  - Service: `src/services/laboratoryService.ts`
+  - Form Modal: `src/components/LaboratoryFormModal.tsx`
+  - Screen Asisten: `src/app/asisten/laboratorium/index.tsx`
+  - Security Rules: `firestore.rules` (create/update/delete dibatasi khusus role asisten & skema divalidasi)
+
+SRS-016 – Peta Interaktif dan Informasi Aktivitas Laboratorium [SELESAI]
+- Mengintegrasikan Maps menggunakan `react-native-maps` dengan fallback elegan untuk web.
+- Menampilkan marker seluruh laboratorium aktif dan marker posisi pengguna.
+- Memvisualisasikan radius validasi presensi tiap laboratorium (`Circle`).
+- Memperbarui posisi pengguna secara berkala (`watchPositionAsync`) dan menangani izin lokasi/GPS.
+- Menampilkan detail laboratorium (alamat, deskripsi, radius, jarak real-time dari posisi pengguna).
+- Menampilkan praktikum yang berlangsung (ongoing) dan berikutnya (upcoming) berdasarkan jadwal dan sesi aktual.
+- Aksesibel oleh Asisten (`/asisten/peta`) dan Praktikan (`/praktikan/peta` - read-only).
+- Implementasi:
+  - Komponen Peta: `src/components/InteractiveLabMap.tsx`
+  - Detail Bottom Sheet: `src/components/LabDetailCard.tsx`
+  - Screen Asisten: `src/app/asisten/peta/index.tsx`
+  - Screen Praktikan: `src/app/praktikan/peta/index.tsx`
+  - Helper Aktivitas: `src/utils/laboratoryActivity.ts`
+  - Normalisasi Nama: `src/utils/laboratory.ts`
 
 
 # ana 

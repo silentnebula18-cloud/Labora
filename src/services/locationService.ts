@@ -1,8 +1,7 @@
-import { collection, getDocs } from "@react-native-firebase/firestore";
 import * as Location from "expo-location";
 
-import { db } from "../lib/firebase";
 import type { LabLocation } from "../types";
+import { findActiveLaboratoryByRoom } from "./laboratoryService";
 
 export interface Coordinates {
   latitude: number;
@@ -69,57 +68,17 @@ export function calculateHaversineDistanceMeters(
 /**
  * Ambil data lokasi & radius laboratorium langsung dari koleksi `laboratories` di Firestore
  * berdasarkan nama ruang sesi (`session.ruang`).
+ * Menggunakan pencocokan cerdas via `findActiveLaboratoryByRoom` (SRS-014 & SRS-015).
  * Mengembalikan `null` jika dokumen laboratorium belum tersedia di Firestore.
  */
 export async function getLabLocationByRoom(
   ruang?: string,
 ): Promise<LabLocation | null> {
-  const targetName = (ruang ?? "").trim().toLowerCase();
-  if (!targetName) return null;
-
   try {
-    const snapshot = await getDocs(collection(db, "laboratories"));
-    if (snapshot.empty) {
-      return null;
-    }
-
-    for (const docSnap of snapshot.docs) {
-      const data = docSnap.data() as Record<string, unknown>;
-      const nama =
-        typeof data.nama === "string"
-          ? data.nama.trim()
-          : typeof data.ruang === "string"
-            ? data.ruang.trim()
-            : "";
-      const latitude = Number(data.latitude);
-      const longitude = Number(data.longitude);
-      const radius = Number(data.radius);
-
-      if (
-        !nama ||
-        !Number.isFinite(latitude) ||
-        !Number.isFinite(longitude) ||
-        !Number.isFinite(radius) ||
-        radius <= 0
-      ) {
-        continue;
-      }
-
-      if (nama.toLowerCase() === targetName) {
-        return {
-          id: docSnap.id,
-          nama,
-          latitude,
-          longitude,
-          radius,
-        };
-      }
-    }
+    return await findActiveLaboratoryByRoom(ruang);
   } catch {
     return null;
   }
-
-  return null;
 }
 
 /**

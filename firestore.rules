@@ -415,7 +415,43 @@ service cloud.firestore {
 
     match /laboratories/{labId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAssistant();
+
+      allow create: if isAssistant()
+        && request.resource.data.nama is string
+        && request.resource.data.nama.size() >= 1
+        && request.resource.data.nama.size() <= 100
+        && request.resource.data.latitude is number
+        && request.resource.data.latitude >= -90
+        && request.resource.data.latitude <= 90
+        && request.resource.data.longitude is number
+        && request.resource.data.longitude >= -180
+        && request.resource.data.longitude <= 180
+        && request.resource.data.radius is number
+        && request.resource.data.radius >= 5
+        && request.resource.data.radius <= 10000
+        && request.resource.data.aktif is bool
+        && request.resource.data.updatedBy == currentUid()
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isAssistant()
+        && request.resource.data.nama is string
+        && request.resource.data.nama.size() >= 1
+        && request.resource.data.nama.size() <= 100
+        && request.resource.data.latitude is number
+        && request.resource.data.latitude >= -90
+        && request.resource.data.latitude <= 90
+        && request.resource.data.longitude is number
+        && request.resource.data.longitude >= -180
+        && request.resource.data.longitude <= 180
+        && request.resource.data.radius is number
+        && request.resource.data.radius >= 5
+        && request.resource.data.radius <= 10000
+        && request.resource.data.aktif is bool
+        && request.resource.data.updatedBy == currentUid()
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if isAssistant();
     }
 
     // Tolak semua akses ke collection lain.

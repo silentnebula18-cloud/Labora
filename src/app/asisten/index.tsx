@@ -329,6 +329,52 @@ export default function HomeAsisten() {
               <AppIcon name="chevron-right" size={16} color="#64748b" />
             </Pressable>
 
+            {/* Menu Kelola Lab & Peta Interaktif (SRS-015 & SRS-016) */}
+            <View style={styles.labActionsGrid}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.labActionTile,
+                  pressed && styles.cardPressed,
+                ]}
+                onPress={() => router.push("/asisten/laboratorium" as any)}
+                android_ripple={{ color: "#e2e8f0" }}
+              >
+                <View style={styles.labActionIconBox}>
+                  <AppIcon name="location" size={18} color="#2563eb" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.labActionTitle}>Kelola Lab</Text>
+                  <Text style={styles.labActionSub}>
+                    Lokasi & radius presensi
+                  </Text>
+                </View>
+                <AppIcon name="chevron-right" size={14} color="#94a3b8" />
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.labActionTile,
+                  pressed && styles.cardPressed,
+                ]}
+                onPress={() => router.push("/asisten/peta" as any)}
+                android_ripple={{ color: "#e2e8f0" }}
+              >
+                <View
+                  style={[
+                    styles.labActionIconBox,
+                    { backgroundColor: "#ecfdf5" },
+                  ]}
+                >
+                  <AppIcon name="location" size={18} color="#059669" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.labActionTitle}>Peta Lab</Text>
+                  <Text style={styles.labActionSub}>Denah & info sesi</Text>
+                </View>
+                <AppIcon name="chevron-right" size={14} color="#94a3b8" />
+              </Pressable>
+            </View>
+
             {sessionsLoading && (
               <View style={styles.loadingBox}>
                 <ActivityIndicator color="#2563eb" />
@@ -568,7 +614,43 @@ const styles = StyleSheet.create({
     padding: 14,
     borderWidth: 1,
     borderColor: "#e2e8f0",
+    marginBottom: 10,
+  },
+
+  // Lab Actions Grid
+  labActionsGrid: {
+    flexDirection: "row",
+    gap: 10,
     marginBottom: 18,
+  },
+  labActionTile: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    gap: 10,
+  },
+  labActionIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  labActionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  labActionSub: {
+    fontSize: 10.5,
+    color: "#64748b",
+    marginTop: 1,
   },
   permissionActionIconBox: {
     width: 38,

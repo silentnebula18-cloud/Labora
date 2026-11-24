@@ -108,14 +108,18 @@ Berikut adalah struktur *collection*, *subcollection*, dan *field* **Cloud Fires
 
 ---
 
-### 6. Collection `laboratories/{labId}` *(SRS-014 & SRS-015)*
+### 6. Collection `laboratories/{labId}` *(SRS-014, SRS-015, & SRS-016)*
 - **Document ID:** Auto-generated ID atau slug ruangan
 - **Fields:**
-  - `nama`: `string` *(nama laboratorium, contoh `"Laboratorium Komputer B"`, `"Laboratorium Komputer C"`, `"Laboratorium Komputer D"`, `"Laboratorium Komputer AP"` — cocok dengan field `ruang` pada `schedules` & `sessions`)*
-  - `latitude`: `number` *(koordinat titik pusat laboratorium)*
-  - `longitude`: `number` *(koordinat titik pusat laboratorium)*
-  - `radius`: `number` *(batas jarak presensi dalam satuan meter, contoh `50`)*
-  - `updatedAt`: `Timestamp` *(opsional)*
-  - `updatedBy`: `string` *(opsional, UID asisten)*
+  - `nama`: `string` *(nama laboratorium, contoh `"Laboratorium Komputer B"`, `"Laboratorium Komputer C"` — dicocokkan dengan toleransi awalan `"Lab"` terhadap field `ruang` pada `schedules` & `sessions`)*
+  - `deskripsi`: `string` *(deskripsi fasilitas, spesifikasi, atau catatan ruangan)*
+  - `alamat`: `string` *(lokasi/gedung/lantai laboratorium)*
+  - `latitude`: `number` *(koordinat titik pusat latitude)*
+  - `longitude`: `number` *(koordinat titik pusat longitude)*
+  - `radius`: `number` *(batas jarak presensi GPS dalam satuan meter, contoh `50`)*
+  - `aktif`: `boolean` *(status operasional laboratorium, default `true`)*
+  - `createdAt`: `Timestamp` *(waktu data dibuat)*
+  - `updatedAt`: `Timestamp` *(waktu terakhir diperbarui)*
+  - `updatedBy`: `string` *(UID asisten pengelola)*
 
 
