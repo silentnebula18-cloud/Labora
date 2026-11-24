@@ -2,37 +2,38 @@ import { router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import {
-  SafeAreaView,
-  useSafeAreaInsets,
+    SafeAreaView,
+    useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import AppIcon from "../../components/AppIcon";
 import BottomNavBar, {
-  type BottomNavTab,
+    type BottomNavTab,
 } from "../../components/BottomNavBar";
 import PraktikanPresensiView from "../../components/PraktikanPresensiView";
 import ProfileView from "../../components/ProfileView";
 import { useAuth } from "../../context/AuthContext";
+import { useNotification } from "../../context/NotificationContext";
 import { useSession } from "../../context/SessionContext";
 import {
-  describeFirestoreError,
-  subscribeStudentClasses,
+    describeFirestoreError,
+    subscribeStudentClasses,
 } from "../../services/classService";
 import type { AttendanceWithSession } from "../../services/sessionService";
 import type { ClassRecord, SessionStatus } from "../../types";
 import {
-  formatJam,
-  formatTanggal,
-  formatWaktuLengkap,
-  tanggalRingkas,
+    formatJam,
+    formatTanggal,
+    formatWaktuLengkap,
+    tanggalRingkas,
 } from "../../utils/format";
 
 // ─── Konfigurasi Status ───────────────────────────────────────────────────────
@@ -203,6 +204,7 @@ function AttendanceCard({ item }: { item: AttendanceWithSession }) {
 export default function HomePraktikan() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { openNotificationModal, unreadCount } = useNotification();
   const {
     studentSessions,
     sessionsLoading,
@@ -255,8 +257,25 @@ export default function HomePraktikan() {
           <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
             <View style={styles.headerTopRow}>
               <Text style={styles.greeting}>Selamat datang,</Text>
-              <View style={styles.rolePill}>
-                <Text style={styles.rolePillText}>PRAKTIKAN</Text>
+              <View style={styles.headerTopRight}>
+                <View style={styles.rolePill}>
+                  <Text style={styles.rolePillText}>PRAKTIKAN</Text>
+                </View>
+                <Pressable
+                  style={styles.bellBtn}
+                  onPress={openNotificationModal}
+                  accessibilityLabel="Notifikasi"
+                  accessibilityRole="button"
+                >
+                  <AppIcon name="bell" size={17} color="#ffffff" />
+                  {unreadCount > 0 && (
+                    <View style={styles.bellBadge}>
+                      <Text style={styles.bellBadgeText}>
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
               </View>
             </View>
             <View style={styles.headerInfoRow}>
@@ -622,6 +641,39 @@ const styles = StyleSheet.create({
     color: "#dbeafe",
     fontSize: 13,
     fontWeight: "600",
+  },
+  headerTopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bellBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#2563eb",
+  },
+  bellBadgeText: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "800",
   },
   rolePill: {
     backgroundColor: "rgba(255,255,255,0.18)",

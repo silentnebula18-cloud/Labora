@@ -48,15 +48,27 @@ SRS-016 – Peta Interaktif dan Informasi Aktivitas Laboratorium [SELESAI]
 # ana 
 ## 2 SRS
 
-SRS-017 – Push Notification Kegiatan Praktikum
-- Mengintegrasikan Firebase Cloud Messaging.
-- Mengirim notifikasi ketika sesi dibuka.
-- Mengirim notifikasi ketika jadwal berubah.
-- Mengirim notifikasi ketika izin diterima atau ditolak.
-- Menentukan penerima notifikasi berdasarkan pengguna terkait.
-SRS-018 – Pengelolaan Izin Perangkat dan Penanganan Kesalahan
-- Meminta izin akses lokasi.
-- Meminta izin notifikasi.
-- Menangani GPS yang tidak aktif.
-- Menangani lokasi yang tidak berhasil diperoleh.
-- Menampilkan pesan ketika koneksi atau layanan notifikasi bermasalah.
+SRS-017 – Push Notification Kegiatan Praktikum [SELESAI]
+- Mengintegrasikan Firebase Cloud Messaging via `@react-native-firebase/messaging` & FCM v1 API (`https://fcm.googleapis.com/v1/projects/labora-fda34/messages:send`).
+- Mengirim notifikasi otomatis saat sesi praktikum dibuka oleh asisten ke seluruh mahasiswa kelas terkait.
+- Mengirim notifikasi otomatis saat jadwal praktikum mengalami perubahan ke seluruh mahasiswa kelas terkait.
+- Mengirim notifikasi otomatis saat permohonan izin praktikan diterima atau ditolak oleh asisten.
+- Penentuan penerima notifikasi otomatis berbasis relasi data kelas (`memberIds`) dan dokumen izin di Firestore.
+- Implementasi:
+  - Service: `src/services/notificationService.ts` & `src/services/fcmSenderService.ts`
+  - Context & Provider: `src/context/NotificationContext.tsx`
+  - In-App Toast & Drawer: `src/components/InAppNotificationToast.tsx` & `src/components/NotificationModal.tsx`
+  - Bell Badge: `src/app/praktikan/index.tsx` & `src/app/asisten/index.tsx`
+
+SRS-018 – Pengelolaan Izin Perangkat dan Penanganan Kesalahan [SELESAI]
+- Meminta izin akses lokasi perangkat dengan dialog informatif dan tautan langsung ke Pengaturan Aplikasi (`Linking.openSettings()`).
+- Meminta izin notifikasi sistem perangkat (`hasPermission`, `requestPermission`) serta pemantauan otomatis saat status berubah di AppState.
+- Menangani GPS/layanan lokasi yang tidak aktif dengan deteksi `Location.hasServicesEnabledAsync()` dan dialog aktifkan GPS instan (`Location.enableNetworkProviderAsync()`).
+- Menangani kegagalan perolehan koordinat (sinyal GPS lemah, timeout, mode hemat daya ekstrem) dengan kode `LOKASI_GAGAL` dan tombol coba lagi.
+- Menangani kegagalan koneksi jaringan atau layanan notifikasi (Google Play Services / offline) melalui fallback riwayat database Firestore dan banner notifikasi ramah pengguna.
+- Terintegrasi di:
+  - Layanan Lokasi: `src/services/locationService.ts` (`getLocationErrorDetail`, `openLocationSettings`, `promptEnableLocationServices`)
+  - Presensi Praktikan: `src/components/PraktikanPresensiView.tsx`
+  - Peta Interaktif: `src/app/praktikan/peta/index.tsx` & `src/app/asisten/peta/index.tsx`
+  - Form Laboratorium: `src/components/LaboratoryFormModal.tsx`
+  - Pengelolaan Notifikasi: `src/context/NotificationContext.tsx` & `src/components/NotificationModal.tsx`

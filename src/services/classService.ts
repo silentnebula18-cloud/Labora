@@ -99,7 +99,7 @@ export function describeFirestoreError(error: unknown): string {
     code.includes("network-request-failed") ||
     code.includes("failed-precondition")
   ) {
-    return "Koneksi bermasalah";
+    return "Koneksi internet bermasalah. Periksa jaringan Anda dan coba lagi.";
   }
   if (code.includes("not-found")) {
     return "Data tidak ditemukan";

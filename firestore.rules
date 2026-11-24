@@ -97,7 +97,7 @@ service cloud.firestore {
 
       // `roles` dan `uid` tidak boleh berubah: cegah eskalasi peran.
       allow update: if isSelf()
-        && changedOnly(['nama', 'nim', 'activeRole'])
+        && changedOnly(['nama', 'nim', 'activeRole', 'fcmToken', 'fcmTokenUpdatedAt'])
         && request.resource.data.uid == resource.data.uid
         && request.resource.data.email == resource.data.email
         && request.resource.data.roles == resource.data.roles
@@ -452,6 +452,23 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if isAssistant();
+    }
+
+    // ─── notifications ────────────────────────────────────────────────────────
+    // SRS-017: Notifikasi kegiatan praktikum (sesi dibuka, jadwal diubah, izin)
+    match /notifications/{notificationId} {
+      // Praktikan atau asisten dapat membaca notifikasi yang ditujukan kepadanya
+      allow read: if isSignedIn() && resource.data.recipientUid == currentUid();
+
+      // Pengguna terautentikasi dapat membuat notifikasi
+      allow create: if isSignedIn();
+
+      // Penerima dapat menandai notifikasi telah dibaca
+      allow update: if isSignedIn()
+        && resource.data.recipientUid == currentUid()
+        && changedOnly(['isRead']);
+
+      allow delete: if isSignedIn() && resource.data.recipientUid == currentUid();
     }
 
     // Tolak semua akses ke collection lain.

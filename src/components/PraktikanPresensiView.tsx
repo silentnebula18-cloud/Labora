@@ -15,6 +15,9 @@ import { useAuth } from "../context/AuthContext";
 import { useSession } from "../context/SessionContext";
 import { describeFirestoreError } from "../services/classService";
 import {
+  getLocationErrorDetail,
+  openLocationSettings,
+  promptEnableLocationServices,
   validateStudentLabProximity,
   type LocationValidationResult,
 } from "../services/locationService";
@@ -230,6 +233,19 @@ export default function PraktikanPresensiView() {
       loading: false,
       result: res,
     });
+  }
+
+  async function handleLocationErrorAction(actionType: string) {
+    if (actionType === "open_settings") {
+      await openLocationSettings();
+    } else if (actionType === "enable_gps") {
+      const enabled = await promptEnableLocationServices();
+      if (enabled) {
+        await handleRefreshLocation();
+      }
+    } else if (actionType === "retry") {
+      await handleRefreshLocation();
+    }
   }
 
   async function handlePresensi() {
@@ -556,19 +572,60 @@ export default function PraktikanPresensiView() {
                     </View>
                   ) : currentLocationCheck.result ? (
                     <View style={styles.locationResultBody}>
-                      <Text style={styles.locationStatusErrText}>
-                        {currentLocationCheck.result.message}
-                      </Text>
-                      {typeof currentLocationCheck.result.distanceMeters ===
-                        "number" &&
-                        currentLocationCheck.result.labLocation && (
-                          <Text style={styles.locationDistanceErrText}>
-                            Jarak Anda:{" "}
-                            {currentLocationCheck.result.distanceMeters} m ·
-                            Radius Maks:{" "}
-                            {currentLocationCheck.result.labLocation.radius} m
-                          </Text>
-                        )}
+                      {(() => {
+                        const detail = getLocationErrorDetail(
+                          currentLocationCheck.result.code,
+                        );
+                        return (
+                          <>
+                            <Text style={styles.locationStatusErrText}>
+                              {detail.title}
+                            </Text>
+                            <Text style={styles.locationErrorGuideText}>
+                              {detail.guide}
+                            </Text>
+                            {typeof currentLocationCheck.result
+                              .distanceMeters === "number" &&
+                              currentLocationCheck.result.labLocation && (
+                                <Text style={styles.locationDistanceErrText}>
+                                  Jarak Anda saat ini:{" "}
+                                  {currentLocationCheck.result.distanceMeters} m ·
+                                  Batas radius:{" "}
+                                  {
+                                    currentLocationCheck.result.labLocation
+                                      .radius
+                                  }{" "}
+                                  m
+                                </Text>
+                              )}
+                            {detail.actionType !== "none" &&
+                              detail.actionLabel && (
+                                <Pressable
+                                  style={styles.locationActionBtn}
+                                  onPress={() =>
+                                    void handleLocationErrorAction(
+                                      detail.actionType,
+                                    )
+                                  }
+                                  accessibilityRole="button"
+                                >
+                                  <AppIcon
+                                    name={
+                                      detail.actionType === "open_settings"
+                                        ? "lock"
+                                        : "play"
+                                    }
+                                    size={13}
+                                    color="#ffffff"
+                                  />
+                                  <Text style={styles.locationActionBtnText}>
+                                    {detail.actionLabel}
+                                  </Text>
+                                </Pressable>
+                              )}
+                          </>
+                        );
+                      })()}
                     </View>
                   ) : null}
                 </View>
@@ -1012,6 +1069,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#b91c1c",
+  },
+  locationErrorGuideText: {
+    fontSize: 12,
+    color: "#7f1d1d",
+    lineHeight: 16,
+    marginTop: 2,
+  },
+  locationActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    backgroundColor: "#b91c1c",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  locationActionBtnText: {
+    color: "#ffffff",
+    fontSize: 11.5,
+    fontWeight: "700",
   },
   pendingPermNote: {
     flexDirection: "row",

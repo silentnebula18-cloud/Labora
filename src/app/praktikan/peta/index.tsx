@@ -19,7 +19,11 @@ import {
   describeFirestoreError,
   subscribeLaboratories,
 } from "../../../services/laboratoryService";
-import type { Coordinates } from "../../../services/locationService";
+import {
+  openLocationSettings,
+  promptEnableLocationServices,
+  type Coordinates,
+} from "../../../services/locationService";
 import type { Laboratory } from "../../../types";
 
 export default function PraktikanPetaScreen() {
@@ -185,9 +189,29 @@ export default function PraktikanPetaScreen() {
         <View style={styles.gpsWarningBanner}>
           <AppIcon name="alert" size={14} color="#b45309" />
           <Text style={styles.gpsWarningText}>{gpsError}</Text>
-          <Pressable onPress={refreshCurrentLocation}>
-            <Text style={styles.gpsRetryText}>Coba Lagi</Text>
-          </Pressable>
+          <View style={styles.gpsWarningActions}>
+            {gpsError.toLowerCase().includes("izin") ? (
+              <Pressable
+                onPress={() => void openLocationSettings()}
+                hitSlop={8}
+              >
+                <Text style={styles.gpsActionText}>Buka Pengaturan</Text>
+              </Pressable>
+            ) : gpsError.toLowerCase().includes("aktif") ? (
+              <Pressable
+                onPress={async () => {
+                  const on = await promptEnableLocationServices();
+                  if (on) void refreshCurrentLocation();
+                }}
+                hitSlop={8}
+              >
+                <Text style={styles.gpsActionText}>Nyalakan GPS</Text>
+              </Pressable>
+            ) : null}
+            <Pressable onPress={refreshCurrentLocation} hitSlop={8}>
+              <Text style={styles.gpsRetryText}>Coba Lagi</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -320,6 +344,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     color: "#92400e",
+  },
+  gpsWarningActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  gpsActionText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#b45309",
+    textDecorationLine: "underline",
   },
   gpsRetryText: {
     fontSize: 11,

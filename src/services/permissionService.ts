@@ -12,6 +12,7 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { db } from "../lib/firebase";
+import { notifyPermissionDecided } from "./notificationService";
 import type { PermissionRecord, PermissionStatus } from "../types";
 import { analyzeSentiment, type SentimentLabel } from "./aiService";
 
@@ -353,6 +354,12 @@ export async function decidePermissionRequest(
     decidedBy: assistantUid,
     decidedAt: serverTimestamp(),
   });
+
+  void notifyPermissionDecided(permissionId, assistantUid, decision).catch(
+    (err) => {
+      console.warn("[permissionService] notifyPermissionDecided error:", err);
+    },
+  );
 }
 
 /**
