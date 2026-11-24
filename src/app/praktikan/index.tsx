@@ -264,13 +264,22 @@ export default function HomePraktikan() {
                 <Text style={styles.name}>{user.nama}</Text>
                 <Text style={styles.nim}>NIM {user.nim}</Text>
               </View>
-              <Pressable
-                style={styles.headerIzinBtn}
-                onPress={() => router.push("/praktikan/izin" as any)}
-              >
-                <AppIcon name="clipboard" size={13} color="#ffffff" />
-                <Text style={styles.headerIzinText}>Izin</Text>
-              </Pressable>
+              <View style={styles.headerActions}>
+                <Pressable
+                  style={styles.headerPetaBtn}
+                  onPress={() => router.push("/praktikan/peta" as any)}
+                >
+                  <AppIcon name="location" size={13} color="#ffffff" />
+                  <Text style={styles.headerIzinText}>Peta</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.headerIzinBtn}
+                  onPress={() => router.push("/praktikan/izin" as any)}
+                >
+                  <AppIcon name="clipboard" size={13} color="#ffffff" />
+                  <Text style={styles.headerIzinText}>Izin</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
 
@@ -380,6 +389,28 @@ export default function HomePraktikan() {
           >
             {tab === "jadwal" && (
               <>
+                {/* Banner Akses Cepat Peta Interaktif (SRS-016) */}
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.mapBanner,
+                    pressed && styles.cardPressed,
+                  ]}
+                  onPress={() => router.push("/praktikan/peta" as any)}
+                >
+                  <View style={styles.mapBannerIcon}>
+                    <AppIcon name="location" size={18} color="#2563eb" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.mapBannerTitle}>
+                      Peta Interaktif & Aktivitas Lab
+                    </Text>
+                    <Text style={styles.mapBannerSub}>
+                      Cek radius presensi GPS dan jadwal praktikum terkini
+                    </Text>
+                  </View>
+                  <AppIcon name="chevron-right" size={14} color="#64748b" />
+                </Pressable>
+
                 {sessionsLoading && (
                   <View style={styles.classLoading}>
                     <ActivityIndicator color="#2563eb" />
@@ -609,6 +640,20 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
     justifyContent: "space-between",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerPetaBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.22)",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+  },
   headerIzinBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -676,6 +721,37 @@ const styles = StyleSheet.create({
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
   bottomPad: { height: 24 },
+
+  mapBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 16,
+    gap: 12,
+  },
+  mapBannerIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: "#eff6ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapBannerTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#0f172a",
+  },
+  mapBannerSub: {
+    fontSize: 11,
+    color: "#64748b",
+    marginTop: 2,
+    lineHeight: 15,
+  },
 
   sectionTitle: {
     fontSize: 12.5,
