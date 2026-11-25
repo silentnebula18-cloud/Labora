@@ -83,7 +83,7 @@ export default function KelolaKelasScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <AppIcon name="chevron-left" size={16} color="#2563eb" />
+          <AppIcon name="chevron-left" size={16} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
 
@@ -111,7 +111,7 @@ export default function KelolaKelasScreen() {
 
         {loading && (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color="#2563eb" />
+            <ActivityIndicator color="#41337A" />
             <Text style={styles.loadingText}>Memuat kelas…</Text>
           </View>
         )}
@@ -125,7 +125,7 @@ export default function KelolaKelasScreen() {
         {!loading && !loadError && classes.length === 0 && (
           <View style={styles.empty}>
             <View style={styles.emptyIconCircle}>
-              <AppIcon name="class" size={26} color="#475569" />
+              <AppIcon name="class" size={26} color="#41337A" />
             </View>
             <Text style={styles.emptyTitle}>Belum ada kelas</Text>
             <Text style={styles.emptySubtitle}>
@@ -143,7 +143,7 @@ export default function KelolaKelasScreen() {
               onPress={() =>
                 router.push(`/asisten/kelas/${item.id}` as any)
               }
-              android_ripple={{ color: "#e0e7ff" }}
+              android_ripple={{ color: "#C2EFEB" }}
             >
               <View style={styles.cardTop}>
                 <View style={styles.kodePill}>
@@ -181,7 +181,7 @@ export default function KelolaKelasScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f1f5f9" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
   content: { padding: 16, paddingBottom: 32 },
 
   backBtn: {
@@ -190,27 +190,28 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: 12,
   },
-  backText: { fontSize: 15, color: "#2563eb", fontWeight: "700" },
+  backText: { fontSize: 15, color: "#41337A", fontWeight: "700", },
 
   headerRow: { flexDirection: "row", alignItems: "flex-start" },
   headerInfo: { flex: 1 },
-  title: { fontSize: 21, fontWeight: "800", color: "#0f172a" },
+  title: { fontSize: 21, fontWeight: "800", color: "#331E36", },
   subtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     lineHeight: 19,
     marginTop: 4,
+
   },
 
   addButton: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 12,
     paddingVertical: 13,
     alignItems: "center",
     marginTop: 16,
     marginBottom: 16,
   },
-  addButtonText: { color: "#fff", fontSize: 14.5, fontWeight: "700" },
+  addButtonText: { color: "#fff", fontSize: 14.5, fontWeight: "700", },
   pressed: { opacity: 0.85 },
 
   loadingBox: {
@@ -218,7 +219,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     gap: 10,
   },
-  loadingText: { fontSize: 13, color: "#64748b" },
+  loadingText: { fontSize: 13, color: "#6EA4BF", },
 
   errorBox: {
     backgroundColor: "#fef2f2",
@@ -228,7 +229,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-  errorBoxText: { color: "#991b1b", fontSize: 13 },
+  errorBoxText: { color: "#991b1b", fontSize: 13, },
 
   empty: {
     alignItems: "center",
@@ -237,13 +238,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   emptyIconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -251,14 +252,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   emptySubtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
+
   },
 
   card: {
@@ -267,7 +270,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   cardTop: {
     flexDirection: "row",
@@ -276,13 +279,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   kodePill: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  kodePillText: { fontSize: 12, fontWeight: "700", color: "#2563eb" },
-  chevron: { fontSize: 22, color: "#94a3b8" },
-  course: { fontSize: 15.5, fontWeight: "800", color: "#0f172a" },
-  meta: { fontSize: 12, color: "#64748b", marginTop: 4 },
+  kodePillText: { fontSize: 12, fontWeight: "700", color: "#41337A", },
+  chevron: { fontSize: 22, color: "#6EA4BF", },
+  course: { fontSize: 15.5, fontWeight: "800", color: "#331E36", },
+  meta: { fontSize: 12, color: "#6EA4BF", marginTop: 4, },
 });

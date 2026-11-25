@@ -33,18 +33,19 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center", padding: 24 },
   badge: {
     alignSelf: "flex-start",
-    backgroundColor: "#dbeafe",
-    color: "#1d4ed8",
+    backgroundColor: "#C2EFEB",
+    color: "#41337A",
     fontWeight: "600",
     paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 999,
     marginBottom: 12,
     overflow: "hidden",
+
   },
-  title: { fontSize: 26, fontWeight: "700", color: "#111827" },
-  subtitle: { fontSize: 16, color: "#6b7280", marginTop: 4 },
-  note: { marginTop: 24, color: "#374151" },
+  title: { fontSize: 26, fontWeight: "700", color: "#331E36", },
+  subtitle: { fontSize: 16, color: "#6EA4BF", marginTop: 4, },
+  note: { marginTop: 24, color: "#331E36" },
   button: {
     backgroundColor: "#ef4444",
     borderRadius: 8,
@@ -52,5 +53,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 32,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600", },
 });

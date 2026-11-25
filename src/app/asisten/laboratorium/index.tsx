@@ -129,7 +129,7 @@ export default function KelolaLaboratoriumScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.content}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <AppIcon name="chevron-left" size={16} color="#2563eb" />
+            <AppIcon name="chevron-left" size={16} color="#41337A" />
             <Text style={styles.backText}>Kembali</Text>
           </Pressable>
           <View style={styles.forbiddenBox}>
@@ -152,7 +152,7 @@ export default function KelolaLaboratoriumScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <AppIcon name="chevron-left" size={16} color="#2563eb" />
+          <AppIcon name="chevron-left" size={16} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
 
@@ -192,20 +192,20 @@ export default function KelolaLaboratoriumScreen() {
             ]}
             onPress={() => router.push("/asisten/peta" as any)}
           >
-            <AppIcon name="location" size={16} color="#2563eb" />
+            <AppIcon name="location" size={16} color="#41337A" />
             <Text style={styles.mapNavBtnText}>Lihat Peta</Text>
           </Pressable>
         </View>
 
         {/* Input Pencarian */}
         <View style={styles.searchBox}>
-          <AppIcon name="search" size={16} color="#94a3b8" />
+          <AppIcon name="search" size={16} color="#6EA4BF" />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Cari nama laboratorium, alamat, atau deskripsi..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#6EA4BF"
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery("")}>
@@ -216,7 +216,7 @@ export default function KelolaLaboratoriumScreen() {
 
         {loading && (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color="#2563eb" />
+            <ActivityIndicator color="#41337A" />
             <Text style={styles.loadingText}>Memuat data laboratorium…</Text>
           </View>
         )}
@@ -231,7 +231,7 @@ export default function KelolaLaboratoriumScreen() {
         {!loading && !loadError && filteredLabs.length === 0 && (
           <View style={styles.emptyBox}>
             <View style={styles.emptyIconBox}>
-              <AppIcon name="location" size={28} color="#94a3b8" />
+              <AppIcon name="location" size={28} color="#6EA4BF" />
             </View>
             <Text style={styles.emptyTitle}>
               {searchQuery
@@ -253,7 +253,7 @@ export default function KelolaLaboratoriumScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.labNama}>{lab.nama}</Text>
                   <View style={styles.alamatRow}>
-                    <AppIcon name="location" size={13} color="#64748b" />
+                    <AppIcon name="location" size={13} color="#6EA4BF" />
                     <Text style={styles.labAlamat} numberOfLines={2}>
                       {lab.alamat}
                     </Text>
@@ -268,13 +268,13 @@ export default function KelolaLaboratoriumScreen() {
                   <View
                     style={[
                       styles.statusDot,
-                      { backgroundColor: lab.aktif ? "#16a34a" : "#94a3b8" },
+                      { backgroundColor: lab.aktif ? "#16a34a" : "#6EA4BF" },
                     ]}
                   />
                   <Text
                     style={[
                       styles.statusText,
-                      { color: lab.aktif ? "#15803d" : "#475569" },
+                      { color: lab.aktif ? "#15803d" : "#41337A" },
                     ]}
                   >
                     {lab.aktif ? "Aktif" : "Nonaktif"}
@@ -428,7 +428,7 @@ export default function KelolaLaboratoriumScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
   },
   content: {
     padding: 20,
@@ -443,12 +443,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 8,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
   },
   backText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   headerRow: {
     marginBottom: 16,
@@ -459,12 +460,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   subtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     lineHeight: 18,
+
   },
   actionHeader: {
     flexDirection: "row",
@@ -473,7 +476,7 @@ const styles = StyleSheet.create({
   },
   addButton: {
     flex: 1,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -486,11 +489,12 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 14,
     fontWeight: "600",
+
   },
   mapNavBtn: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -500,16 +504,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   mapNavBtnText: {
-    color: "#2563eb",
+    color: "#41337A",
     fontSize: 13,
     fontWeight: "600",
+
   },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -519,13 +524,15 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13,
-    color: "#0f172a",
+    color: "#331E36",
     paddingVertical: 2,
+
   },
   clearSearchText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontWeight: "500",
+
   },
   loadingBox: {
     flexDirection: "row",
@@ -536,7 +543,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   errorBox: {
     flexDirection: "row",
@@ -553,12 +561,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#b91c1c",
     flex: 1,
+
   },
   emptyBox: {
     alignItems: "center",
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     borderRadius: 16,
     padding: 28,
     marginTop: 8,
@@ -567,7 +576,7 @@ const styles = StyleSheet.create({
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -575,20 +584,22 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#331E36",
     marginBottom: 4,
+
   },
   emptySubtitle: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 18,
+
   },
   labCard: {
     backgroundColor: "#ffffff",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     padding: 16,
     marginBottom: 12,
   },
@@ -601,8 +612,9 @@ const styles = StyleSheet.create({
   labNama: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 4,
+
   },
   alamatRow: {
     flexDirection: "row",
@@ -611,8 +623,9 @@ const styles = StyleSheet.create({
   },
   labAlamat: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     flex: 1,
+
   },
   statusBadge: {
     flexDirection: "row",
@@ -628,9 +641,9 @@ const styles = StyleSheet.create({
     borderColor: "#bbf7d0",
   },
   statusInactive: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   statusDot: {
     width: 6,
@@ -640,19 +653,21 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 11,
     fontWeight: "600",
+
   },
   labDeskripsi: {
     fontSize: 12,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 10,
     lineHeight: 16,
+
   },
   specsContainer: {
     flexDirection: "row",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#ECFEE8",
     padding: 10,
     marginTop: 12,
   },
@@ -661,20 +676,22 @@ const styles = StyleSheet.create({
   },
   specDivider: {
     width: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     marginHorizontal: 10,
   },
   specLabel: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#94a3b8",
+    color: "#6EA4BF",
     letterSpacing: 0.5,
     marginBottom: 2,
+
   },
   specValue: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1e293b",
+    color: "#331E36",
+
   },
   cardActions: {
     flexDirection: "row",
@@ -683,23 +700,25 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#ECFEE8",
     gap: 8,
   },
   cardActionBtn: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
   editActionText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   toggleActionText: {
     fontSize: 12,
     fontWeight: "600",
+
   },
   deleteActionBtn: {
     backgroundColor: "#fef2f2",
@@ -708,6 +727,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#dc2626",
+
   },
   pressed: {
     opacity: 0.75,
@@ -726,16 +746,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#991b1b",
+
   },
   forbiddenDesc: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     textAlign: "center",
     lineHeight: 18,
+
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    backgroundColor: "rgba(51, 30, 54, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
@@ -747,7 +769,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 380,
     alignItems: "center",
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15,
     shadowRadius: 16,
@@ -765,15 +787,17 @@ const styles = StyleSheet.create({
   confirmTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   confirmDesc: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     textAlign: "center",
     lineHeight: 18,
     marginBottom: 20,
+
   },
   confirmActionRow: {
     flexDirection: "row",
@@ -788,12 +812,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   confirmCancelBtn: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
   confirmCancelText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
+
   },
   confirmDeleteBtn: {
     backgroundColor: "#dc2626",
@@ -802,5 +827,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#ffffff",
+
   },
 });

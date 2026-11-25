@@ -39,19 +39,47 @@ export default function PilihPeranScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
   container: { flex: 1, justifyContent: "center", padding: 24 },
-  title: { fontSize: 26, fontWeight: "700", color: "#111827" },
-  subtitle: { fontSize: 16, color: "#6b7280", marginBottom: 24 },
-  card: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  title: {
+    fontSize: 27,
+    fontWeight: "800",
+    color: "#331E36",
   },
-  cardTitle: { fontSize: 18, fontWeight: "600", color: "#111827" },
-  cardDesc: { fontSize: 14, color: "#6b7280", marginTop: 4 },
-  logout: { alignSelf: "center", marginTop: 16, padding: 8 },
-  logoutText: { color: "#2563eb", fontWeight: "600" },
+  subtitle: {
+    fontSize: 15.5,
+    color: "#41337A",
+    marginBottom: 24,
+    marginTop: 4,
+  },
+  card: {
+    borderWidth: 1.5,
+    borderColor: "#6EA4BF",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: "#331E36",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#331E36",
+  },
+  cardDesc: {
+    fontSize: 13.5,
+    color: "#41337A",
+    marginTop: 4,
+  },
+  logout: { alignSelf: "center", marginTop: 18, padding: 10 },
+  logoutText: {
+    color: "#41337A",
+    fontWeight: "600",
+    fontSize: 14,
+    paddingHorizontal: 6,
+  },
 });

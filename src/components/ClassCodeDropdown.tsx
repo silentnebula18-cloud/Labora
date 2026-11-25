@@ -51,7 +51,7 @@ export default function ClassCodeDropdown({
         <AppIcon
           name={open ? "chevron-up" : "chevron-down"}
           size={18}
-          color={open ? "#2563eb" : "#6b7280"}
+          color={open ? "#41337A" : "#6EA4BF"}
         />
       </Pressable>
 
@@ -108,7 +108,7 @@ export default function ClassCodeDropdown({
                   </View>
 
                   {isSelected && (
-                    <AppIcon name="check" size={16} color="#2563eb" />
+                    <AppIcon name="check" size={16} color="#41337A" />
                   )}
                 </Pressable>
               );
@@ -129,15 +129,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#6EA4BF",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     backgroundColor: "#ffffff",
   },
   triggerOpen: {
-    borderColor: "#2563eb",
-    backgroundColor: "#f8fafc",
+    borderColor: "#41337A",
+    backgroundColor: "#ECFEE8",
   },
   triggerError: {
     borderColor: "#dc2626",
@@ -150,18 +150,20 @@ const styles = StyleSheet.create({
   },
   triggerText: {
     fontSize: 16,
-    color: "#111827",
+    color: "#331E36",
     fontWeight: "500",
+
   },
   triggerPlaceholder: {
-    color: "#9ca3af",
+    color: "#6EA4BF",
     fontWeight: "400",
+
   },
 
   dropdownMenu: {
     marginTop: 6,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     backgroundColor: "#ffffff",
     overflow: "hidden",
@@ -180,13 +182,13 @@ const styles = StyleSheet.create({
   },
   optionDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#ECFEE8",
   },
   optionItemSelected: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
   },
   optionItemPressed: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
   optionLeft: {
     flexDirection: "row",
@@ -198,16 +200,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
   },
   codeBadgeSelected: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
   codeBadgeText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#334155",
+    color: "#331E36",
+
   },
   codeBadgeTextSelected: {
     color: "#ffffff",
@@ -215,11 +218,13 @@ const styles = StyleSheet.create({
   optionLabel: {
     fontSize: 14.5,
     fontWeight: "500",
-    color: "#1e293b",
+    color: "#331E36",
+
   },
   optionLabelSelected: {
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 });
 

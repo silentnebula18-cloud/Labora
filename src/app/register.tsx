@@ -127,8 +127,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Masukkan nama lengkap"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
+            placeholderTextColor="#6EA4BF"
+            selectionColor="#41337A"
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="next"
@@ -148,8 +148,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Masukkan 14 digit NIM"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
+            placeholderTextColor="#6EA4BF"
+            selectionColor="#41337A"
             keyboardType="number-pad"
             maxLength={14}
             autoCapitalize="none"
@@ -171,8 +171,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Masukkan email"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
+            placeholderTextColor="#6EA4BF"
+            selectionColor="#41337A"
             keyboardType="email-address"
             autoComplete="email"
             textContentType="emailAddress"
@@ -197,8 +197,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Minimal 6 karakter"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
+            placeholderTextColor="#6EA4BF"
+            selectionColor="#41337A"
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
@@ -221,8 +221,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Ulangi kata sandi"
-            placeholderTextColor="#9ca3af"
-            selectionColor="#2563eb"
+            placeholderTextColor="#6EA4BF"
+            selectionColor="#41337A"
             secureTextEntry
             autoCapitalize="none"
             autoCorrect={false}
@@ -260,7 +260,7 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
   container: {
     flexGrow: 1,
     justifyContent: "center",
@@ -268,72 +268,86 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#111827",
+    fontSize: 34,
+    fontWeight: "800",
+    color: "#331E36",
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#6b7280",
+    fontSize: 15,
+    color: "#41337A",
     marginBottom: 24,
+    marginTop: 4,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "600",
-    color: "#374151",
+    color: "#331E36",
     marginTop: 16,
     marginBottom: 6,
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: "#6EA4BF",
+    borderRadius: 12,
+    paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
-    color: "#111827",
-    backgroundColor: "#fff",
+    fontSize: 15.5,
+    color: "#331E36",
+    backgroundColor: "#FFFFFF",
   },
   inputError: { borderColor: "#dc2626" },
   errorText: {
     color: "#dc2626",
-    fontSize: 13,
+    fontSize: 12.5,
     marginTop: 4,
   },
   errorBox: {
     backgroundColor: "#fee2e2",
-    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+    borderRadius: 12,
     padding: 12,
     marginBottom: 8,
   },
-  errorBoxText: { color: "#b91c1c" },
+  errorBoxText: {
+    color: "#b91c1c",
+  },
   button: {
-    backgroundColor: "#2563eb",
-    borderRadius: 8,
-    paddingVertical: 14,
+    backgroundColor: "#41337A",
+    borderRadius: 12,
+    paddingVertical: 15,
     alignItems: "center",
     marginTop: 28,
+    shadowColor: "#331E36",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: {
-    color: "#fff",
+    color: "#ECFEE8",
     fontSize: 16,
     fontWeight: "600",
+    paddingHorizontal: 8,
+    textAlign: "center",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: 6,
-    marginTop: 20,
+    marginTop: 22,
   },
   footerText: {
-    color: "#6b7280",
+    color: "#331E36",
     fontSize: 14,
   },
   footerLink: {
-    color: "#2563eb",
+    color: "#41337A",
     fontSize: 14,
     fontWeight: "600",
+    paddingHorizontal: 4,
   },
 });

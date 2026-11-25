@@ -115,8 +115,8 @@ export default function ClassFormModal({
                 setErrors((current) => ({ ...current, mataKuliah: undefined }));
               }}
               placeholder="Contoh: Pemrograman Berorientasi Objek"
-              placeholderTextColor="#9ca3af"
-              selectionColor="#2563eb"
+              placeholderTextColor="#6EA4BF"
+              selectionColor="#41337A"
               maxLength={120}
               editable={!submitting}
             />
@@ -183,7 +183,7 @@ export default function ClassFormModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    backgroundColor: "rgba(51, 30, 54, 0.5)",
     justifyContent: "center",
     padding: 20,
   },
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     maxHeight: "88%",
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOpacity: 0.2,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
@@ -201,16 +201,18 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#111827",
+    color: "#331E36",
     textAlign: "center",
+
   },
   subtitle: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
     marginTop: 6,
     marginBottom: 6,
+
   },
   errorBox: {
     backgroundColor: "#fee2e2",
@@ -218,33 +220,37 @@ const styles = StyleSheet.create({
     padding: 12,
     marginTop: 10,
   },
-  errorBoxText: { color: "#b91c1c", fontSize: 13 },
+  errorBoxText: { color: "#b91c1c", fontSize: 13, },
   label: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#374151",
+    color: "#331E36",
     marginTop: 16,
     marginBottom: 6,
+
   },
   requiredMark: {
     color: "#dc2626",
     fontWeight: "700",
+
   },
   input: {
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#6EA4BF",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#111827",
+    color: "#331E36",
     backgroundColor: "#fff",
+
   },
   inputError: { borderColor: "#dc2626" },
   errorText: {
     color: "#dc2626",
     fontSize: 13,
     marginTop: 4,
+
   },
   actions: { flexDirection: "row", gap: 10, marginTop: 22 },
   button: {
@@ -257,14 +263,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#6EA4BF",
   },
-  cancelText: { fontSize: 14, fontWeight: "700", color: "#374151" },
+  cancelText: { fontSize: 14, fontWeight: "700", color: "#331E36", },
   saveButton: {
     flex: 1.4,
-    backgroundColor: "#1e40af",
+    backgroundColor: "#41337A",
   },
-  saveText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  saveText: { fontSize: 14, fontWeight: "700", color: "#fff", },
   buttonPressed: { opacity: 0.82 },
   buttonDisabled: { opacity: 0.6 },
 });

@@ -68,9 +68,9 @@ const AI_SENTIMENT_CONFIG: Record<
   },
   netral: {
     label: "Sentimen Netral",
-    bg: "#f1f5f9",
-    text: "#334155",
-    border: "#cbd5e1",
+    bg: "#ECFEE8",
+    text: "#331E36",
+    border: "#6EA4BF",
   },
   negatif: {
     label: "Sentimen Negatif",
@@ -232,7 +232,7 @@ export default function IzinPraktikanScreen() {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <AppIcon name="chevron-left" size={18} color="#2563eb" />
+          <AppIcon name="chevron-left" size={18} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
         <Text style={styles.topBarTitle}>Pengajuan Izin</Text>
@@ -373,7 +373,7 @@ export default function IzinPraktikanScreen() {
               <TextInput
                 style={styles.textArea}
                 placeholder="Contoh: Saya sedang sakit demam dan tidak bisa hadir di laboratorium hari ini."
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#6EA4BF"
                 multiline
                 numberOfLines={4}
                 textAlignVertical="top"
@@ -388,7 +388,7 @@ export default function IzinPraktikanScreen() {
                 style={styles.aiButton}
                 onPress={handleCekSentimen}
               >
-                <AppIcon name="info" size={16} color="#4338ca" />
+                <AppIcon name="info" size={16} color="#41337A" />
                 <Text style={styles.aiButtonText}>
                   Uji Sentimen AI Terlebih Dahulu
                 </Text>
@@ -403,10 +403,10 @@ export default function IzinPraktikanScreen() {
                       ? {
                           backgroundColor:
                             AI_SENTIMENT_CONFIG[aiPreview.label]?.bg ??
-                            "#f1f5f9",
+                            "#ECFEE8",
                           borderColor:
                             AI_SENTIMENT_CONFIG[aiPreview.label]?.border ??
-                            "#cbd5e1",
+                            "#6EA4BF",
                         }
                       : styles.aiPreviewFailed,
                   ]}
@@ -418,7 +418,7 @@ export default function IzinPraktikanScreen() {
                       color={
                         aiPreview.status === "success" && aiPreview.label
                           ? AI_SENTIMENT_CONFIG[aiPreview.label]?.text ??
-                            "#1e293b"
+                            "#331E36"
                           : "#991b1b"
                       }
                     />
@@ -429,7 +429,7 @@ export default function IzinPraktikanScreen() {
                           ? {
                               color:
                                 AI_SENTIMENT_CONFIG[aiPreview.label]?.text ??
-                                "#1e293b",
+                                "#331E36",
                             }
                           : { color: "#991b1b" },
                       ]}
@@ -484,7 +484,7 @@ export default function IzinPraktikanScreen() {
           >
             {permissionsLoading ? (
               <View style={styles.loadingBox}>
-                <ActivityIndicator color="#2563eb" />
+                <ActivityIndicator color="#41337A" />
                 <Text style={styles.loadingText}>Memuat riwayat izin…</Text>
               </View>
             ) : permissionsError ? (
@@ -494,7 +494,7 @@ export default function IzinPraktikanScreen() {
             ) : permissions.length === 0 ? (
               <View style={styles.emptyBox}>
                 <View style={styles.emptyIconCircle}>
-                  <AppIcon name="clipboard" size={26} color="#64748b" />
+                  <AppIcon name="clipboard" size={26} color="#6EA4BF" />
                 </View>
                 <Text style={styles.emptyTitle}>Belum Ada Pengajuan Izin</Text>
                 <Text style={styles.emptySubtitle}>
@@ -693,7 +693,7 @@ export default function IzinPraktikanScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
   },
   topBar: {
     flexDirection: "row",
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     backgroundColor: "#ffffff",
   },
   backBtn: {
@@ -715,18 +715,20 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   topBarTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   tabContainer: {
     flexDirection: "row",
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     paddingHorizontal: 16,
     paddingTop: 4,
   },
@@ -740,18 +742,19 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   tabButtonActive: {
-    borderColor: "#2563eb",
+    borderColor: "#41337A",
   },
   tabText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   tabTextActive: {
-    color: "#2563eb",
+    color: "#41337A",
   },
   badgeCount: {
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
@@ -759,7 +762,8 @@ const styles = StyleSheet.create({
   badgeCountText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
+
   },
   scrollContent: {
     padding: 16,
@@ -770,8 +774,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    shadowColor: "#0f172a",
+    borderColor: "#C2EFEB",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 2,
@@ -780,25 +784,28 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 4,
+
   },
   sectionSub: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     lineHeight: 18,
     marginBottom: 12,
+
   },
   emptySessionBox: {
     padding: 16,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     alignItems: "center",
   },
   emptySessionText: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
+
   },
   sessionList: {
     gap: 10,
@@ -807,12 +814,12 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#f8fafc",
+    borderColor: "#C2EFEB",
+    backgroundColor: "#ECFEE8",
   },
   sessionItemActive: {
-    borderColor: "#2563eb",
-    backgroundColor: "#eff6ff",
+    borderColor: "#41337A",
+    backgroundColor: "#C2EFEB",
   },
   sessionItemHeader: {
     flexDirection: "row",
@@ -823,51 +830,55 @@ const styles = StyleSheet.create({
   sessionItemTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#331E36",
     flex: 1,
     marginRight: 8,
+
   },
   sessionItemTitleActive: {
-    color: "#1d4ed8",
+    color: "#41337A",
   },
   radioCircle: {
     width: 18,
     height: 18,
     borderRadius: 9,
     borderWidth: 2,
-    borderColor: "#94a3b8",
+    borderColor: "#6EA4BF",
     alignItems: "center",
     justifyContent: "center",
   },
   radioCircleActive: {
-    borderColor: "#2563eb",
+    borderColor: "#41337A",
   },
   radioDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
   sessionItemSub: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
     marginBottom: 2,
+
   },
   sessionItemTime: {
     fontSize: 11,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   textArea: {
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
     padding: 12,
     fontSize: 14,
-    color: "#0f172a",
+    color: "#331E36",
     minHeight: 100,
     backgroundColor: "#ffffff",
     lineHeight: 20,
+
   },
   aiButton: {
     flexDirection: "row",
@@ -878,12 +889,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
-    backgroundColor: "#e0e7ff",
+    backgroundColor: "#C2EFEB",
   },
   aiButtonText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#3730a3",
+    color: "#41337A",
+
   },
   aiPreviewBox: {
     marginTop: 12,
@@ -904,27 +916,30 @@ const styles = StyleSheet.create({
   aiPreviewTitle: {
     fontSize: 13,
     fontWeight: "700",
+
   },
   aiPreviewNote: {
     fontSize: 12,
-    color: "#334155",
+    color: "#331E36",
     lineHeight: 16,
+
   },
   aiConfidenceText: {
     fontSize: 11,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 4,
     fontStyle: "italic",
+
   },
   submitBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     paddingVertical: 14,
     borderRadius: 14,
-    shadowColor: "#2563eb",
+    shadowColor: "#41337A",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -934,7 +949,7 @@ const styles = StyleSheet.create({
     opacity: 0.85,
   },
   submitBtnDisabled: {
-    backgroundColor: "#94a3b8",
+    backgroundColor: "#6EA4BF",
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -942,6 +957,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "700",
     color: "#ffffff",
+
   },
   loadingBox: {
     padding: 32,
@@ -950,7 +966,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   errorBox: {
     padding: 16,
@@ -962,6 +979,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 13,
     color: "#991b1b",
+
   },
   emptyBox: {
     padding: 32,
@@ -972,7 +990,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
@@ -980,25 +998,28 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   emptySubtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 18,
+
   },
   emptyActionBtn: {
     marginTop: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 8,
   },
   emptyActionBtnText: {
     fontSize: 13,
     fontWeight: "600",
     color: "#ffffff",
+
   },
   historyList: {
     gap: 12,
@@ -1008,7 +1029,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   historyCardHeader: {
     flexDirection: "row",
@@ -1028,6 +1049,7 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 11,
     fontWeight: "700",
+
   },
   aiBadge: {
     flexDirection: "row",
@@ -1041,35 +1063,40 @@ const styles = StyleSheet.create({
   aiBadgeText: {
     fontSize: 11,
     fontWeight: "700",
+
   },
   historyMataKuliah: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   historyPertemuan: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginBottom: 10,
+
   },
   alasanBox: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#ECFEE8",
     marginBottom: 8,
   },
   alasanLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#475569",
+    color: "#41337A",
     marginBottom: 2,
+
   },
   alasanText: {
     fontSize: 13,
-    color: "#1e293b",
+    color: "#331E36",
     lineHeight: 18,
+
   },
   attendedBadge: {
     flexDirection: "row",
@@ -1086,6 +1113,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#166534",
+
   },
   attendedReplaceNote: {
     fontSize: 11,
@@ -1093,12 +1121,14 @@ const styles = StyleSheet.create({
     color: "#166534",
     marginBottom: 8,
     lineHeight: 15,
+
   },
   aiNoteHistoryText: {
     fontSize: 11,
     fontStyle: "italic",
-    color: "#64748b",
+    color: "#6EA4BF",
     marginBottom: 8,
+
   },
   historyFooter: {
     flexDirection: "row",
@@ -1106,11 +1136,12 @@ const styles = StyleSheet.create({
   },
   historyTime: {
     fontSize: 11,
-    color: "#94a3b8",
+    color: "#6EA4BF",
+
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: "rgba(51, 30, 54, 0.45)",
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
@@ -1140,20 +1171,22 @@ const styles = StyleSheet.create({
   feedbackModalTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   feedbackModalMessage: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     textAlign: "center",
     lineHeight: 18,
     marginBottom: 20,
+
   },
   feedbackModalBtn: {
     width: "100%",
     paddingVertical: 12,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 10,
     alignItems: "center",
   },
@@ -1161,9 +1194,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
+
   },
   requiredMark: {
     color: "#dc2626",
     fontWeight: "700",
+
   },
 });

@@ -71,7 +71,7 @@ export default function ProfileView() {
             ]}
             onPress={changeRole}
           >
-            <AppIcon name="switch" size={16} color="#2563eb" />
+            <AppIcon name="switch" size={16} color="#41337A" />
             <Text style={styles.switchRoleText}>Ganti Peran Aktif</Text>
           </Pressable>
         )}
@@ -94,7 +94,7 @@ export default function ProfileView() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
   content: {
     flexGrow: 1,
@@ -113,35 +113,36 @@ const styles = StyleSheet.create({
     width: 104,
     height: 104,
     borderRadius: 52,
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
   },
   avatarCircle: {
     width: 86,
     height: 86,
     borderRadius: 43,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     alignItems: "center",
     justifyContent: "center",
   },
   roleBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 5,
   },
   roleBadgeText: {
-    color: "#2563eb",
+    color: "#41337A",
     fontSize: 11.5,
     fontWeight: "800",
     letterSpacing: 0.5,
     textTransform: "uppercase",
+
   },
 
   // Kartu Identitas di Bawah Icon User
@@ -150,15 +151,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 24,
   },
   sectionHeaderTitle: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#64748b",
+    color: "#6EA4BF",
     letterSpacing: 0.8,
     marginBottom: 12,
+
   },
   infoItem: {
     paddingVertical: 5,
@@ -166,17 +168,19 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
     marginBottom: 3,
+
   },
   infoValue: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   divider: {
     height: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     marginVertical: 8,
   },
 
@@ -193,14 +197,15 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
     paddingVertical: 14,
   },
   switchRoleText: {
     fontSize: 14.5,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   logoutBtn: {
     flexDirection: "row",
@@ -217,6 +222,7 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: "800",
     color: "#b91c1c",
+
   },
   btnPressed: {
     opacity: 0.8,

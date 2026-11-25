@@ -387,8 +387,8 @@ export default function ScheduleFormModal({
                     }));
                   }}
                   placeholder="1"
-                  placeholderTextColor="#94a3b8"
-                  selectionColor="#2563eb"
+                  placeholderTextColor="#6EA4BF"
+                  selectionColor="#41337A"
                   keyboardType="number-pad"
                   maxLength={3}
                   editable={!submitting}
@@ -407,8 +407,8 @@ export default function ScheduleFormModal({
                     setErrors((curr) => ({ ...curr, ruang: undefined }));
                   }}
                   placeholder="Contoh: Lab Terpadu A301"
-                  placeholderTextColor="#94a3b8"
-                  selectionColor="#2563eb"
+                  placeholderTextColor="#6EA4BF"
+                  selectionColor="#41337A"
                   maxLength={60}
                   editable={!submitting}
                 />
@@ -433,8 +433,8 @@ export default function ScheduleFormModal({
                 setErrors((curr) => ({ ...curr, namaPraktikum: undefined }));
               }}
               placeholder="Contoh: Modul 1 — Arsitektur Komponen"
-              placeholderTextColor="#94a3b8"
-              selectionColor="#2563eb"
+              placeholderTextColor="#6EA4BF"
+              selectionColor="#41337A"
               maxLength={120}
               editable={!submitting}
             />
@@ -472,7 +472,7 @@ export default function ScheduleFormModal({
               onPress={() => setActivePicker("tanggal")}
               disabled={submitting}
             >
-              <AppIcon name="calendar" size={16} color="#2563eb" />
+              <AppIcon name="calendar" size={16} color="#41337A" />
               <Text style={styles.pickerButtonText}>
                 {formatTanggal(tanggal)}
               </Text>
@@ -495,7 +495,7 @@ export default function ScheduleFormModal({
                   onPress={() => setActivePicker("jamMulai")}
                   disabled={submitting}
                 >
-                  <AppIcon name="clock" size={16} color="#2563eb" />
+                  <AppIcon name="clock" size={16} color="#41337A" />
                   <Text style={styles.pickerButtonText}>
                     {formatJam(jamMulai)} WIB
                   </Text>
@@ -514,7 +514,7 @@ export default function ScheduleFormModal({
                   onPress={() => setActivePicker("jamSelesai")}
                   disabled={submitting}
                 >
-                  <AppIcon name="clock" size={16} color="#2563eb" />
+                  <AppIcon name="clock" size={16} color="#41337A" />
                   <Text style={styles.pickerButtonText}>
                     {formatJam(jamSelesai)} WIB
                   </Text>
@@ -589,7 +589,7 @@ export default function ScheduleFormModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    backgroundColor: "rgba(51, 30, 54, 0.55)",
     justifyContent: "flex-end",
   },
   sheet: {
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#cbd5e1",
+    backgroundColor: "#6EA4BF",
   },
   headerRow: {
     marginBottom: 8,
@@ -623,12 +623,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   subtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
+
   },
   errorBox: {
     backgroundColor: "#fef2f2",
@@ -638,18 +640,21 @@ const styles = StyleSheet.create({
     padding: 12,
     marginVertical: 8,
   },
-  errorBoxText: { color: "#991b1b", fontSize: 13 },
+  errorBoxText: { color: "#991b1b", fontSize: 13, },
 
   label: {
     fontSize: 12.5,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
     marginTop: 14,
     marginBottom: 6,
+
+
   },
   requiredMark: {
     color: "#dc2626",
     fontWeight: "800",
+
   },
   dateHeaderRow: {
     flexDirection: "row",
@@ -663,9 +668,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   quickDateChip: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 3,
@@ -673,7 +678,8 @@ const styles = StyleSheet.create({
   quickDateText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 
   classSelectorWrap: {
@@ -683,8 +689,8 @@ const styles = StyleSheet.create({
   },
   classChip: {
     borderWidth: 1,
-    borderColor: "#cbd5e1",
-    backgroundColor: "#f8fafc",
+    borderColor: "#6EA4BF",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 9,
@@ -692,37 +698,41 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   classChipSelected: {
-    borderColor: "#2563eb",
-    backgroundColor: "#eff6ff",
+    borderColor: "#41337A",
+    backgroundColor: "#C2EFEB",
   },
   classChipCode: {
     fontSize: 12.5,
     fontWeight: "800",
-    color: "#334155",
+    color: "#331E36",
+
   },
   classChipCodeSelected: {
-    color: "#2563eb",
+    color: "#41337A",
   },
   classChipCourse: {
     fontSize: 11.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
+
   },
   classChipCourseSelected: {
-    color: "#1d4ed8",
+    color: "#41337A",
     fontWeight: "600",
+
   },
   emptyClassBox: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     padding: 12,
   },
   emptyClassText: {
     fontSize: 12.5,
-    color: "#475569",
+    color: "#41337A",
     lineHeight: 18,
+
   },
 
   row: {
@@ -741,42 +751,47 @@ const styles = StyleSheet.create({
 
   input: {
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14.5,
-    color: "#0f172a",
-    backgroundColor: "#f8fafc",
+    color: "#331E36",
+    backgroundColor: "#ECFEE8",
+
+
   },
   pickerButton: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 11,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
   },
   pickerButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#0f172a",
+    color: "#331E36",
     flexShrink: 1,
+
   },
   timeHintText: {
     fontSize: 11.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 6,
     lineHeight: 16,
+
   },
   inputError: { borderColor: "#b91c1c" },
   errorText: {
     color: "#b91c1c",
     fontSize: 12,
     marginTop: 4,
+
   },
 
   actions: { flexDirection: "row", gap: 10, marginTop: 18 },
@@ -788,16 +803,16 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
   },
-  cancelText: { fontSize: 14, fontWeight: "700", color: "#334155" },
+  cancelText: { fontSize: 14, fontWeight: "700", color: "#331E36", },
   saveButton: {
     flex: 1.5,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
-  saveText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  saveText: { fontSize: 14, fontWeight: "700", color: "#fff", },
   buttonPressed: { opacity: 0.85 },
   buttonDisabled: { opacity: 0.55 },
 });

@@ -28,9 +28,9 @@ function getIconConfig(type: NotificationType): {
     case "schedule_updated":
       return { name: "calendar", color: "#d97706", bg: "#fef3c7" };
     case "permission_decided":
-      return { name: "clipboard", color: "#2563eb", bg: "#dbeafe" };
+      return { name: "clipboard", color: "#41337A", bg: "#C2EFEB" };
     default:
-      return { name: "info", color: "#4f46e5", bg: "#ede9fe" };
+      return { name: "info", color: "#41337A", bg: "#C2EFEB" };
   }
 }
 
@@ -146,13 +146,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: 12,
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     gap: 12,
   },
   iconBox: {
@@ -168,25 +168,28 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 2,
+
   },
   body: {
     fontSize: 12,
-    color: "#475569",
+    color: "#41337A",
     lineHeight: 16,
+
   },
   closeBtn: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
   },
   closeText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
 });

@@ -69,14 +69,14 @@ export default function LabDetailCard({
                   style={[
                     styles.statusDot,
                     {
-                      backgroundColor: laboratory.aktif ? "#16a34a" : "#94a3b8",
+                      backgroundColor: laboratory.aktif ? "#16a34a" : "#6EA4BF",
                     },
                   ]}
                 />
                 <Text
                   style={[
                     styles.statusText,
-                    { color: laboratory.aktif ? "#15803d" : "#475569" },
+                    { color: laboratory.aktif ? "#15803d" : "#41337A" },
                   ]}
                 >
                   {laboratory.aktif ? "Aktif" : "Nonaktif"}
@@ -85,7 +85,7 @@ export default function LabDetailCard({
             </View>
 
             <View style={styles.addressRow}>
-              <AppIcon name="location" size={13} color="#64748b" />
+              <AppIcon name="location" size={13} color="#6EA4BF" />
               <Text style={styles.addressText}>{laboratory.alamat}</Text>
             </View>
           </View>
@@ -124,7 +124,7 @@ export default function LabDetailCard({
                   ? isWithinRadius
                     ? "#15803d"
                     : "#b45309"
-                  : "#64748b"
+                  : "#6EA4BF"
               }
             />
             <Text
@@ -136,7 +136,7 @@ export default function LabDetailCard({
                       ? isWithinRadius
                         ? "#15803d"
                         : "#b45309"
-                      : "#475569",
+                      : "#41337A",
                 },
               ]}
             >
@@ -220,7 +220,7 @@ export default function LabDetailCard({
         {/* Aktivitas Berikutnya (Upcoming) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <AppIcon name="clock" size={15} color="#64748b" />
+            <AppIcon name="clock" size={15} color="#6EA4BF" />
             <Text style={styles.sectionTitle}>
               Praktikum Berikutnya ({activities.upcoming.length})
             </Text>
@@ -275,7 +275,7 @@ export default function LabDetailCard({
             ]}
             onPress={() => onManageLab(laboratory)}
           >
-            <AppIcon name="location" size={16} color="#2563eb" />
+            <AppIcon name="location" size={16} color="#41337A" />
             <Text style={styles.manageBtnText}>Ubah Data Laboratorium Ini</Text>
           </Pressable>
         )}
@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: 440,
-    shadowColor: "#0f172a",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: -6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#cbd5e1",
+    backgroundColor: "#6EA4BF",
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -326,7 +326,8 @@ const styles = StyleSheet.create({
   labName: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   statusBadge: {
     flexDirection: "row",
@@ -342,9 +343,9 @@ const styles = StyleSheet.create({
     borderColor: "#bbf7d0",
   },
   badgeInactive: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   statusDot: {
     width: 6,
@@ -354,6 +355,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 10,
     fontWeight: "700",
+
   },
   addressRow: {
     flexDirection: "row",
@@ -362,26 +364,29 @@ const styles = StyleSheet.create({
   },
   addressText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   closeBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
   },
   closeBtnText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontWeight: "700",
+
   },
   description: {
     fontSize: 12,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 8,
     lineHeight: 16,
+
   },
   proximityBox: {
     borderRadius: 14,
@@ -398,8 +403,8 @@ const styles = StyleSheet.create({
     borderColor: "#fde68a",
   },
   proximityUnknown: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#e2e8f0",
+    backgroundColor: "#ECFEE8",
+    borderColor: "#C2EFEB",
   },
   proximityHeader: {
     flexDirection: "row",
@@ -410,6 +415,7 @@ const styles = StyleSheet.create({
   proximityTitle: {
     fontSize: 12.5,
     fontWeight: "700",
+
   },
   proximityDetails: {
     flexDirection: "row",
@@ -427,20 +433,23 @@ const styles = StyleSheet.create({
   proximityLabel: {
     fontSize: 9.5,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
     letterSpacing: 0.5,
+
   },
   proximityValue: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginTop: 2,
+
   },
   proximityCoord: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
     marginTop: 2,
+
   },
   section: {
     marginTop: 16,
@@ -460,33 +469,35 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#331E36",
+
   },
   emptyActivityBox: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 10,
     padding: 10,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
+    borderColor: "#ECFEE8",
   },
   emptyActivityText: {
     fontSize: 11.5,
-    color: "#94a3b8",
+    color: "#6EA4BF",
     textAlign: "center",
+
   },
   activityCardActive: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     padding: 12,
     marginBottom: 8,
   },
   activityCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     padding: 12,
     marginBottom: 8,
   },
@@ -499,13 +510,15 @@ const styles = StyleSheet.create({
   matkulText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   praktikumTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
     marginTop: 1,
+
   },
   ongoingBadge: {
     backgroundColor: "#16a34a",
@@ -517,11 +530,13 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: "800",
     color: "#ffffff",
+
   },
   upcomingBadge: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   activityMetaRow: {
     flexDirection: "row",
@@ -531,21 +546,23 @@ const styles = StyleSheet.create({
   },
   activityMetaText: {
     fontSize: 11,
-    color: "#475569",
+    color: "#41337A",
     fontWeight: "500",
+
   },
   metaDot: {
     fontSize: 10,
-    color: "#94a3b8",
+    color: "#6EA4BF",
+
   },
   manageBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     paddingVertical: 10,
     marginTop: 14,
@@ -553,7 +570,8 @@ const styles = StyleSheet.create({
   manageBtnText: {
     fontSize: 12.5,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   pressed: {
     opacity: 0.75,

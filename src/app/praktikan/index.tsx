@@ -44,10 +44,10 @@ const STATUS_CONFIG: Record<
 > = {
   scheduled: {
     label: "Terjadwal",
-    bg: "#f8fafc",
-    border: "#cbd5e1",
-    text: "#334155",
-    dot: "#64748b",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#331E36",
+    dot: "#6EA4BF",
   },
   open: {
     label: "Presensi Dibuka",
@@ -58,10 +58,10 @@ const STATUS_CONFIG: Record<
   },
   closed: {
     label: "Selesai",
-    bg: "#f1f5f9",
-    border: "#cbd5e1",
-    text: "#475569",
-    dot: "#94a3b8",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#41337A",
+    dot: "#6EA4BF",
   },
 };
 
@@ -102,7 +102,7 @@ function SessionCard({
       onPress={() =>
         router.push({ pathname: "/praktikan/session/[id]", params: { id } } as any)
       }
-      android_ripple={{ color: "#e2e8f0" }}
+      android_ripple={{ color: "#C2EFEB" }}
     >
       <View style={styles.cardTopRow}>
         <View
@@ -141,18 +141,18 @@ function SessionCard({
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <AppIcon name="calendar" size={14} color="#64748b" />
+          <AppIcon name="calendar" size={14} color="#6EA4BF" />
           <Text style={styles.infoText}>{formatTanggal(tanggal)}</Text>
         </View>
         <View style={styles.infoBottomInline}>
           <View style={styles.infoItemInline}>
-            <AppIcon name="clock" size={14} color="#64748b" />
+            <AppIcon name="clock" size={14} color="#6EA4BF" />
             <Text style={styles.infoText}>
               {formatJam(jamMulai)} – {formatJam(jamSelesai)}
             </Text>
           </View>
           <View style={styles.infoItemInline}>
-            <AppIcon name="location" size={14} color="#64748b" />
+            <AppIcon name="location" size={14} color="#6EA4BF" />
             <Text style={styles.infoText} numberOfLines={1}>
               {ruang}
             </Text>
@@ -417,7 +417,7 @@ export default function HomePraktikan() {
                   onPress={() => router.push("/praktikan/peta" as any)}
                 >
                   <View style={styles.mapBannerIcon}>
-                    <AppIcon name="location" size={18} color="#2563eb" />
+                    <AppIcon name="location" size={18} color="#41337A" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.mapBannerTitle}>
@@ -427,12 +427,12 @@ export default function HomePraktikan() {
                       Cek radius presensi GPS dan jadwal praktikum terkini
                     </Text>
                   </View>
-                  <AppIcon name="chevron-right" size={14} color="#64748b" />
+                  <AppIcon name="chevron-right" size={14} color="#6EA4BF" />
                 </Pressable>
 
                 {sessionsLoading && (
                   <View style={styles.classLoading}>
-                    <ActivityIndicator color="#2563eb" />
+                    <ActivityIndicator color="#41337A" />
                     <Text style={styles.classLoadingText}>
                       Memuat jadwal & sesi…
                     </Text>
@@ -450,7 +450,7 @@ export default function HomePraktikan() {
                   studentSessions.length === 0 && (
                     <View style={styles.empty}>
                       <View style={styles.emptyIconCircle}>
-                        <AppIcon name="calendar" size={26} color="#475569" />
+                        <AppIcon name="calendar" size={26} color="#41337A" />
                       </View>
                       <Text style={styles.emptyTitle}>Belum ada jadwal</Text>
                       <Text style={styles.emptySubtitle}>
@@ -519,7 +519,7 @@ export default function HomePraktikan() {
                 {myAttendances.length === 0 ? (
                   <View style={styles.empty}>
                     <View style={styles.emptyIconCircle}>
-                      <AppIcon name="clipboard" size={26} color="#475569" />
+                      <AppIcon name="clipboard" size={26} color="#41337A" />
                     </View>
                     <Text style={styles.emptyTitle}>Belum ada kehadiran</Text>
                     <Text style={styles.emptySubtitle}>
@@ -545,7 +545,7 @@ export default function HomePraktikan() {
               <>
                 {classesLoading ? (
                   <View style={styles.classLoading}>
-                    <ActivityIndicator color="#2563eb" />
+                    <ActivityIndicator color="#41337A" />
                     <Text style={styles.classLoadingText}>Memuat kelas…</Text>
                   </View>
                 ) : classesError ? (
@@ -555,7 +555,7 @@ export default function HomePraktikan() {
                 ) : classList.length === 0 ? (
                   <View style={styles.empty}>
                     <View style={styles.emptyIconCircle}>
-                      <AppIcon name="class" size={26} color="#475569" />
+                      <AppIcon name="class" size={26} color="#41337A" />
                     </View>
                     <Text style={styles.emptyTitle}>Belum ada kelas</Text>
                     <Text style={styles.emptySubtitle}>
@@ -569,7 +569,7 @@ export default function HomePraktikan() {
                     {classList.map((item) => (
                       <View key={item.id} style={styles.classCard}>
                         <View style={styles.classIconBox}>
-                          <AppIcon name="class" size={20} color="#2563eb" />
+                          <AppIcon name="class" size={20} color="#41337A" />
                         </View>
                         <View style={styles.classInfo}>
                           <Text style={styles.classCourse} numberOfLines={2}>
@@ -622,14 +622,14 @@ export default function HomePraktikan() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f1f5f9" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
 
   // Header
   header: {
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 18,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
   },
   headerTopRow: {
     flexDirection: "row",
@@ -638,9 +638,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   greeting: {
-    color: "#dbeafe",
+    color: "#C2EFEB",
     fontSize: 13,
     fontWeight: "600",
+
   },
   headerTopRight: {
     flexDirection: "row",
@@ -668,12 +669,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#2563eb",
+    borderColor: "#331E36",
   },
   bellBadgeText: {
     color: "#ffffff",
     fontSize: 9,
     fontWeight: "800",
+
   },
   rolePill: {
     backgroundColor: "rgba(255,255,255,0.18)",
@@ -686,6 +688,7 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 0.6,
+
   },
   headerInfoRow: {
     flexDirection: "row",
@@ -719,12 +722,13 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontWeight: "700",
+
   },
-  name: { color: "#ffffff", fontSize: 19, fontWeight: "800" },
-  nim: { color: "#dbeafe", fontSize: 12, marginTop: 2, fontWeight: "500" },
+  name: { color: "#ffffff", fontSize: 19, fontWeight: "800", },
+  nim: { color: "#C2EFEB", fontSize: 12, marginTop: 2, fontWeight: "500", },
 
   profileHeader: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
     paddingHorizontal: 20,
     paddingVertical: 15,
     alignItems: "center",
@@ -733,6 +737,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "800",
+
   },
 
   // Segment
@@ -741,7 +746,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 14,
     padding: 4,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     borderRadius: 12,
   },
   segmentItem: {
@@ -756,19 +761,19 @@ const styles = StyleSheet.create({
   segmentActive: {
     backgroundColor: "#ffffff",
   },
-  segmentText: { fontSize: 12.5, fontWeight: "600", color: "#64748b" },
-  segmentTextActive: { color: "#2563eb", fontWeight: "800" },
+  segmentText: { fontSize: 12.5, fontWeight: "600", color: "#331E36", },
+  segmentTextActive: { color: "#41337A", fontWeight: "800", },
   segmentCount: {
     minWidth: 20,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 999,
-    backgroundColor: "#cbd5e1",
+    backgroundColor: "#6EA4BF",
     alignItems: "center",
   },
-  segmentCountActive: { backgroundColor: "#eff6ff" },
-  segmentCountText: { fontSize: 11, fontWeight: "700", color: "#475569" },
-  segmentCountTextActive: { color: "#2563eb" },
+  segmentCountActive: { backgroundColor: "#C2EFEB" },
+  segmentCountText: { fontSize: 11, fontWeight: "700", color: "#ffffff", },
+  segmentCountTextActive: { color: "#41337A" },
 
   scroll: { flex: 1 },
   scrollContent: { padding: 16 },
@@ -781,7 +786,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 16,
     gap: 12,
   },
@@ -789,33 +794,37 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
   mapBannerTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   mapBannerSub: {
     fontSize: 11,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
     lineHeight: 15,
+
   },
 
   sectionTitle: {
     fontSize: 12.5,
     fontWeight: "800",
-    color: "#2563eb",
+    color: "#41337A",
     textTransform: "uppercase",
     letterSpacing: 0.6,
     marginTop: 4,
     marginBottom: 10,
     marginLeft: 2,
+
+
   },
-  sectionTitlePast: { color: "#64748b", marginTop: 20 },
+  sectionTitlePast: { color: "#6EA4BF", marginTop: 20 },
 
   // Card
   card: {
@@ -824,7 +833,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   cardPressed: { opacity: 0.85 },
   cardTopRow: {
@@ -849,7 +858,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 11.5, fontWeight: "700" },
+  statusText: { fontSize: 11.5, fontWeight: "700", },
 
   presensiChip: {
     flexDirection: "row",
@@ -862,10 +871,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 3,
   },
-  presensiChipText: { fontSize: 11, fontWeight: "700", color: "#0f5132" },
+  presensiChipText: { fontSize: 11, fontWeight: "700", color: "#0f5132", },
 
   classBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -873,18 +882,20 @@ const styles = StyleSheet.create({
   classBadgeText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 
-  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#0f172a" },
+  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#331E36", },
   namaPraktikum: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 2,
+
   },
   cardDivider: {
     height: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     marginVertical: 10,
   },
 
@@ -900,7 +911,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  infoText: { fontSize: 12.5, color: "#475569", fontWeight: "500" },
+  infoText: { fontSize: 12.5, color: "#41337A", fontWeight: "500", },
 
   // Riwayat kehadiran
   attendanceCard: {
@@ -910,29 +921,30 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   dateBox: {
     width: 52,
     borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 8,
     marginRight: 12,
   },
-  dateBoxDay: { fontSize: 10.5, fontWeight: "700", color: "#475569" },
+  dateBoxDay: { fontSize: 10.5, fontWeight: "700", color: "#41337A", },
   dateBoxNumber: {
     fontSize: 19,
     fontWeight: "800",
-    color: "#2563eb",
+    color: "#41337A",
     lineHeight: 23,
+
   },
-  dateBoxMonth: { fontSize: 10.5, fontWeight: "700", color: "#475569" },
+  dateBoxMonth: { fontSize: 10.5, fontWeight: "700", color: "#41337A", },
 
   attendanceInfo: { flex: 1 },
-  attendanceCourse: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
-  attendanceSub: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  attendanceCourse: { fontSize: 15, fontWeight: "800", color: "#331E36", },
+  attendanceSub: { fontSize: 12, color: "#6EA4BF", marginTop: 2, },
   attendanceTimeRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -945,11 +957,11 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: "#15803d",
   },
-  attendanceTime: { fontSize: 12, fontWeight: "700", color: "#0f5132" },
+  attendanceTime: { fontSize: 12, fontWeight: "700", color: "#0f5132", },
 
   // Kelas & Loading
   classLoading: { paddingVertical: 40, alignItems: "center", gap: 10 },
-  classLoadingText: { fontSize: 13, color: "#64748b" },
+  classLoadingText: { fontSize: 13, color: "#6EA4BF", },
   classErrorBox: {
     backgroundColor: "#fef2f2",
     borderWidth: 1,
@@ -958,7 +970,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-  classErrorText: { color: "#991b1b", fontSize: 13 },
+  classErrorText: { color: "#991b1b", fontSize: 13, },
   classCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -967,20 +979,20 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   classIconBox: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
   classInfo: { flex: 1 },
-  classCourse: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
-  classMeta: { fontSize: 12, color: "#64748b", marginTop: 3 },
+  classCourse: { fontSize: 15, fontWeight: "800", color: "#331E36", },
+  classMeta: { fontSize: 12, color: "#6EA4BF", marginTop: 3, },
 
   // Empty
   empty: {
@@ -990,13 +1002,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   emptyIconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -1004,13 +1016,15 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   emptySubtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
+
   },
 });

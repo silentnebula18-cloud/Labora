@@ -52,16 +52,16 @@ function getNotificationStyle(type: NotificationType): {
     case "permission_decided":
       return {
         iconName: "clipboard",
-        iconColor: "#2563eb",
-        bgColor: "#dbeafe",
-        borderColor: "#bfdbfe",
+        iconColor: "#41337A",
+        bgColor: "#C2EFEB",
+        borderColor: "#6EA4BF",
       };
     default:
       return {
         iconName: "info",
-        iconColor: "#475569",
-        bgColor: "#f1f5f9",
-        borderColor: "#e2e8f0",
+        iconColor: "#41337A",
+        bgColor: "#ECFEE8",
+        borderColor: "#C2EFEB",
       };
   }
 }
@@ -136,7 +136,7 @@ export default function NotificationModal({
           <View style={styles.header}>
             <View style={styles.titleRow}>
               <View style={styles.bellIconBox}>
-                <AppIcon name="bell" size={18} color="#2563eb" />
+                <AppIcon name="bell" size={18} color="#41337A" />
               </View>
               <Text style={styles.title}>Notifikasi</Text>
               {unreadCount > 0 && (
@@ -223,7 +223,7 @@ export default function NotificationModal({
           {notifications.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <AppIcon name="bell" size={32} color="#94a3b8" />
+                <AppIcon name="bell" size={32} color="#6EA4BF" />
               </View>
               <Text style={styles.emptyTitle}>Belum Ada Notifikasi</Text>
               <Text style={styles.emptyDesc}>
@@ -306,7 +306,7 @@ export default function NotificationModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.45)",
+    backgroundColor: "rgba(51, 30, 54, 0.45)",
     justifyContent: "flex-end",
   },
   backdrop: {
@@ -318,7 +318,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     maxHeight: "82%",
     paddingTop: 18,
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.12,
     shadowRadius: 10,
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#ECFEE8",
   },
   titleRow: {
     flexDirection: "row",
@@ -342,14 +342,15 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   badge: {
     backgroundColor: "#ef4444",
@@ -361,6 +362,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 11,
     fontWeight: "700",
+
   },
   headerRightActions: {
     flexDirection: "row",
@@ -374,20 +376,22 @@ const styles = StyleSheet.create({
   markAllText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   closeBtn: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
   },
   closeBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   list: {
     flexGrow: 0,
@@ -404,12 +408,12 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     gap: 12,
   },
   cardUnread: {
-    backgroundColor: "#f8faff",
-    borderColor: "#bfdbfe",
+    backgroundColor: "#ECFEE8",
+    borderColor: "#6EA4BF",
   },
   cardPressed: {
     opacity: 0.85,
@@ -435,31 +439,35 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#334155",
+    color: "#331E36",
     flex: 1,
     marginRight: 6,
+
   },
   cardTitleUnread: {
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   timeText: {
     fontSize: 11,
-    color: "#94a3b8",
+    color: "#6EA4BF",
+
   },
   cardBody: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     lineHeight: 17,
+
   },
   cardBodyUnread: {
-    color: "#334155",
+    color: "#331E36",
   },
   unreadDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
     marginTop: 6,
   },
   emptyContainer: {
@@ -472,7 +480,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 16,
@@ -480,14 +488,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   emptyDesc: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 18,
+
   },
   permWarningBanner: {
     marginHorizontal: 16,
@@ -518,11 +528,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#92400e",
     marginBottom: 2,
+
   },
   warningDesc: {
     fontSize: 11,
     color: "#b45309",
     lineHeight: 15,
+
   },
   warningActionBtn: {
     backgroundColor: "#d97706",
@@ -534,6 +546,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#ffffff",
+
   },
   connectionErrorBanner: {
     marginHorizontal: 16,
@@ -561,11 +574,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#991b1b",
     marginBottom: 2,
+
   },
   connErrorDesc: {
     fontSize: 11,
     color: "#b91c1c",
     lineHeight: 15,
+
   },
   connRetryBtn: {
     backgroundColor: "#dc2626",
@@ -577,5 +592,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#ffffff",
+
   },
 });
