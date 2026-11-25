@@ -49,6 +49,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [connectionRetryCount, setConnectionRetryCount] = useState(0);
 
   const prevIdsRef = useRef<Set<string>>(new Set());
+  const shownToastIdsRef = useRef<Set<string>>(new Set());
   const initialLoadRef = useRef(true);
 
   const refreshPermissionStatus = useCallback(async () => {
@@ -78,6 +79,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const shownToastIds = shownToastIdsRef.current;
+    const prevIds = prevIdsRef.current;
+
     let unsubFCM: (() => void) | undefined;
     void initFCM(user.id).then((cleanup) => {
       unsubFCM = cleanup;
@@ -90,19 +94,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         setNotifications(newNotifs);
         setIsConnectionError(false);
 
-        // Cek apakah ada notifikasi baru untuk ditampilkan sebagai toast
+        // Cek apakah ada notifikasi baru untuk ditampilkan sebagai toast (tanpa duplikasi dengan FCM foreground)
         if (!initialLoadRef.current) {
           const fresh = newNotifs.find(
-            (n) => !n.isRead && !prevIdsRef.current.has(n.id),
+            (n) =>
+              !n.isRead &&
+              !prevIds.has(n.id) &&
+              !shownToastIds.has(n.id),
           );
           if (fresh) {
+            shownToastIds.add(fresh.id);
             setActiveToast(fresh);
           }
         } else {
           initialLoadRef.current = false;
         }
 
-        prevIdsRef.current = new Set(newNotifs.map((n) => n.id));
+        prevIds.clear();
+        newNotifs.forEach((n) => prevIds.add(n.id));
       },
       (err) => {
         console.warn("[NotificationContext] Error connecting to notifications:", err.message);
@@ -113,8 +122,21 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     // Listener saat FCM foreground message diterima
     const unsubForeground = addForegroundMessageListener((remoteMessage) => {
       if (remoteMessage.notification) {
-        const dummy: AppNotification = {
-          id: remoteMessage.messageId ?? String(Date.now()),
+        const linkedNotifId =
+          typeof remoteMessage.data?.notificationId === "string" &&
+          remoteMessage.data.notificationId.trim().length > 0
+            ? remoteMessage.data.notificationId.trim()
+            : null;
+        const toastId =
+          linkedNotifId ?? remoteMessage.messageId ?? String(Date.now());
+
+        if (shownToastIds.has(toastId) || prevIds.has(toastId)) {
+          return;
+        }
+
+        shownToastIds.add(toastId);
+        const toastItem: AppNotification = {
+          id: toastId,
           recipientUid: user.id,
           title: remoteMessage.notification.title ?? "Pemberitahuan Baru",
           body: remoteMessage.notification.body ?? "",
@@ -123,7 +145,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           isRead: false,
           createdAt: new Date(),
         };
-        setActiveToast(dummy);
+        setActiveToast(toastItem);
       }
     });
 
@@ -132,7 +154,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       unsubFirestore();
       unsubForeground();
       setNotifications([]);
-      prevIdsRef.current.clear();
+      prevIds.clear();
+      shownToastIds.clear();
       initialLoadRef.current = true;
     };
   }, [user?.id, connectionRetryCount, refreshPermissionStatus]);

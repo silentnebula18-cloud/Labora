@@ -286,8 +286,8 @@ export async function sendNotificationToUser(
   type: NotificationType,
   data?: Record<string, unknown>,
   recipientRole: "praktikan" | "asisten" = "praktikan",
-): Promise<void> {
-  if (!recipientUid) return;
+): Promise<string | null> {
+  if (!recipientUid) return null;
   try {
     const notifRef = doc(collection(db, "notifications"));
     await setDoc(notifRef, {
@@ -300,8 +300,10 @@ export async function sendNotificationToUser(
       isRead: false,
       createdAt: serverTimestamp(),
     });
+    return notifRef.id;
   } catch (err) {
     console.warn(`[NotificationService] Gagal mengirim notifikasi ke ${recipientUid}:`, err);
+    return null;
   }
 }
 
@@ -347,8 +349,10 @@ export async function notifySessionOpened(
 
     // 4. Buat notifikasi untuk setiap mahasiswa kelas terkait
     const batch = writeBatch(db);
+    const notifIdByStudent = new Map<string, string>();
     for (const studentId of memberIds) {
       const notifRef = doc(collection(db, "notifications"));
+      notifIdByStudent.set(studentId, notifRef.id);
       batch.set(notifRef, {
         recipientUid: studentId,
         recipientRole: "praktikan",
@@ -365,6 +369,7 @@ export async function notifySessionOpened(
 
     // 5. Kirim remote push notification via Google FCM v1 ke status bar HP praktikan
     for (const studentId of memberIds) {
+      const notificationId = notifIdByStudent.get(studentId) ?? "";
       void getDoc(doc(db, "users", studentId))
         .then((uSnap) => {
           if (uSnap.exists()) {
@@ -373,6 +378,7 @@ export async function notifySessionOpened(
               typeof uData.fcmToken === "string" ? uData.fcmToken : null;
             if (fcmToken) {
               void sendFCMv1Push(fcmToken, title, body, {
+                notificationId,
                 sessionId,
                 classId,
                 type: "session_opened",
@@ -413,8 +419,10 @@ export async function notifyScheduleUpdated(
     const body = `Jadwal praktikum ${kelas.mataKuliah} (${kelas.kodeKelas}) pertemuan ke-${input.nomorPraktikum} (${input.namaPraktikum}) diperbarui ke ruang ${input.ruang}.`;
 
     const batch = writeBatch(db);
+    const notifIdByStudent = new Map<string, string>();
     for (const studentId of memberIds) {
       const notifRef = doc(collection(db, "notifications"));
+      notifIdByStudent.set(studentId, notifRef.id);
       batch.set(notifRef, {
         recipientUid: studentId,
         recipientRole: "praktikan",
@@ -431,6 +439,7 @@ export async function notifyScheduleUpdated(
 
     // Kirim remote push notification via Google FCM v1 ke status bar HP praktikan
     for (const studentId of memberIds) {
+      const notificationId = notifIdByStudent.get(studentId) ?? "";
       void getDoc(doc(db, "users", studentId))
         .then((uSnap) => {
           if (uSnap.exists()) {
@@ -439,6 +448,7 @@ export async function notifyScheduleUpdated(
               typeof uData.fcmToken === "string" ? uData.fcmToken : null;
             if (fcmToken) {
               void sendFCMv1Push(fcmToken, title, body, {
+                notificationId,
                 scheduleId,
                 classId: kelas.id,
                 type: "schedule_updated",
@@ -492,7 +502,7 @@ export async function notifyPermissionDecided(
     const title = `Pengajuan Izin ${statusText}`;
     const body = `Pengajuan izin Anda untuk ${mataKuliah}${namaPraktikum} telah ${statusText.toLowerCase()} oleh asisten.`;
 
-    await sendNotificationToUser(
+    const notificationId = await sendNotificationToUser(
       studentUid,
       title,
       body,
@@ -513,6 +523,7 @@ export async function notifyPermissionDecided(
           typeof uData.fcmToken === "string" ? uData.fcmToken : null;
         if (fcmToken) {
           await sendFCMv1Push(fcmToken, title, body, {
+            notificationId: notificationId ?? "",
             permissionId,
             status: decision,
             type: "permission_decided",
