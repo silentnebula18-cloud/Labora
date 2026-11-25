@@ -23,7 +23,8 @@ export type AppIconName =
   | "chevron-right"
   | "chevron-left"
   | "chevron-down"
-  | "chevron-up";
+  | "chevron-up"
+  | "bell";
 
 interface AppIconProps {
   name: AppIconName;
@@ -687,6 +688,44 @@ export default function AppIcon({
               borderLeftWidth: stroke * 1.1,
               borderColor: color,
               transform: [{ rotate: "45deg" }, { translateY: size * 0.06 }],
+            }}
+          />
+        </View>
+      );
+
+    case "bell":
+      return (
+        <View style={[styles.box, { width: size, height: size }]}>
+          <View
+            style={{
+              width: size * 0.24,
+              height: size * 0.14,
+              borderTopLeftRadius: size * 0.12,
+              borderTopRightRadius: size * 0.12,
+              borderWidth: stroke,
+              borderBottomWidth: 0,
+              borderColor: color,
+            }}
+          />
+          <View
+            style={{
+              width: size * 0.58,
+              height: size * 0.44,
+              borderTopLeftRadius: size * 0.28,
+              borderTopRightRadius: size * 0.28,
+              borderWidth: stroke,
+              borderColor: color,
+              borderBottomWidth: stroke * 1.4,
+            }}
+          />
+          <View
+            style={{
+              width: size * 0.18,
+              height: size * 0.1,
+              borderBottomLeftRadius: size * 0.09,
+              borderBottomRightRadius: size * 0.09,
+              backgroundColor: color,
+              marginTop: 1,
             }}
           />
         </View>

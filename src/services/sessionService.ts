@@ -13,6 +13,10 @@ import {
 } from "@react-native-firebase/firestore";
 
 import { db } from "../lib/firebase";
+import {
+  notifyScheduleUpdated,
+  notifySessionOpened,
+} from "./notificationService";
 import { validateStudentLabProximity } from "./locationService";
 import { attendances } from "../mocks/attendances";
 import { classes } from "../mocks/classes";
@@ -29,19 +33,12 @@ import type {
   Session,
   SessionRecord,
   SessionStatus,
+  ScheduleInput,
 } from "../types";
 
-// ─── Tipe Input & Hasil ───────────────────────────────────────────────────────
+export type { ScheduleInput };
 
-export interface ScheduleInput {
-  classId: string;
-  nomorPraktikum: number;
-  namaPraktikum: string;
-  tanggal: Date;
-  jamMulai: Date;
-  jamSelesai: Date;
-  ruang: string;
-}
+// ─── Tipe Input & Hasil ───────────────────────────────────────────────────────
 
 export interface SessionWithMeta extends Session {
   practicum: Practicum;
@@ -733,6 +730,12 @@ export async function updateScheduleAndSession(
   });
 
   await batch.commit();
+
+  void notifyScheduleUpdated(scheduleId, assistantUid, input, kelas).catch(
+    (err) => {
+      console.warn("[sessionService] notifyScheduleUpdated error:", err);
+    },
+  );
 }
 
 /**
@@ -800,6 +803,10 @@ export async function openSessionInFirestore(
     },
     { merge: true },
   );
+
+  void notifySessionOpened(sessionId, assistantUid).catch((err) => {
+    console.warn("[sessionService] notifySessionOpened error:", err);
+  });
 }
 
 /**

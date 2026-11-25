@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { Linking, Platform } from "react-native";
 
 import type { LabLocation } from "../types";
 import { findActiveLaboratoryByRoom } from "./laboratoryService";
@@ -30,6 +31,97 @@ export type LocationValidationResult =
       labLocation?: LabLocation;
       distanceMeters?: number;
     };
+
+export interface LocationErrorDetail {
+  code: LocationErrorCode;
+  title: string;
+  guide: string;
+  actionType: "open_settings" | "enable_gps" | "retry" | "none";
+  actionLabel?: string;
+}
+
+/**
+ * Mendapatkan detail panduan penanganan kesalahan perangkat (SRS-018).
+ */
+export function getLocationErrorDetail(
+  code: LocationErrorCode,
+): LocationErrorDetail {
+  switch (code) {
+    case "IZIN_LOKASI_DITOLAK":
+      return {
+        code,
+        title: "Izin Akses Lokasi Ditolak",
+        guide:
+          "Labora memerlukan izin lokasi agar Anda dapat memvalidasi kehadiran di ruangan laboratorium.",
+        actionType: "open_settings",
+        actionLabel: "Buka Pengaturan HP",
+      };
+    case "GPS_TIDAK_AKTIF":
+      return {
+        code,
+        title: "GPS Perangkat Tidak Aktif",
+        guide:
+          "Layanan lokasi/GPS di HP Anda sedang nonaktif. Mohon nyalakan GPS untuk melanjutkan presensi.",
+        actionType: "enable_gps",
+        actionLabel: "Nyalakan GPS",
+      };
+    case "LOKASI_GAGAL":
+      return {
+        code,
+        title: "Gagal Mengambil Titik Koordinat",
+        guide:
+          "Sinyal satelit GPS lemah atau perangkat berada di ruang tertutup. Pastikan tidak dalam mode hemat daya ekstrem lalu coba lagi.",
+        actionType: "retry",
+        actionLabel: "Coba Lagi",
+      };
+    case "DI_LUAR_RADIUS":
+      return {
+        code,
+        title: "Berada di Luar Radius Laboratorium",
+        guide:
+          "Pastikan Anda telah berada di dalam atau dekat dengan ruangan laboratorium yang ditentukan.",
+        actionType: "retry",
+        actionLabel: "Periksa Ulang Jarak",
+      };
+    case "LAB_TIDAK_DITEMUKAN":
+    default:
+      return {
+        code,
+        title: "Data Laboratorium Tidak Ditemukan",
+        guide:
+          "Koordinat ruangan praktikum ini belum didaftarkan di sistem oleh asisten praktikum.",
+        actionType: "none",
+      };
+  }
+}
+
+/**
+ * Buka pengaturan aplikasi di perangkat untuk mengaktifkan izin lokasi (SRS-018).
+ */
+export async function openLocationSettings(): Promise<void> {
+  try {
+    await Linking.openSettings();
+  } catch (err) {
+    console.warn("Gagal membuka pengaturan aplikasi:", err);
+  }
+}
+
+/**
+ * Memicu dialog sistem Android untuk mengaktifkan GPS / High Accuracy Location (SRS-018).
+ */
+export async function promptEnableLocationServices(): Promise<boolean> {
+  try {
+    if (Platform.OS === "android") {
+      await Location.enableNetworkProviderAsync();
+      return true;
+    }
+    await openLocationSettings();
+    return false;
+  } catch (err) {
+    console.warn("User menolak mengaktifkan GPS lewat dialog:", err);
+    return false;
+  }
+}
 
 /**
  * Konversi derajat ke radian (acuan SilverSky Technology Medium Guide).

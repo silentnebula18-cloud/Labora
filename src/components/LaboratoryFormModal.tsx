@@ -21,6 +21,10 @@ import {
   type LaboratoryFieldErrors,
   type LaboratoryInput,
 } from "../services/laboratoryService";
+import {
+  openLocationSettings,
+  promptEnableLocationServices,
+} from "../services/locationService";
 
 interface LaboratoryFormModalProps {
   visible: boolean;
@@ -254,6 +258,35 @@ function LaboratoryFormInner({
           {gpsError && (
             <View style={styles.gpsErrorBox}>
               <Text style={styles.gpsErrorText}>{gpsError}</Text>
+              <View style={styles.gpsErrorActionRow}>
+                {gpsError.toLowerCase().includes("izin") ? (
+                  <Pressable
+                    style={styles.gpsErrorActionBtn}
+                    onPress={openLocationSettings}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.gpsErrorActionText}>Buka Pengaturan</Text>
+                  </Pressable>
+                ) : gpsError.toLowerCase().includes("aktif") ? (
+                  <Pressable
+                    style={styles.gpsErrorActionBtn}
+                    onPress={async () => {
+                      const on = await promptEnableLocationServices();
+                      if (on) void handleGetCurrentLocation();
+                    }}
+                    hitSlop={6}
+                  >
+                    <Text style={styles.gpsErrorActionText}>Nyalakan GPS</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  style={styles.gpsErrorActionBtnSecondary}
+                  onPress={handleGetCurrentLocation}
+                  hitSlop={6}
+                >
+                  <Text style={styles.gpsErrorActionTextSecondary}>Coba Lagi</Text>
+                </Pressable>
+              </View>
             </View>
           )}
 
@@ -557,14 +590,44 @@ const styles = StyleSheet.create({
   },
   gpsErrorBox: {
     backgroundColor: "#fef2f2",
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#fecaca",
   },
   gpsErrorText: {
     fontSize: 11,
     color: "#dc2626",
+    marginBottom: 6,
+  },
+  gpsErrorActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  gpsErrorActionBtn: {
+    backgroundColor: "#dc2626",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  gpsErrorActionText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  gpsErrorActionBtnSecondary: {
+    backgroundColor: "#f1f5f9",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  gpsErrorActionTextSecondary: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#475569",
   },
   coordRow: {
     flexDirection: "row",

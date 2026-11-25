@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 
 import { AuthProvider, useAuth } from "../context/AuthContext";
+import { NotificationProvider } from "../context/NotificationContext";
 import { SessionProvider } from "../context/SessionContext";
 
 function RootNavigator() {
@@ -33,9 +34,11 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <SessionProvider>
-        <RootNavigator />
-      </SessionProvider>
+      <NotificationProvider>
+        <SessionProvider>
+          <RootNavigator />
+        </SessionProvider>
+      </NotificationProvider>
     </AuthProvider>
   );
 }

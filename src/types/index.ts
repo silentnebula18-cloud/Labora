@@ -18,6 +18,8 @@ export interface User {
 export interface SafeUser extends Omit<User, "password"> {
   email: string;
   activeRole: Role | null;
+  fcmToken?: string | null;
+  fcmTokenUpdatedAt?: Date | null;
 }
 
 export interface Practicum {
@@ -40,6 +42,7 @@ export interface ClassRecord {
   assistants: string[];
   createdBy: string;
   createdAt: Date | null;
+  memberIds?: string[];
 }
 
 export interface ClassMember {
@@ -48,6 +51,16 @@ export interface ClassMember {
   nim: string;
   email: string;
   joinedAt: Date | null;
+}
+
+export interface ScheduleInput {
+  classId: string;
+  nomorPraktikum: number;
+  namaPraktikum: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
+  ruang: string;
 }
 
 export type SessionStatus = "scheduled" | "open" | "closed";
@@ -166,4 +179,23 @@ export interface PermissionRecord {
   decidedAt?: Date | null;
   createdAt: Date | null;
 }
+
+export type NotificationType =
+  | "session_opened"
+  | "schedule_updated"
+  | "permission_decided"
+  | "system_info";
+
+export interface AppNotification {
+  id: string;
+  recipientUid: string;
+  recipientRole?: "praktikan" | "asisten";
+  title: string;
+  body: string;
+  type: NotificationType;
+  data?: Record<string, unknown>;
+  isRead: boolean;
+  createdAt: Date | null;
+}
+
 

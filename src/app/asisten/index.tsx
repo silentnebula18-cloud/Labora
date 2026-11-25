@@ -21,6 +21,7 @@ import BottomNavBar, {
 import ProfileView from "../../components/ProfileView";
 import ScheduleFormModal from "../../components/ScheduleFormModal";
 import { useAuth } from "../../context/AuthContext";
+import { useNotification } from "../../context/NotificationContext";
 import { useSession } from "../../context/SessionContext";
 import {
   describeFirestoreError,
@@ -157,6 +158,7 @@ function SessionCard({
 export default function HomeAsisten() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { openNotificationModal, unreadCount } = useNotification();
   const {
     sessions,
     sessionsLoading,
@@ -241,8 +243,25 @@ export default function HomeAsisten() {
           <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
             <View style={styles.headerTopRow}>
               <Text style={styles.greeting}>Selamat datang,</Text>
-              <View style={styles.rolePill}>
-                <Text style={styles.rolePillText}>ASISTEN PRAKTIKUM</Text>
+              <View style={styles.headerTopRight}>
+                <View style={styles.rolePill}>
+                  <Text style={styles.rolePillText}>ASISTEN PRAKTIKUM</Text>
+                </View>
+                <Pressable
+                  style={styles.bellBtn}
+                  onPress={openNotificationModal}
+                  accessibilityLabel="Notifikasi"
+                  accessibilityRole="button"
+                >
+                  <AppIcon name="bell" size={17} color="#ffffff" />
+                  {unreadCount > 0 && (
+                    <View style={styles.bellBadge}>
+                      <Text style={styles.bellBadgeText}>
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </Text>
+                    </View>
+                  )}
+                </Pressable>
               </View>
             </View>
             <Text style={styles.name}>{user.nama}</Text>
@@ -516,6 +535,39 @@ const styles = StyleSheet.create({
     color: "#dbeafe",
     fontSize: 13,
     fontWeight: "600",
+  },
+  headerTopRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bellBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  bellBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: "#2563eb",
+  },
+  bellBadgeText: {
+    color: "#ffffff",
+    fontSize: 9,
+    fontWeight: "800",
   },
   rolePill: {
     backgroundColor: "rgba(255,255,255,0.18)",
