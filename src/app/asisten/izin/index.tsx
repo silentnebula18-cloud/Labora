@@ -224,7 +224,7 @@ export default function IzinAsistenListScreen() {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <AppIcon name="chevron-left" size={18} color="#2563eb" />
+          <AppIcon name="chevron-left" size={18} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
         <Text style={styles.topBarTitle}>Pemeriksaan Izin</Text>
@@ -234,14 +234,14 @@ export default function IzinAsistenListScreen() {
       {/* Search Bar Nama & NIM */}
       <View style={styles.searchSection}>
         <View style={styles.searchInputWrap}>
-          <AppIcon name="search" size={16} color="#64748b" />
+          <AppIcon name="search" size={16} color="#6EA4BF" />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder="Cari nama atau NIM praktikan…"
-            placeholderTextColor="#94a3b8"
-            selectionColor="#2563eb"
+            placeholderTextColor="#6EA4BF"
+            selectionColor="#41337A"
             autoCapitalize="none"
             autoCorrect={false}
           />
@@ -328,7 +328,7 @@ export default function IzinAsistenListScreen() {
 
         {permissionsLoading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color="#2563eb" />
+            <ActivityIndicator color="#41337A" />
             <Text style={styles.loadingText}>
               Memuat daftar pengajuan izin…
             </Text>
@@ -340,7 +340,7 @@ export default function IzinAsistenListScreen() {
         ) : filteredPermissions.length === 0 ? (
           <View style={styles.emptyBox}>
             <View style={styles.emptyIconCircle}>
-              <AppIcon name="clipboard" size={26} color="#64748b" />
+              <AppIcon name="clipboard" size={26} color="#6EA4BF" />
             </View>
             <Text style={styles.emptyTitle}>
               {searchQuery.trim()
@@ -420,7 +420,7 @@ export default function IzinAsistenListScreen() {
                   {/* Ringkasan Identitas Praktikan (Nama & NIM) */}
                   <View style={styles.studentIdentityBox}>
                     <View style={styles.studentAvatar}>
-                      <AppIcon name="user" size={16} color="#2563eb" />
+                      <AppIcon name="user" size={16} color="#41337A" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={styles.studentName} numberOfLines={1}>
@@ -470,7 +470,7 @@ export default function IzinAsistenListScreen() {
                     }
                   >
                     <Text style={styles.detailBtnText}>Lihat Detail</Text>
-                    <AppIcon name="chevron-right" size={15} color="#2563eb" />
+                    <AppIcon name="chevron-right" size={15} color="#41337A" />
                   </Pressable>
                 </View>
               );
@@ -487,7 +487,7 @@ export default function IzinAsistenListScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f1f5f9" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
 
   topBar: {
     flexDirection: "row",
@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#C2EFEB",
   },
   backBtn: {
     flexDirection: "row",
@@ -506,14 +506,16 @@ const styles = StyleSheet.create({
     width: 68,
   },
   backText: {
-    color: "#2563eb",
+    color: "#41337A",
     fontSize: 14,
     fontWeight: "600",
+
   },
   topBarTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
 
   searchSection: {
@@ -526,9 +528,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -536,8 +538,9 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 13.5,
-    color: "#0f172a",
+    color: "#331E36",
     paddingVertical: 0,
+
   },
   clearSearchBtn: {
     paddingHorizontal: 6,
@@ -546,7 +549,8 @@ const styles = StyleSheet.create({
   clearSearchText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 
   filterBar: {
@@ -556,7 +560,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#C2EFEB",
   },
   filterTab: {
     flex: 1,
@@ -567,24 +571,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 6,
     borderRadius: 9,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   filterTabActive: {
-    backgroundColor: "#2563eb",
-    borderColor: "#2563eb",
+    backgroundColor: "#41337A",
+    borderColor: "#41337A",
   },
   filterTabText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#475569",
+    color: "#41337A",
+
   },
   filterTabTextActive: {
     color: "#ffffff",
   },
   filterCountPill: {
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     borderRadius: 999,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -595,7 +600,8 @@ const styles = StyleSheet.create({
   filterCountText: {
     fontSize: 10.5,
     fontWeight: "800",
-    color: "#334155",
+    color: "#331E36",
+
   },
   filterCountTextActive: {
     color: "#ffffff",
@@ -609,9 +615,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
     padding: 12,
     marginBottom: 14,
@@ -619,15 +625,17 @@ const styles = StyleSheet.create({
   sessionFilterTitle: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#1e40af",
+    color: "#41337A",
+
   },
   sessionFilterSub: {
     fontSize: 12,
-    color: "#1e3a8a",
+    color: "#41337A",
     marginTop: 2,
+
   },
   clearFilterBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -636,6 +644,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 11.5,
     fontWeight: "700",
+
   },
 
   loadingBox: {
@@ -643,7 +652,7 @@ const styles = StyleSheet.create({
     paddingVertical: 44,
     gap: 10,
   },
-  loadingText: { fontSize: 13, color: "#64748b" },
+  loadingText: { fontSize: 13, color: "#6EA4BF", },
 
   errorBox: {
     backgroundColor: "#fef2f2",
@@ -653,7 +662,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  errorText: { color: "#991b1b", fontSize: 12.5 },
+  errorText: { color: "#991b1b", fontSize: 12.5, },
 
   emptyBox: {
     alignItems: "center",
@@ -662,13 +671,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   emptyIconCircle: {
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -676,14 +685,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   emptySubtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
+
   },
 
   cardList: {
@@ -694,7 +705,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 15,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -714,9 +725,10 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 11.5,
     fontWeight: "700",
+
   },
   classBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3.5,
@@ -724,38 +736,41 @@ const styles = StyleSheet.create({
   classBadgeText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 
   studentIdentityBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 11,
     padding: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 10,
   },
   studentAvatar: {
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
   studentName: {
     fontSize: 14.5,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   studentNim: {
     fontSize: 12,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 1,
     fontWeight: "500",
+
   },
 
   summaryMetaBox: {
@@ -772,13 +787,15 @@ const styles = StyleSheet.create({
     width: 82,
     fontSize: 12,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   summaryValue: {
     flex: 1,
     fontSize: 12.5,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
 
   detailBtn: {
@@ -786,16 +803,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     paddingVertical: 10,
   },
   detailBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   btnPressed: { opacity: 0.85 },
 });

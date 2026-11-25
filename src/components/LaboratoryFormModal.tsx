@@ -141,7 +141,7 @@ function LaboratoryFormInner({
       >
         <View style={styles.header}>
           <View style={styles.iconCircle}>
-            <AppIcon name="location" size={22} color="#2563eb" />
+            <AppIcon name="location" size={22} color="#41337A" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.title}>
@@ -177,7 +177,7 @@ function LaboratoryFormInner({
               setErrors((prev) => ({ ...prev, nama: undefined }));
             }}
             placeholder="Contoh: Laboratorium Komputer B"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#6EA4BF"
             maxLength={LABORATORY_LIMITS.namaMax}
             editable={!submitting}
           />
@@ -204,7 +204,7 @@ function LaboratoryFormInner({
               setErrors((prev) => ({ ...prev, alamat: undefined }));
             }}
             placeholder="Contoh: Gedung Laboratorium Terpadu Lt. 3"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#6EA4BF"
             maxLength={LABORATORY_LIMITS.alamatMax}
             editable={!submitting}
           />
@@ -221,7 +221,7 @@ function LaboratoryFormInner({
             value={deskripsi}
             onChangeText={setDeskripsi}
             placeholder="Fasilitas, spesifikasi PC, atau petunjuk menuju lab..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#6EA4BF"
             multiline
             numberOfLines={3}
             maxLength={LABORATORY_LIMITS.deskripsiMax}
@@ -245,10 +245,10 @@ function LaboratoryFormInner({
               disabled={gpsLoading || submitting}
             >
               {gpsLoading ? (
-                <ActivityIndicator size="small" color="#2563eb" />
+                <ActivityIndicator size="small" color="#41337A" />
               ) : (
                 <>
-                  <AppIcon name="location" size={14} color="#2563eb" />
+                  <AppIcon name="location" size={14} color="#41337A" />
                   <Text style={styles.gpsBtnText}>Ambil GPS Saat Ini</Text>
                 </>
               )}
@@ -301,7 +301,7 @@ function LaboratoryFormInner({
                   setErrors((prev) => ({ ...prev, latitude: undefined }));
                 }}
                 placeholder="-7.2575"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#6EA4BF"
                 keyboardType="numeric"
                 editable={!submitting}
               />
@@ -320,7 +320,7 @@ function LaboratoryFormInner({
                   setErrors((prev) => ({ ...prev, longitude: undefined }));
                 }}
                 placeholder="112.7521"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor="#6EA4BF"
                 keyboardType="numeric"
                 editable={!submitting}
               />
@@ -344,7 +344,7 @@ function LaboratoryFormInner({
               setErrors((prev) => ({ ...prev, radius: undefined }));
             }}
             placeholder="50"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#6EA4BF"
             keyboardType="numeric"
             editable={!submitting}
           />
@@ -370,8 +370,8 @@ function LaboratoryFormInner({
           <Switch
             value={aktif}
             onValueChange={setAktif}
-            trackColor={{ false: "#cbd5e1", true: "#93c5fd" }}
-            thumbColor={aktif ? "#2563eb" : "#f1f5f9"}
+            trackColor={{ false: "#6EA4BF", true: "#6EA4BF" }}
+            thumbColor={aktif ? "#41337A" : "#ECFEE8"}
             disabled={submitting}
           />
         </View>
@@ -454,7 +454,7 @@ export default function LaboratoryFormModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    backgroundColor: "rgba(51, 30, 54, 0.55)",
     justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 24,
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 22,
     maxHeight: "90%",
-    shadowColor: "#0f172a",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.15,
     shadowRadius: 20,
@@ -480,20 +480,22 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     justifyContent: "center",
     alignItems: "center",
   },
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   subtitle: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
     lineHeight: 16,
+
   },
   bannerError: {
     flexDirection: "row",
@@ -512,6 +514,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#b91c1c",
     fontWeight: "500",
+
   },
   fieldGroup: {
     marginBottom: 16,
@@ -519,27 +522,30 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#1e293b",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   subLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
     marginBottom: 4,
+
   },
   req: {
     color: "#dc2626",
   },
   input: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
     fontSize: 14,
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   textArea: {
     minHeight: 70,
@@ -553,12 +559,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#ef4444",
     marginTop: 4,
+
   },
   hintText: {
     fontSize: 11,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 4,
     lineHeight: 15,
+
   },
   labelWithAction: {
     flexDirection: "row",
@@ -569,16 +577,16 @@ const styles = StyleSheet.create({
   gpsBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     gap: 4,
   },
   gpsBtnPressed: {
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#C2EFEB",
   },
   gpsBtnDisabled: {
     opacity: 0.6,
@@ -586,7 +594,8 @@ const styles = StyleSheet.create({
   gpsBtnText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   gpsErrorBox: {
     backgroundColor: "#fef2f2",
@@ -601,6 +610,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#dc2626",
     marginBottom: 6,
+
   },
   gpsErrorActionRow: {
     flexDirection: "row",
@@ -617,9 +627,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: "700",
     color: "#ffffff",
+
   },
   gpsErrorActionBtnSecondary: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -627,7 +638,8 @@ const styles = StyleSheet.create({
   gpsErrorActionTextSecondary: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
+
   },
   coordRow: {
     flexDirection: "row",
@@ -640,11 +652,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 20,
     gap: 12,
   },
@@ -661,15 +673,16 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   cancelBtn: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
   cancelBtnText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
+
   },
   submitBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
   },
   submitBtnDisabled: {
     opacity: 0.7,
@@ -678,5 +691,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
+
   },
 });

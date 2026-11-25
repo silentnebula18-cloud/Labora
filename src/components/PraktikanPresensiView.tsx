@@ -42,10 +42,10 @@ const STATUS_STYLE: Record<
   { bg: string; border: string; text: string; dot: string }
 > = {
   scheduled: {
-    bg: "#f8fafc",
-    border: "#cbd5e1",
-    text: "#334155",
-    dot: "#64748b",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#331E36",
+    dot: "#6EA4BF",
   },
   open: {
     bg: "#e6f4ea",
@@ -54,10 +54,10 @@ const STATUS_STYLE: Record<
     dot: "#15803d",
   },
   closed: {
-    bg: "#f1f5f9",
-    border: "#cbd5e1",
-    text: "#475569",
-    dot: "#94a3b8",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#41337A",
+    dot: "#6EA4BF",
   },
 };
 
@@ -317,7 +317,7 @@ export default function PraktikanPresensiView() {
         <View style={styles.codeCard}>
           <View style={styles.codeCardHeader}>
             <View style={styles.codeIconCircle}>
-              <AppIcon name="check" size={20} color="#2563eb" />
+              <AppIcon name="check" size={20} color="#41337A" />
             </View>
             <View style={styles.codeHeaderTextWrap}>
               <Text style={styles.codeTitle}>
@@ -342,8 +342,8 @@ export default function PraktikanPresensiView() {
                 setFeedback(null);
               }}
               placeholder="A114829"
-              placeholderTextColor="#94a3b8"
-              selectionColor="#2563eb"
+              placeholderTextColor="#6EA4BF"
+              selectionColor="#41337A"
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={8}
@@ -394,7 +394,7 @@ export default function PraktikanPresensiView() {
         {normalizedCode.length === 0 ? (
           <View style={styles.infoStateCard}>
             <View style={styles.infoStateIcon}>
-              <AppIcon name="search" size={24} color="#64748b" />
+              <AppIcon name="search" size={24} color="#6EA4BF" />
             </View>
             <Text style={styles.infoStateTitle}>Masukkan Kode Presensi</Text>
             <Text style={styles.infoStateSubtitle}>
@@ -531,7 +531,7 @@ export default function PraktikanPresensiView() {
                             ? "#0f5132"
                             : currentLocationCheck.result
                               ? "#991b1b"
-                              : "#2563eb"
+                              : "#41337A"
                         }
                       />
                       <Text style={styles.locationCardTitle}>
@@ -553,7 +553,7 @@ export default function PraktikanPresensiView() {
 
                   {currentLocationCheck.loading ? (
                     <View style={styles.locationLoadingRow}>
-                      <ActivityIndicator size="small" color="#2563eb" />
+                      <ActivityIndicator size="small" color="#41337A" />
                       <Text style={styles.locationStatusNeutralText}>
                         Mengambil koordinat GPS & menghitung jarak ke{" "}
                         {matchedSession.ruang}...
@@ -669,7 +669,7 @@ export default function PraktikanPresensiView() {
                       matchedSession.status === "scheduled" ? "clock" : "lock"
                     }
                     size={22}
-                    color="#475569"
+                    color="#41337A"
                   />
                 </View>
                 <Text style={styles.actionCardTitle}>
@@ -702,7 +702,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
   },
   codeCardHeader: {
@@ -715,7 +715,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 12,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -725,16 +725,19 @@ const styles = StyleSheet.create({
   codeTitle: {
     fontSize: 15.5,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   requiredMark: {
     color: "#dc2626",
     fontWeight: "800",
+
   },
   codeSubtitle: {
     fontSize: 12.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
+
   },
   inputRow: {
     flexDirection: "row",
@@ -744,29 +747,31 @@ const styles = StyleSheet.create({
   codeInput: {
     flex: 1,
     borderWidth: 1.5,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     paddingHorizontal: 16,
     paddingVertical: 12,
     fontSize: 20,
     fontWeight: "800",
     letterSpacing: 4,
-    color: "#0f172a",
+    color: "#331E36",
     textAlign: "center",
+
   },
   resetBtn: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 10,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
   },
   resetBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#475569",
+    color: "#41337A",
+
   },
 
   feedbackBanner: {
@@ -790,6 +795,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     fontWeight: "700",
+
   },
 
   infoStateCard: {
@@ -798,13 +804,13 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   infoStateIcon: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -812,14 +818,16 @@ const styles = StyleSheet.create({
   infoStateTitle: {
     fontSize: 15.5,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 4,
+
   },
   infoStateSubtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
+
   },
 
   invalidCard: {
@@ -844,12 +852,14 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#991b1b",
     marginBottom: 4,
+
   },
   invalidSubtitle: {
     fontSize: 13,
     color: "#b91c1c",
     textAlign: "center",
     lineHeight: 18,
+
   },
 
   sessionCard: {
@@ -857,7 +867,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
   },
   sessionCardTopRow: {
@@ -877,11 +887,11 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusLabel: { fontSize: 11.5, fontWeight: "700" },
+  statusLabel: { fontSize: 11.5, fontWeight: "700", },
   codeTag: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -889,25 +899,28 @@ const styles = StyleSheet.create({
   codeTagText: {
     fontSize: 11.5,
     fontWeight: "800",
-    color: "#1d4ed8",
+    color: "#41337A",
     letterSpacing: 0.5,
+
   },
   mataKuliah: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 4,
+
   },
   namaPraktikum: {
     fontSize: 13.5,
-    color: "#475569",
+    color: "#41337A",
     marginBottom: 14,
+
   },
   detailList: {
     gap: 10,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#ECFEE8",
   },
   detailRow: {
     flexDirection: "row",
@@ -917,17 +930,19 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: 11.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.4,
+
   },
   detailValue: {
     fontSize: 13.5,
-    color: "#0f172a",
+    color: "#331E36",
     fontWeight: "600",
     textAlign: "right",
     flexShrink: 1,
+
   },
 
   statusActionCard: {
@@ -945,8 +960,8 @@ const styles = StyleSheet.create({
     borderColor: "#b7dfc2",
   },
   cardNeutral: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    backgroundColor: "#ECFEE8",
+    borderColor: "#6EA4BF",
   },
   iconCircleSuccess: {
     width: 46,
@@ -961,7 +976,7 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
@@ -969,20 +984,23 @@ const styles = StyleSheet.create({
   actionCardTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 4,
+
   },
   actionCardSubSuccess: {
     fontSize: 13,
     color: "#0f5132",
     textAlign: "center",
     lineHeight: 19,
+
   },
   actionCardSubNeutral: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     textAlign: "center",
     lineHeight: 19,
+
   },
 
   openActionSection: {
@@ -995,8 +1013,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   locationCardNeutral: {
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    backgroundColor: "#ECFEE8",
+    borderColor: "#6EA4BF",
   },
   locationCardOk: {
     backgroundColor: "#e6f4ea",
@@ -1021,7 +1039,8 @@ const styles = StyleSheet.create({
   locationCardTitle: {
     fontSize: 13,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   refreshLocBtn: {
     paddingHorizontal: 10,
@@ -1029,12 +1048,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
   },
   refreshLocBtnText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   locationLoadingRow: {
     flexDirection: "row",
@@ -1044,8 +1064,9 @@ const styles = StyleSheet.create({
   locationStatusNeutralText: {
     flex: 1,
     fontSize: 12.5,
-    color: "#475569",
+    color: "#41337A",
     lineHeight: 18,
+
   },
   locationResultBody: {
     gap: 2,
@@ -1054,27 +1075,32 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
     color: "#0f5132",
+
   },
   locationDistanceText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#15803d",
+
   },
   locationStatusErrText: {
     fontSize: 13,
     fontWeight: "800",
     color: "#991b1b",
+
   },
   locationDistanceErrText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#b91c1c",
+
   },
   locationErrorGuideText: {
     fontSize: 12,
     color: "#7f1d1d",
     lineHeight: 16,
     marginTop: 2,
+
   },
   locationActionBtn: {
     flexDirection: "row",
@@ -1091,6 +1117,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 11.5,
     fontWeight: "700",
+
   },
   pendingPermNote: {
     flexDirection: "row",
@@ -1107,18 +1134,19 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: "#854d0e",
     lineHeight: 18,
+
   },
   presensiBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 14,
     paddingVertical: 15,
   },
   presensiBtnPressed: {
-    backgroundColor: "#1d4ed8",
+    backgroundColor: "#41337A",
   },
   presensiBtnDisabled: {
     opacity: 0.6,
@@ -1127,5 +1155,6 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 15,
     fontWeight: "800",
+
   },
 });

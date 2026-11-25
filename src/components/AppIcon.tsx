@@ -39,7 +39,7 @@ interface AppIconProps {
 export default function AppIcon({
   name,
   size = 18,
-  color = "#2563eb",
+  color = "#41337A",
 }: AppIconProps) {
   const stroke = Math.max(1.6, Math.round(size * 0.1));
 

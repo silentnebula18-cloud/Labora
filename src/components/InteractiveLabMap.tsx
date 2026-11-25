@@ -112,7 +112,7 @@ export default function InteractiveLabMap({
     return (
       <View style={styles.webContainer}>
         <View style={styles.webNoticeBox}>
-          <AppIcon name="location" size={20} color="#2563eb" />
+          <AppIcon name="location" size={20} color="#41337A" />
           <View style={{ flex: 1 }}>
             <Text style={styles.webNoticeTitle}>
               Radar Lokasi Laboratorium (Bebas Biaya)
@@ -140,7 +140,7 @@ export default function InteractiveLabMap({
               disabled={refreshingLocation}
             >
               {refreshingLocation ? (
-                <ActivityIndicator size="small" color="#2563eb" />
+                <ActivityIndicator size="small" color="#41337A" />
               ) : (
                 <Text style={styles.webRefreshBtnText}>Perbarui</Text>
               )}
@@ -233,10 +233,10 @@ export default function InteractiveLabMap({
               radius={lab.radius}
               fillColor={
                 isSelected
-                  ? "rgba(37, 99, 235, 0.22)"
-                  : "rgba(37, 99, 235, 0.10)"
+                  ? "rgba(65, 51, 122, 0.22)"
+                  : "rgba(65, 51, 122, 0.10)"
               }
-              strokeColor={isSelected ? "#2563eb" : "rgba(37, 99, 235, 0.45)"}
+              strokeColor={isSelected ? "#41337A" : "rgba(65, 51, 122, 0.45)"}
               strokeWidth={isSelected ? 2 : 1}
             />
           );
@@ -271,7 +271,7 @@ export default function InteractiveLabMap({
                   <AppIcon
                     name="location"
                     size={16}
-                    color={isSelected ? "#ffffff" : "#2563eb"}
+                    color={isSelected ? "#ffffff" : "#41337A"}
                   />
                 </View>
                 <View
@@ -324,9 +324,9 @@ export default function InteractiveLabMap({
           accessibilityLabel="Pusatkan ke lokasi saya"
         >
           {refreshingLocation ? (
-            <ActivityIndicator size="small" color="#2563eb" />
+            <ActivityIndicator size="small" color="#41337A" />
           ) : (
-            <AppIcon name="location" size={20} color="#2563eb" />
+            <AppIcon name="location" size={20} color="#41337A" />
           )}
         </Pressable>
 
@@ -348,7 +348,7 @@ export default function InteractiveLabMap({
             }}
             accessibilityLabel="Pusatkan ke laboratorium terpilih"
           >
-            <AppIcon name="search" size={18} color="#059669" />
+            <AppIcon name="search" size={18} color="#41337A" />
           </Pressable>
         )}
       </View>
@@ -359,7 +359,7 @@ export default function InteractiveLabMap({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
   },
   markerContainer: {
     alignItems: "center",
@@ -373,17 +373,17 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: "#ffffff",
     borderWidth: 2,
-    borderColor: "#2563eb",
+    borderColor: "#41337A",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 3,
     elevation: 4,
   },
   markerIconBoxSelected: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderColor: "#ffffff",
   },
   markerCalloutPill: {
@@ -393,17 +393,18 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginTop: 2,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     maxWidth: 120,
   },
   markerCalloutPillSelected: {
-    backgroundColor: "#2563eb",
-    borderColor: "#1d4ed8",
+    backgroundColor: "#41337A",
+    borderColor: "#41337A",
   },
   markerTitle: {
     fontSize: 10,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   markerTitleSelected: {
     color: "#ffffff",
@@ -412,7 +413,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "rgba(37, 99, 235, 0.25)",
+    backgroundColor: "rgba(65, 51, 122, 0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -420,7 +421,7 @@ const styles = StyleSheet.create({
     width: 14,
     height: 14,
     borderRadius: 7,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderWidth: 2,
     borderColor: "#ffffff",
   },
@@ -437,43 +438,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#0f172a",
+    shadowColor: "#331E36",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 5,
   },
   controlBtnPressed: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
 
   // Web Styles
   webContainer: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     padding: 16,
   },
   webNoticeBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     gap: 10,
     marginBottom: 14,
   },
   webNoticeTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#1d4ed8",
+    color: "#41337A",
+
   },
   webNoticeDesc: {
     fontSize: 11.5,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 2,
     lineHeight: 16,
+
   },
   webUserLocationCard: {
     flexDirection: "row",
@@ -482,7 +485,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
     gap: 10,
   },
@@ -490,28 +493,31 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
   webUserLabel: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   webUserCoords: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   webRefreshBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 8,
   },
   webRefreshBtnText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   webList: {
     flex: 1,
@@ -524,11 +530,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   webLabItemSelected: {
-    borderColor: "#2563eb",
-    backgroundColor: "#f8faff",
+    borderColor: "#41337A",
+    backgroundColor: "#ECFEE8",
   },
   webLabHeader: {
     flexDirection: "row",
@@ -539,7 +545,8 @@ const styles = StyleSheet.create({
   webLabName: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   webDistBadge: {
     paddingHorizontal: 6,
@@ -555,11 +562,13 @@ const styles = StyleSheet.create({
   webDistText: {
     fontSize: 10,
     fontWeight: "700",
+
   },
   webLabAlamat: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginBottom: 8,
+
   },
   webLabFooter: {
     flexDirection: "row",
@@ -567,15 +576,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#ECFEE8",
   },
   webLabRadius: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   webLabCoords: {
     fontSize: 10.5,
-    color: "#94a3b8",
+    color: "#6EA4BF",
+
   },
 });

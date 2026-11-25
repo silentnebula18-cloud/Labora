@@ -170,7 +170,7 @@ export default function PraktikanPetaScreen() {
           onPress={() => router.back()}
           accessibilityLabel="Kembali ke beranda"
         >
-          <AppIcon name="chevron-left" size={18} color="#2563eb" />
+          <AppIcon name="chevron-left" size={18} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
 
@@ -236,7 +236,7 @@ export default function PraktikanPetaScreen() {
                 <View
                   style={[
                     styles.labPillDot,
-                    { backgroundColor: isSelected ? "#ffffff" : "#2563eb" },
+                    { backgroundColor: isSelected ? "#ffffff" : "#41337A" },
                   ]}
                 />
                 <Text
@@ -257,7 +257,7 @@ export default function PraktikanPetaScreen() {
       <View style={styles.mapArea}>
         {loading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#2563eb" />
+            <ActivityIndicator size="large" color="#41337A" />
             <Text style={styles.loadingText}>Memuat peta & laboratorium…</Text>
           </View>
         ) : loadError ? (
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#ECFEE8",
     backgroundColor: "#ffffff",
   },
   backBtn: {
@@ -316,7 +316,8 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 13,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   titleContainer: {
     alignItems: "center",
@@ -324,11 +325,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   headerSubtitle: {
     fontSize: 10.5,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   gpsWarningBanner: {
     flexDirection: "row",
@@ -344,6 +347,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     color: "#92400e",
+
   },
   gpsWarningActions: {
     flexDirection: "row",
@@ -355,16 +359,18 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#b45309",
     textDecorationLine: "underline",
+
   },
   gpsRetryText: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   labPillsWrapper: {
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#ECFEE8",
     paddingVertical: 8,
   },
   labPillsScroll: {
@@ -378,10 +384,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
   },
   labPillSelected: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
   labPillDot: {
     width: 6,
@@ -391,7 +397,8 @@ const styles = StyleSheet.create({
   labPillText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
+
   },
   labPillTextSelected: {
     color: "#ffffff",
@@ -407,7 +414,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   errorBox: {
     flex: 1,
@@ -420,10 +428,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "700",
     color: "#dc2626",
+
   },
   errorDesc: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
+
   },
 });

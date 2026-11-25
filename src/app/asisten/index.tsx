@@ -44,10 +44,10 @@ const STATUS_CONFIG: Record<
 > = {
   scheduled: {
     label: "Terjadwal",
-    bg: "#f8fafc",
-    border: "#cbd5e1",
-    text: "#334155",
-    dot: "#64748b",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#331E36",
+    dot: "#6EA4BF",
   },
   open: {
     label: "Sesi Dibuka",
@@ -58,10 +58,10 @@ const STATUS_CONFIG: Record<
   },
   closed: {
     label: "Selesai",
-    bg: "#f1f5f9",
-    border: "#cbd5e1",
-    text: "#475569",
-    dot: "#94a3b8",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#41337A",
+    dot: "#6EA4BF",
   },
 };
 
@@ -100,7 +100,7 @@ function SessionCard({
       onPress={() =>
         router.push({ pathname: "/asisten/session/[id]", params: { id } } as any)
       }
-      android_ripple={{ color: "#e2e8f0" }}
+      android_ripple={{ color: "#C2EFEB" }}
     >
       <View style={styles.cardTopRow}>
         <View
@@ -131,18 +131,18 @@ function SessionCard({
 
       <View style={styles.infoRow}>
         <View style={styles.infoItem}>
-          <AppIcon name="calendar" size={14} color="#64748b" />
+          <AppIcon name="calendar" size={14} color="#6EA4BF" />
           <Text style={styles.infoText}>{formatTanggal(tanggal)}</Text>
         </View>
         <View style={styles.infoBottomInline}>
           <View style={styles.infoItemInline}>
-            <AppIcon name="clock" size={14} color="#64748b" />
+            <AppIcon name="clock" size={14} color="#6EA4BF" />
             <Text style={styles.infoText}>
               {formatJam(jamMulai)} – {formatJam(jamSelesai)}
             </Text>
           </View>
           <View style={styles.infoItemInline}>
-            <AppIcon name="location" size={14} color="#64748b" />
+            <AppIcon name="location" size={14} color="#6EA4BF" />
             <Text style={styles.infoText} numberOfLines={1}>
               {ruang}
             </Text>
@@ -281,10 +281,10 @@ export default function HomeAsisten() {
                   pressed && styles.cardPressed,
                 ]}
                 onPress={() => router.push("/asisten/kelas" as any)}
-                android_ripple={{ color: "#e2e8f0" }}
+                android_ripple={{ color: "#C2EFEB" }}
               >
                 <View style={styles.quickActionIconBox}>
-                  <AppIcon name="class" size={20} color="#2563eb" />
+                  <AppIcon name="class" size={20} color="#41337A" />
                 </View>
                 <Text style={styles.quickActionTitle}>Kelola Kelas</Text>
                 <Text style={styles.quickActionSub}>
@@ -302,7 +302,7 @@ export default function HomeAsisten() {
                   setFormError(null);
                   setFormVisible(true);
                 }}
-                android_ripple={{ color: "#1d4ed8" }}
+                android_ripple={{ color: "#41337A" }}
               >
                 <View style={styles.quickActionIconBoxPrimary}>
                   <AppIcon name="plus" size={20} color="#ffffff" />
@@ -323,10 +323,10 @@ export default function HomeAsisten() {
                 pressed && styles.cardPressed,
               ]}
               onPress={() => router.push("/asisten/izin" as any)}
-              android_ripple={{ color: "#e2e8f0" }}
+              android_ripple={{ color: "#C2EFEB" }}
             >
               <View style={styles.permissionActionIconBox}>
-                <AppIcon name="clipboard" size={20} color="#2563eb" />
+                <AppIcon name="clipboard" size={20} color="#41337A" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.permissionActionTitle}>
@@ -345,7 +345,7 @@ export default function HomeAsisten() {
                   </Text>
                 </View>
               )}
-              <AppIcon name="chevron-right" size={16} color="#64748b" />
+              <AppIcon name="chevron-right" size={16} color="#6EA4BF" />
             </Pressable>
 
             {/* Menu Kelola Lab & Peta Interaktif (SRS-015 & SRS-016) */}
@@ -356,10 +356,10 @@ export default function HomeAsisten() {
                   pressed && styles.cardPressed,
                 ]}
                 onPress={() => router.push("/asisten/laboratorium" as any)}
-                android_ripple={{ color: "#e2e8f0" }}
+                android_ripple={{ color: "#C2EFEB" }}
               >
                 <View style={styles.labActionIconBox}>
-                  <AppIcon name="location" size={18} color="#2563eb" />
+                  <AppIcon name="location" size={18} color="#41337A" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.labActionTitle}>Kelola Lab</Text>
@@ -367,7 +367,7 @@ export default function HomeAsisten() {
                     Lokasi & radius presensi
                   </Text>
                 </View>
-                <AppIcon name="chevron-right" size={14} color="#94a3b8" />
+                <AppIcon name="chevron-right" size={14} color="#6EA4BF" />
               </Pressable>
 
               <Pressable
@@ -376,27 +376,27 @@ export default function HomeAsisten() {
                   pressed && styles.cardPressed,
                 ]}
                 onPress={() => router.push("/asisten/peta" as any)}
-                android_ripple={{ color: "#e2e8f0" }}
+                android_ripple={{ color: "#C2EFEB" }}
               >
                 <View
                   style={[
                     styles.labActionIconBox,
-                    { backgroundColor: "#ecfdf5" },
+                    { backgroundColor: "#ECFEE8" },
                   ]}
                 >
-                  <AppIcon name="location" size={18} color="#059669" />
+                  <AppIcon name="location" size={18} color="#41337A" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.labActionTitle}>Peta Lab</Text>
                   <Text style={styles.labActionSub}>Denah & info sesi</Text>
                 </View>
-                <AppIcon name="chevron-right" size={14} color="#94a3b8" />
+                <AppIcon name="chevron-right" size={14} color="#6EA4BF" />
               </Pressable>
             </View>
 
             {sessionsLoading && (
               <View style={styles.loadingBox}>
-                <ActivityIndicator color="#2563eb" />
+                <ActivityIndicator color="#41337A" />
                 <Text style={styles.loadingText}>Memuat jadwal & sesi…</Text>
               </View>
             )}
@@ -410,7 +410,7 @@ export default function HomeAsisten() {
             {!sessionsLoading && !sessionsError && sessions.length === 0 && (
               <View style={styles.empty}>
                 <View style={styles.emptyIconCircle}>
-                  <AppIcon name="clipboard" size={28} color="#475569" />
+                  <AppIcon name="clipboard" size={28} color="#41337A" />
                 </View>
                 <Text style={styles.emptyTitle}>Belum ada jadwal</Text>
                 <Text style={styles.emptySubtitle}>
@@ -516,14 +516,14 @@ export default function HomeAsisten() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f1f5f9" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
 
   // Header
   header: {
     paddingHorizontal: 20,
     paddingTop: 14,
     paddingBottom: 18,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
   },
   headerTopRow: {
     flexDirection: "row",
@@ -532,9 +532,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   greeting: {
-    color: "#dbeafe",
+    color: "#C2EFEB",
     fontSize: 13,
     fontWeight: "600",
+
   },
   headerTopRight: {
     flexDirection: "row",
@@ -562,12 +563,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#2563eb",
+    borderColor: "#331E36",
   },
   bellBadgeText: {
     color: "#ffffff",
     fontSize: 9,
     fontWeight: "800",
+
   },
   rolePill: {
     backgroundColor: "rgba(255,255,255,0.18)",
@@ -580,12 +582,13 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: "800",
     letterSpacing: 0.6,
+
   },
-  name: { color: "#ffffff", fontSize: 19, fontWeight: "800" },
-  nim: { color: "#dbeafe", fontSize: 12, marginTop: 2, fontWeight: "500" },
+  name: { color: "#ffffff", fontSize: 19, fontWeight: "800", },
+  nim: { color: "#C2EFEB", fontSize: 12, marginTop: 2, fontWeight: "500", },
 
   profileHeader: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
     paddingHorizontal: 20,
     paddingVertical: 15,
     alignItems: "center",
@@ -594,6 +597,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 16,
     fontWeight: "800",
+
   },
 
   scroll: { flex: 1 },
@@ -612,17 +616,17 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   quickActionTilePrimary: {
-    backgroundColor: "#2563eb",
-    borderColor: "#2563eb",
+    backgroundColor: "#41337A",
+    borderColor: "#41337A",
   },
   quickActionIconBox: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
@@ -639,22 +643,26 @@ const styles = StyleSheet.create({
   quickActionTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   quickActionSub: {
     fontSize: 11.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
+
   },
   quickActionTitlePrimary: {
     fontSize: 14,
     fontWeight: "800",
     color: "#ffffff",
+
   },
   quickActionSubPrimary: {
     fontSize: 11.5,
-    color: "#dbeafe",
+    color: "#C2EFEB",
     marginTop: 2,
+
   },
 
   permissionActionBanner: {
@@ -665,7 +673,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 10,
   },
 
@@ -683,44 +691,48 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     gap: 10,
   },
   labActionIconBox: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
   labActionTitle: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   labActionSub: {
     fontSize: 10.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 1,
+
   },
   permissionActionIconBox: {
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
   permissionActionTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   permissionActionSub: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
+
   },
   pendingCountBadge: {
     backgroundColor: "#fef9c3",
@@ -734,6 +746,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: "800",
     color: "#854d0e",
+
   },
 
   loadingBox: {
@@ -741,7 +754,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     gap: 10,
   },
-  loadingText: { fontSize: 13, color: "#64748b" },
+  loadingText: { fontSize: 13, color: "#6EA4BF", },
 
   errorBox: {
     backgroundColor: "#fef2f2",
@@ -751,7 +764,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
   },
-  errorBoxText: { color: "#991b1b", fontSize: 13 },
+  errorBoxText: { color: "#991b1b", fontSize: 13, },
 
   // Section Header
   sectionHeaderRow: {
@@ -764,15 +777,17 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 12.5,
     fontWeight: "800",
-    color: "#2563eb",
+    color: "#41337A",
     textTransform: "uppercase",
     letterSpacing: 0.6,
+
   },
-  sectionTitlePast: { color: "#64748b" },
+  sectionTitlePast: { color: "#6EA4BF" },
   sectionCount: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
 
   // Card
@@ -782,7 +797,7 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   cardPressed: { opacity: 0.85 },
 
@@ -802,10 +817,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 11.5, fontWeight: "700" },
+  statusText: { fontSize: 11.5, fontWeight: "700", },
 
   classBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -813,18 +828,20 @@ const styles = StyleSheet.create({
   classBadgeText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 
-  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#0f172a" },
+  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#331E36", },
   namaPraktikum: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 2,
+
   },
   cardDivider: {
     height: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     marginVertical: 10,
   },
 
@@ -840,7 +857,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  infoText: { fontSize: 12.5, color: "#475569", fontWeight: "500" },
+  infoText: { fontSize: 12.5, color: "#41337A", fontWeight: "500", },
 
   // Empty
   empty: {
@@ -850,13 +867,13 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   emptyIconCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
@@ -864,13 +881,15 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   emptySubtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
+
   },
 });

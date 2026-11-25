@@ -80,9 +80,9 @@ const AI_SENTIMENT_CONFIG: Record<
   },
   netral: {
     label: "Sentimen Netral",
-    bg: "#f1f5f9",
-    text: "#334155",
-    border: "#cbd5e1",
+    bg: "#ECFEE8",
+    text: "#331E36",
+    border: "#6EA4BF",
   },
   negatif: {
     label: "Sentimen Negatif",
@@ -188,14 +188,14 @@ export default function IzinAsistenDetailScreen() {
             onPress={() => router.back()}
             hitSlop={8}
           >
-            <AppIcon name="chevron-left" size={18} color="#2563eb" />
+            <AppIcon name="chevron-left" size={18} color="#41337A" />
             <Text style={styles.backText}>Kembali</Text>
           </Pressable>
           <Text style={styles.topBarTitle}>Detail Pengajuan Izin</Text>
           <View style={{ width: 68 }} />
         </View>
         <View style={styles.centerBox}>
-          <ActivityIndicator color="#2563eb" />
+          <ActivityIndicator color="#41337A" />
           <Text style={styles.centerText}>Memuat detail pengajuan izin…</Text>
         </View>
       </SafeAreaView>
@@ -211,7 +211,7 @@ export default function IzinAsistenDetailScreen() {
             onPress={() => router.back()}
             hitSlop={8}
           >
-            <AppIcon name="chevron-left" size={18} color="#2563eb" />
+            <AppIcon name="chevron-left" size={18} color="#41337A" />
             <Text style={styles.backText}>Kembali</Text>
           </Pressable>
           <Text style={styles.topBarTitle}>Detail Pengajuan Izin</Text>
@@ -260,7 +260,7 @@ export default function IzinAsistenDetailScreen() {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <AppIcon name="chevron-left" size={18} color="#2563eb" />
+          <AppIcon name="chevron-left" size={18} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
         <Text style={styles.topBarTitle}>Detail Pengajuan Izin</Text>
@@ -329,7 +329,7 @@ export default function IzinAsistenDetailScreen() {
           <Text style={styles.sectionHeader}>Identitas Praktikan</Text>
           <View style={styles.studentIdentityBox}>
             <View style={styles.studentAvatar}>
-              <AppIcon name="user" size={20} color="#2563eb" />
+              <AppIcon name="user" size={20} color="#41337A" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.studentName}>
@@ -479,7 +479,7 @@ export default function IzinAsistenDetailScreen() {
             </View>
           ) : (
             <View style={styles.lockedDecisionBar}>
-              <AppIcon name="lock" size={14} color="#64748b" />
+              <AppIcon name="lock" size={14} color="#6EA4BF" />
               <Text style={styles.lockedDecisionText}>
                 Keputusan telah disimpan dan dikunci
               </Text>
@@ -594,7 +594,7 @@ export default function IzinAsistenDetailScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f1f5f9" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
 
   topBar: {
     flexDirection: "row",
@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#C2EFEB",
   },
   backBtn: {
     flexDirection: "row",
@@ -613,14 +613,16 @@ const styles = StyleSheet.create({
     width: 68,
   },
   backText: {
-    color: "#2563eb",
+    color: "#41337A",
     fontSize: 14,
     fontWeight: "600",
+
   },
   topBarTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
 
   centerBox: {
@@ -632,16 +634,18 @@ const styles = StyleSheet.create({
   },
   centerText: {
     fontSize: 13.5,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   centerTitle: {
     fontSize: 14.5,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
     textAlign: "center",
+
   },
   backFallbackBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -650,6 +654,7 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "700",
+
   },
 
   scrollContent: {
@@ -677,6 +682,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12.5,
     fontWeight: "600",
+
   },
 
   card: {
@@ -684,7 +690,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 18,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -704,9 +710,10 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 12,
     fontWeight: "700",
+
   },
   classBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 6,
     paddingHorizontal: 9,
     paddingVertical: 4,
@@ -714,56 +721,61 @@ const styles = StyleSheet.create({
   classBadgeText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 
   sectionHeader: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#475569",
+    color: "#41337A",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 8,
     marginTop: 4,
+
+
   },
 
   studentIdentityBox: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
   },
   studentAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
   },
   studentName: {
     fontSize: 15.5,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   studentNim: {
     fontSize: 12.5,
-    color: "#475569",
+    color: "#41337A",
     marginTop: 2,
     fontWeight: "600",
+
   },
 
   infoGridBox: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     padding: 13,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
   },
   infoRow: {
@@ -772,39 +784,42 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 11.5,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   infoValue: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   infoDivider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     marginVertical: 9,
   },
 
   alasanBox: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     padding: 13,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
   },
   alasanText: {
     fontSize: 14,
-    color: "#0f172a",
+    color: "#331E36",
     lineHeight: 20,
+
   },
 
   aiSectionBox: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     padding: 13,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 14,
   },
   aiHeaderRow: {
@@ -818,7 +833,8 @@ const styles = StyleSheet.create({
   aiSectionTitle: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
+
   },
   aiBadge: {
     flexDirection: "row",
@@ -832,37 +848,41 @@ const styles = StyleSheet.create({
   aiBadgeText: {
     fontSize: 11.5,
     fontWeight: "700",
+
   },
   aiFailedBadge: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     paddingHorizontal: 9,
     paddingVertical: 3,
   },
   aiFailedBadgeText: {
     fontSize: 11.5,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   aiDisclaimerText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontStyle: "italic",
     lineHeight: 17,
+
   },
 
   timestampFooter: {
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#ECFEE8",
     paddingTop: 10,
     marginBottom: 14,
     gap: 3,
   },
   timestampText: {
     fontSize: 12,
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
 
   decisionActionsRow: {
@@ -887,6 +907,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: "700",
     color: "#991b1b",
+
   },
   approveBtn: {
     backgroundColor: "#15803d",
@@ -896,6 +917,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: "700",
     color: "#ffffff",
+
   },
   btnPressed: { opacity: 0.85 },
   btnDisabled: { opacity: 0.6 },
@@ -905,16 +927,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 10,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   lockedDecisionText: {
     fontSize: 12.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontWeight: "600",
+
   },
 
   errorBox: {
@@ -925,12 +948,12 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  errorText: { color: "#991b1b", fontSize: 12.5 },
+  errorText: { color: "#991b1b", fontSize: 12.5, },
 
   // Modal Konfirmasi
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    backgroundColor: "rgba(51, 30, 54, 0.55)",
     justifyContent: "center",
     padding: 20,
   },
@@ -957,16 +980,18 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     textAlign: "center",
     marginBottom: 6,
+
   },
   modalDesc: {
     fontSize: 13,
-    color: "#475569",
+    color: "#41337A",
     textAlign: "center",
     lineHeight: 19,
     marginBottom: 14,
+
   },
   modalActions: {
     flexDirection: "row",
@@ -977,16 +1002,17 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
   },
   modalCancelText: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
+
   },
   modalConfirmBtn: {
     flex: 1.2,
@@ -1005,6 +1031,7 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: "700",
     color: "#ffffff",
+
   },
 });
 

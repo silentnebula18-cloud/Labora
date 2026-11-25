@@ -110,7 +110,7 @@ export default function ConfirmationBottomSheet({
                 <AppIcon
                   name={isBuka ? "play" : isTutup ? "stop" : "info"}
                   size={22}
-                  color={isBuka ? "#0f5132" : isTutup ? "#991b1b" : "#2563eb"}
+                  color={isBuka ? "#0f5132" : isTutup ? "#991b1b" : "#41337A"}
                 />
               </View>
 
@@ -234,7 +234,7 @@ export default function ConfirmationBottomSheet({
             {/* Banner Catatan / Konsekuensi Aksi */}
             {isBuka && (
               <View style={styles.noticeBoxBuka}>
-                <AppIcon name="info" size={16} color="#2563eb" />
+                <AppIcon name="info" size={16} color="#41337A" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Catatan: </Text>
                   {sessionData.status === "closed"
@@ -257,7 +257,7 @@ export default function ConfirmationBottomSheet({
 
             {isInfo && (
               <View style={styles.noticeBoxInfo}>
-                <AppIcon name="info" size={16} color="#2563eb" />
+                <AppIcon name="info" size={16} color="#41337A" />
                 <Text style={styles.noticeText}>
                   <Text style={styles.noticeBold}>Panduan: </Text>
                   Gunakan tombol Buka Sesi saat praktikum dimulai dan Tutup Sesi
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: "flex-end",
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    backgroundColor: "rgba(51, 30, 54, 0.55)",
   },
   backdrop: {
     position: "absolute",
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#cbd5e1",
+    backgroundColor: "#6EA4BF",
   },
   scrollArea: {
     maxHeight: 500,
@@ -378,39 +378,42 @@ const styles = StyleSheet.create({
     borderColor: "#fecaca",
   },
   iconCircleInfo: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
   },
   title: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     textAlign: "center",
     marginBottom: 4,
+
   },
   subtitle: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 18,
     paddingHorizontal: 10,
+
   },
 
   infoCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 14,
     padding: 15,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 12,
   },
   infoCardTitle: {
     fontSize: 11,
     fontWeight: "700",
-    color: "#64748b",
+    color: "#6EA4BF",
     letterSpacing: 0.8,
     marginBottom: 10,
+
   },
   infoRow: {
     flexDirection: "row",
@@ -420,29 +423,31 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 12.5,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontWeight: "500",
     flex: 1,
+
   },
   infoValue: {
     fontSize: 13,
-    color: "#0f172a",
+    color: "#331E36",
     fontWeight: "700",
     textAlign: "right",
     flex: 1.5,
+
   },
   infoDivider: {
     height: 1,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     marginVertical: 7,
   },
 
   statsCard: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 14,
     padding: 15,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 12,
   },
   statsRow: {
@@ -468,31 +473,35 @@ const styles = StyleSheet.create({
     borderColor: "#fecaca",
   },
   statBoxTotal: {
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
   },
   statNumberHadir: {
     fontSize: 17,
     fontWeight: "800",
     color: "#0f5132",
+
   },
   statNumberBelum: {
     fontSize: 17,
     fontWeight: "800",
     color: "#991b1b",
+
   },
   statNumberTotal: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#334155",
+    color: "#331E36",
+
   },
   statLabel: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
     marginTop: 2,
     textAlign: "center",
+
   },
   rateBarContainer: {
     gap: 6,
@@ -500,26 +509,27 @@ const styles = StyleSheet.create({
   rateBarBackground: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#e2e8f0",
+    backgroundColor: "#C2EFEB",
     overflow: "hidden",
   },
   rateBarFill: {
     height: "100%",
-    backgroundColor: "#2563eb",
+    backgroundColor: "#331E36",
     borderRadius: 3,
   },
   rateText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#475569",
+    color: "#41337A",
     textAlign: "right",
+
   },
 
   noticeBoxBuka: {
     flexDirection: "row",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
     padding: 12,
     gap: 10,
@@ -537,9 +547,9 @@ const styles = StyleSheet.create({
   },
   noticeBoxInfo: {
     flexDirection: "row",
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     borderRadius: 12,
     padding: 12,
     gap: 10,
@@ -548,12 +558,14 @@ const styles = StyleSheet.create({
   noticeText: {
     flex: 1,
     fontSize: 12.5,
-    color: "#334155",
+    color: "#331E36",
     lineHeight: 18,
+
   },
   noticeBold: {
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
 
   footer: {
@@ -575,18 +587,19 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
   },
   cancelBtnText: {
     fontSize: 14.5,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
+
   },
   bukaBtn: {
     flex: 1.6,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
   tutupBtn: {
     flex: 1.6,
@@ -596,13 +609,15 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: "700",
     color: "#ffffff",
+
   },
   primaryBtn: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
   },
   primaryBtnText: {
     fontSize: 14.5,
     fontWeight: "700",
     color: "#ffffff",
+
   },
 });

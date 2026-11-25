@@ -97,10 +97,10 @@ const STATUS_STYLE: Record<
   { bg: string; border: string; text: string; dot: string }
 > = {
   scheduled: {
-    bg: "#f8fafc",
-    border: "#cbd5e1",
-    text: "#334155",
-    dot: "#64748b",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#331E36",
+    dot: "#6EA4BF",
   },
   open: {
     bg: "#e6f4ea",
@@ -109,10 +109,10 @@ const STATUS_STYLE: Record<
     dot: "#15803d",
   },
   closed: {
-    bg: "#f1f5f9",
-    border: "#cbd5e1",
-    text: "#475569",
-    dot: "#94a3b8",
+    bg: "#ECFEE8",
+    border: "#6EA4BF",
+    text: "#41337A",
+    dot: "#6EA4BF",
   },
 };
 
@@ -310,7 +310,7 @@ export default function SessionDetailScreen() {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <AppIcon name="chevron-left" size={18} color="#2563eb" />
+          <AppIcon name="chevron-left" size={18} color="#41337A" />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
         <Text style={styles.topBarTitle}>Detail Sesi</Text>
@@ -362,7 +362,7 @@ export default function SessionDetailScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Informasi Pendukung Sesi"
                 >
-                  <AppIcon name="info" size={14} color="#2563eb" />
+                  <AppIcon name="info" size={14} color="#41337A" />
                   <Text style={styles.infoBtnText}>Info Sesi</Text>
                 </Pressable>
               </View>
@@ -379,7 +379,7 @@ export default function SessionDetailScreen() {
               <View style={styles.detailGrid}>
                 <View style={styles.detailItem}>
                   <View style={styles.detailIconBox}>
-                    <AppIcon name="calendar" size={16} color="#2563eb" />
+                    <AppIcon name="calendar" size={16} color="#41337A" />
                   </View>
                   <View>
                     <Text style={styles.detailLabel}>Tanggal</Text>
@@ -391,7 +391,7 @@ export default function SessionDetailScreen() {
 
                 <View style={styles.detailItem}>
                   <View style={styles.detailIconBox}>
-                    <AppIcon name="clock" size={16} color="#2563eb" />
+                    <AppIcon name="clock" size={16} color="#41337A" />
                   </View>
                   <View>
                     <Text style={styles.detailLabel}>Waktu Pelaksanaan</Text>
@@ -404,7 +404,7 @@ export default function SessionDetailScreen() {
 
                 <View style={styles.detailItem}>
                   <View style={styles.detailIconBox}>
-                    <AppIcon name="location" size={16} color="#2563eb" />
+                    <AppIcon name="location" size={16} color="#41337A" />
                   </View>
                   <View>
                     <Text style={styles.detailLabel}>Ruang Laboratorium</Text>
@@ -414,7 +414,7 @@ export default function SessionDetailScreen() {
 
                 <View style={styles.detailItem}>
                   <View style={styles.detailIconBox}>
-                    <AppIcon name="check" size={16} color="#2563eb" />
+                    <AppIcon name="check" size={16} color="#41337A" />
                   </View>
                   <View>
                     <Text style={styles.detailLabel}>Kode Presensi Sesi</Text>
@@ -442,7 +442,7 @@ export default function SessionDetailScreen() {
                 {session.closedAt && (
                   <View style={styles.detailItem}>
                     <View style={styles.detailIconBox}>
-                      <AppIcon name="lock" size={16} color="#475569" />
+                      <AppIcon name="lock" size={16} color="#41337A" />
                     </View>
                     <View>
                       <Text style={styles.detailLabel}>Waktu Sesi Ditutup</Text>
@@ -501,7 +501,7 @@ export default function SessionDetailScreen() {
                   } as any)
                 }
               >
-                <AppIcon name="clipboard" size={14} color="#2563eb" />
+                <AppIcon name="clipboard" size={14} color="#41337A" />
                 <Text style={styles.permissionShortcutBtnText}>
                   Periksa Pengajuan Izin Sesi Ini
                 </Text>
@@ -554,7 +554,7 @@ export default function SessionDetailScreen() {
                 {!isScheduleExpired ? (
                   <>
                     <View style={styles.closedReopenNotice}>
-                      <AppIcon name="info" size={16} color="#2563eb" />
+                      <AppIcon name="info" size={16} color="#41337A" />
                       <Text style={styles.closedReopenNoticeText}>
                         Sesi saat ini sedang ditutup. Anda dapat membukanya
                         kembali selama rentang waktu praktikum masih berlangsung
@@ -577,7 +577,7 @@ export default function SessionDetailScreen() {
                   </>
                 ) : (
                   <View style={styles.closedBanner}>
-                    <AppIcon name="lock" size={18} color="#475569" />
+                    <AppIcon name="lock" size={18} color="#41337A" />
                     <View style={styles.closedBannerContent}>
                       <Text style={styles.closedBannerText}>
                         {session.closedBy === "system"
@@ -619,7 +619,7 @@ export default function SessionDetailScreen() {
               hadirCount === 0 && (
                 <View style={styles.emptyAttendance}>
                   <View style={styles.emptyAttendanceIconCircle}>
-                    <AppIcon name="users" size={24} color="#64748b" />
+                    <AppIcon name="users" size={24} color="#6EA4BF" />
                   </View>
                   <Text style={styles.emptyAttendanceText}>
                     Belum ada praktikan yang tercatat hadir
@@ -756,7 +756,7 @@ export default function SessionDetailScreen() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f1f5f9" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -764,14 +764,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 12,
   },
-  loadingText: { fontSize: 15, color: "#64748b", textAlign: "center" },
+  loadingText: { fontSize: 15, color: "#6EA4BF", textAlign: "center", },
   backBtnFallback: {
-    backgroundColor: "#2563eb",
+    backgroundColor: "#41337A",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 10,
   },
-  backBtnFallbackText: { color: "#fff", fontWeight: "700" },
+  backBtnFallbackText: { color: "#fff", fontWeight: "700", },
 
   topBar: {
     flexDirection: "row",
@@ -781,7 +781,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#C2EFEB",
   },
   backBtn: {
     flexDirection: "row",
@@ -789,11 +789,12 @@ const styles = StyleSheet.create({
     gap: 4,
     width: 68,
   },
-  backText: { fontSize: 14.5, color: "#2563eb", fontWeight: "700" },
+  backText: { fontSize: 14.5, color: "#41337A", fontWeight: "700", },
   topBarTitle: {
     fontSize: 15.5,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
 
   listContent: { padding: 16 },
@@ -806,7 +807,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 12,
   },
-  errorBoxText: { color: "#991b1b", fontSize: 13 },
+  errorBoxText: { color: "#991b1b", fontSize: 13, },
 
   // Kartu info sesi
   sessionCard: {
@@ -815,7 +816,7 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -827,15 +828,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 5,
   },
   infoBtnPressed: { opacity: 0.75 },
-  infoBtnText: { fontSize: 11.5, fontWeight: "700", color: "#2563eb" },
+  infoBtnText: { fontSize: 11.5, fontWeight: "700", color: "#41337A", },
 
   statusPill: {
     flexDirection: "row",
@@ -847,15 +848,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusLabel: { fontSize: 11.5, fontWeight: "700" },
+  statusLabel: { fontSize: 11.5, fontWeight: "700", },
 
   mataKuliah: {
     fontSize: 19,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     marginBottom: 4,
+
+
   },
-  namaPraktikum: { fontSize: 13.5, color: "#475569", marginBottom: 16 },
+  namaPraktikum: { fontSize: 13.5, color: "#41337A", marginBottom: 16, },
 
   detailGrid: { gap: 12 },
   detailItem: { flexDirection: "row", alignItems: "center", gap: 12 },
@@ -863,29 +866,32 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
   },
   detailLabel: {
     fontSize: 11,
-    color: "#64748b",
+    color: "#6EA4BF",
     fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.3,
+
   },
   detailValue: {
     fontSize: 13.5,
-    color: "#0f172a",
+    color: "#331E36",
     fontWeight: "600",
     marginTop: 1,
+
   },
   attendanceCodeValue: {
     fontSize: 16,
-    color: "#1d4ed8",
+    color: "#41337A",
     fontWeight: "800",
     letterSpacing: 1.5,
     marginTop: 1,
+
   },
 
   scheduleActionsRow: {
@@ -894,7 +900,7 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: "#f1f5f9",
+    borderTopColor: "#ECFEE8",
   },
   scheduleActionBtn: {
     flex: 1,
@@ -905,13 +911,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   editScheduleBtn: {
-    backgroundColor: "#eff6ff",
-    borderColor: "#bfdbfe",
+    backgroundColor: "#C2EFEB",
+    borderColor: "#6EA4BF",
   },
   editScheduleBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
   deleteScheduleBtn: {
     backgroundColor: "#fef2f2",
@@ -921,6 +928,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#991b1b",
+
   },
 
   // Tombol aksi sesi
@@ -933,11 +941,11 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginBottom: 16,
   },
-  actionBtnOpen: { backgroundColor: "#2563eb" },
+  actionBtnOpen: { backgroundColor: "#41337A" },
   actionBtnReopen: { backgroundColor: "#15803d" },
   actionBtnClose: { backgroundColor: "#991b1b" },
   actionBtnPressed: { opacity: 0.85 },
-  actionBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  actionBtnText: { color: "#fff", fontSize: 15, fontWeight: "700", },
 
   sessionWarningBox: {
     flexDirection: "row",
@@ -956,13 +964,14 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: "500",
+
   },
 
   closedBanner: {
     flexDirection: "row",
     gap: 12,
-    backgroundColor: "#f8fafc",
-    borderColor: "#cbd5e1",
+    backgroundColor: "#ECFEE8",
+    borderColor: "#6EA4BF",
     borderWidth: 1,
     borderRadius: 12,
     padding: 14,
@@ -972,19 +981,20 @@ const styles = StyleSheet.create({
   closedBannerContent: {
     flex: 1,
   },
-  closedBannerText: { color: "#334155", fontSize: 14, fontWeight: "700" },
+  closedBannerText: { color: "#331E36", fontSize: 14, fontWeight: "700", },
   closedBannerSubtext: {
-    color: "#64748b",
+    color: "#6EA4BF",
     fontSize: 12.5,
     marginTop: 4,
     lineHeight: 18,
+
   },
 
   closedReopenNotice: {
     flexDirection: "row",
     gap: 10,
-    backgroundColor: "#eff6ff",
-    borderColor: "#bfdbfe",
+    backgroundColor: "#C2EFEB",
+    borderColor: "#6EA4BF",
     borderWidth: 1,
     borderRadius: 12,
     padding: 13,
@@ -993,10 +1003,11 @@ const styles = StyleSheet.create({
   },
   closedReopenNoticeText: {
     flex: 1,
-    color: "#1e40af",
+    color: "#41337A",
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: "500",
+
   },
 
   // Presensi
@@ -1009,15 +1020,16 @@ const styles = StyleSheet.create({
   attendanceSectionTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
+
   },
   countBadge: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderRadius: 999,
     paddingHorizontal: 11,
     paddingVertical: 4,
   },
-  countBadgeText: { fontSize: 12, fontWeight: "700", color: "#2563eb" },
+  countBadgeText: { fontSize: 12, fontWeight: "700", color: "#41337A", },
 
   attendanceRow: {
     flexDirection: "row",
@@ -1027,24 +1039,24 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
   },
   attendanceIndex: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  attendanceIndexText: { fontSize: 12.5, fontWeight: "800", color: "#2563eb" },
+  attendanceIndexText: { fontSize: 12.5, fontWeight: "800", color: "#41337A", },
   attendanceInfo: { flex: 1 },
-  attendanceName: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
-  attendanceNim: { fontSize: 12, color: "#64748b", marginTop: 2 },
+  attendanceName: { fontSize: 14, fontWeight: "700", color: "#331E36", },
+  attendanceNim: { fontSize: 12, color: "#6EA4BF", marginTop: 2, },
   attendanceTime: { alignItems: "flex-end" },
-  attendanceTimeText: { fontSize: 13.5, fontWeight: "700", color: "#0f5132" },
-  attendanceTimeLabel: { fontSize: 11, color: "#64748b", marginTop: 1 },
+  attendanceTimeText: { fontSize: 13.5, fontWeight: "700", color: "#0f5132", },
+  attendanceTimeLabel: { fontSize: 11, color: "#6EA4BF", marginTop: 1, },
 
   emptyAttendance: {
     alignItems: "center",
@@ -1052,24 +1064,24 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#e2e8f0",
+    borderColor: "#C2EFEB",
     marginBottom: 8,
   },
   emptyAttendanceIconCircle: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#ECFEE8",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
   },
-  emptyAttendanceText: { fontSize: 13, color: "#64748b", fontWeight: "500" },
+  emptyAttendanceText: { fontSize: 13, color: "#6EA4BF", fontWeight: "500", },
 
   // Modal hapus jadwal
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.55)",
+    backgroundColor: "rgba(51, 30, 54, 0.55)",
     justifyContent: "center",
     padding: 20,
   },
@@ -1091,16 +1103,18 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#0f172a",
+    color: "#331E36",
     textAlign: "center",
     marginBottom: 6,
+
   },
   modalDescription: {
     fontSize: 13,
-    color: "#64748b",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
     marginBottom: 14,
+
   },
   modalActions: {
     flexDirection: "row",
@@ -1111,16 +1125,17 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#cbd5e1",
+    borderColor: "#6EA4BF",
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
   },
   modalCancelText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#334155",
+    color: "#331E36",
+
   },
   modalDangerBtn: {
     flex: 1.3,
@@ -1134,6 +1149,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     color: "#fff",
+
   },
   btnDisabled: { opacity: 0.6 },
   permissionShortcutBtn: {
@@ -1142,9 +1158,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#bfdbfe",
+    borderColor: "#6EA4BF",
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 12,
@@ -1152,6 +1168,7 @@ const styles = StyleSheet.create({
   permissionShortcutBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#2563eb",
+    color: "#41337A",
+
   },
 });

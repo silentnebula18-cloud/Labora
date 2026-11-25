@@ -32,7 +32,7 @@ export default function BottomNavBar({
           <AppIcon
             name="home"
             size={20}
-            color={activeTab === "beranda" ? "#2563eb" : "#64748b"}
+            color={activeTab === "beranda" ? "#41337A" : "#6EA4BF"}
           />
         </View>
         <Text
@@ -61,7 +61,7 @@ export default function BottomNavBar({
             <AppIcon
               name="check"
               size={20}
-              color={activeTab === "presensi" ? "#2563eb" : "#64748b"}
+              color={activeTab === "presensi" ? "#41337A" : "#6EA4BF"}
             />
           </View>
           <Text
@@ -90,7 +90,7 @@ export default function BottomNavBar({
           <AppIcon
             name="user"
             size={20}
-            color={activeTab === "profil" ? "#2563eb" : "#64748b"}
+            color={activeTab === "profil" ? "#41337A" : "#6EA4BF"}
           />
         </View>
         <Text
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#ffffff",
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderTopColor: "#C2EFEB",
     paddingTop: 8,
     paddingBottom: 10,
     paddingHorizontal: 20,
@@ -130,15 +130,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pillActive: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
   },
   tabLabel: {
     fontSize: 11.5,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#6EA4BF",
+
   },
   tabLabelActive: {
-    color: "#2563eb",
+    color: "#41337A",
     fontWeight: "800",
+
   },
 });

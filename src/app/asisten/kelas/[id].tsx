@@ -238,7 +238,7 @@ export default function KelasDetailScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centerBox}>
-          <ActivityIndicator color="#1e40af" />
+          <ActivityIndicator color="#41337A" />
           <Text style={styles.centerText}>Memuat kelas…</Text>
         </View>
       </SafeAreaView>
@@ -249,7 +249,7 @@ export default function KelasDetailScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centerBox}>
-          <AppIcon name="search" size={32} color="#475569" />
+          <AppIcon name="search" size={32} color="#41337A" />
           <Text style={styles.notFoundTitle}>Kelas tidak ditemukan</Text>
           {classError && <Text style={styles.centerText}>{classError}</Text>}
           <Pressable style={styles.backButton} onPress={() => router.back()}>
@@ -346,14 +346,14 @@ export default function KelasDetailScreen() {
 
         {membersLoading && (
           <View style={styles.loadingMembers}>
-            <ActivityIndicator color="#1e40af" />
+            <ActivityIndicator color="#41337A" />
           </View>
         )}
 
         {!membersLoading && members.length === 0 && (
           <View style={styles.emptyMembers}>
             <View style={{ marginBottom: 10 }}>
-              <AppIcon name="users" size={28} color="#64748b" />
+              <AppIcon name="users" size={28} color="#6EA4BF" />
             </View>
             <Text style={styles.emptyMembersTitle}>Belum ada peserta</Text>
             <Text style={styles.emptyMembersText}>
@@ -519,8 +519,8 @@ export default function KelasDetailScreen() {
                   setAddError(null);
                 }}
                 placeholder="Masukkan 14 digit NIM"
-                placeholderTextColor="#9ca3af"
-                selectionColor="#2563eb"
+                placeholderTextColor="#6EA4BF"
+                selectionColor="#41337A"
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="number-pad"
@@ -631,11 +631,11 @@ export default function KelasDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f8fafc" },
+  safe: { flex: 1, backgroundColor: "#ECFEE8" },
   content: { padding: 16, paddingBottom: 32 },
 
   backBtn: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  backText: { fontSize: 16, color: "#1e40af", fontWeight: "600" },
+  backText: { fontSize: 16, color: "#41337A", fontWeight: "600", },
 
   centerBox: {
     flex: 1,
@@ -644,24 +644,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     gap: 10,
   },
-  centerText: { fontSize: 13, color: "#6b7280", textAlign: "center" },
-  notFoundIcon: { fontSize: 48 },
-  notFoundTitle: { fontSize: 18, fontWeight: "700", color: "#111827" },
+  centerText: { fontSize: 13, color: "#6EA4BF", textAlign: "center", },
+  notFoundIcon: { fontSize: 48, },
+  notFoundTitle: { fontSize: 18, fontWeight: "700", color: "#331E36", },
   backButton: {
-    backgroundColor: "#1e40af",
+    backgroundColor: "#41337A",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 10,
     marginTop: 10,
   },
-  backButtonText: { color: "#fff", fontWeight: "700" },
+  backButtonText: { color: "#fff", fontWeight: "700", },
 
   classCard: {
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOpacity: 0.07,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
@@ -674,20 +674,21 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   kodePill: {
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#C2EFEB",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
-  kodePillText: { fontSize: 12, fontWeight: "700", color: "#1d4ed8" },
-  createdText: { fontSize: 11, color: "#9ca3af" },
+  kodePillText: { fontSize: 12, fontWeight: "700", color: "#41337A", },
+  createdText: { fontSize: 11, color: "#6EA4BF", },
   course: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#111827",
+    color: "#331E36",
     marginBottom: 4,
+
   },
-  meta: { fontSize: 13, color: "#6b7280" },
+  meta: { fontSize: 13, color: "#6EA4BF", },
 
   classActions: { flexDirection: "row", gap: 10, marginTop: 18 },
   outlineButton: {
@@ -698,22 +699,22 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     backgroundColor: "#fff",
   },
-  editButton: { borderColor: "#bfdbfe", backgroundColor: "#eff6ff" },
-  editButtonText: { fontSize: 13, fontWeight: "700", color: "#1d4ed8" },
+  editButton: { borderColor: "#6EA4BF", backgroundColor: "#C2EFEB" },
+  editButtonText: { fontSize: 13, fontWeight: "700", color: "#41337A", },
   deleteButton: { borderColor: "#fecaca", backgroundColor: "#fef2f2" },
-  deleteButtonText: { fontSize: 13, fontWeight: "700", color: "#dc2626" },
+  deleteButtonText: { fontSize: 13, fontWeight: "700", color: "#dc2626", },
   pressed: { opacity: 0.82 },
   buttonDisabled: { opacity: 0.6 },
 
   readOnlyNotice: {
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#ECFEE8",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e5e7eb",
+    borderColor: "#C2EFEB",
     padding: 12,
     marginTop: 16,
   },
-  readOnlyText: { fontSize: 12, color: "#6b7280", textAlign: "center" },
+  readOnlyText: { fontSize: 12, color: "#6EA4BF", textAlign: "center", },
 
   sectionHeader: {
     flexDirection: "row",
@@ -721,14 +722,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 10,
   },
-  sectionTitle: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  sectionTitle: { fontSize: 15, fontWeight: "700", color: "#331E36", },
   addMemberButton: {
-    backgroundColor: "#1e40af",
+    backgroundColor: "#41337A",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  addMemberText: { fontSize: 12, fontWeight: "700", color: "#fff" },
+  addMemberText: { fontSize: 12, fontWeight: "700", color: "#fff", },
 
   errorBox: {
     backgroundColor: "#fee2e2",
@@ -736,7 +737,7 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 10,
   },
-  errorBoxText: { color: "#b91c1c", fontSize: 13 },
+  errorBoxText: { color: "#b91c1c", fontSize: 13, },
 
   loadingMembers: { paddingVertical: 28, alignItems: "center" },
 
@@ -747,18 +748,20 @@ const styles = StyleSheet.create({
     paddingVertical: 28,
     paddingHorizontal: 24,
   },
-  emptyMembersIcon: { fontSize: 36, marginBottom: 10 },
+  emptyMembersIcon: { fontSize: 36, marginBottom: 10, },
   emptyMembersTitle: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#111827",
+    color: "#331E36",
     marginBottom: 6,
+
   },
   emptyMembersText: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
+
   },
 
   memberRow: {
@@ -768,7 +771,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     marginBottom: 8,
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOpacity: 0.04,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
@@ -778,20 +781,20 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 99,
-    backgroundColor: "#eff6ff",
+    backgroundColor: "#C2EFEB",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  memberIndexText: { fontSize: 13, fontWeight: "700", color: "#1e40af" },
+  memberIndexText: { fontSize: 13, fontWeight: "700", color: "#41337A", },
   memberInfo: { flex: 1, marginRight: 10 },
-  memberName: { fontSize: 14, fontWeight: "600", color: "#111827" },
-  memberMeta: { fontSize: 12, color: "#6b7280", marginTop: 2 },
-  removeText: { fontSize: 12, fontWeight: "700", color: "#dc2626" },
+  memberName: { fontSize: 14, fontWeight: "600", color: "#331E36", },
+  memberMeta: { fontSize: 12, color: "#6EA4BF", marginTop: 2, },
+  removeText: { fontSize: 12, fontWeight: "700", color: "#dc2626", },
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    backgroundColor: "rgba(51, 30, 54, 0.5)",
     justifyContent: "center",
     padding: 20,
   },
@@ -799,7 +802,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 20,
-    shadowColor: "#000",
+    shadowColor: "#331E36",
     shadowOpacity: 0.2,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
@@ -819,63 +822,69 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: "#b91c1c",
     fontWeight: "800",
+
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#111827",
+    color: "#331E36",
     textAlign: "center",
     marginBottom: 6,
+
   },
   modalDescription: {
     fontSize: 13,
-    color: "#6b7280",
+    color: "#6EA4BF",
     textAlign: "center",
     lineHeight: 19,
     marginBottom: 8,
+
   },
   inputLabel: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#374151",
+    color: "#331E36",
     marginTop: 10,
     marginBottom: 6,
+
   },
   requiredMark: {
     color: "#dc2626",
     fontWeight: "700",
+
   },
   input: {
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#6EA4BF",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#111827",
+    color: "#331E36",
     backgroundColor: "#fff",
+
   },
   modalActions: { flexDirection: "row", gap: 10, marginTop: 18 },
   modalCancelButton: {
     flex: 1,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#d1d5db",
+    borderColor: "#6EA4BF",
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff",
   },
-  modalCancelText: { fontSize: 14, fontWeight: "700", color: "#374151" },
+  modalCancelText: { fontSize: 14, fontWeight: "700", color: "#331E36", },
   modalPrimaryButton: {
     flex: 1.4,
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1e40af",
+    backgroundColor: "#41337A",
   },
-  modalPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  modalPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff", },
   modalDangerButton: {
     flex: 1.4,
     borderRadius: 12,
@@ -884,5 +893,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#dc2626",
   },
-  modalDangerText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+  modalDangerText: { fontSize: 14, fontWeight: "700", color: "#fff", },
 });
