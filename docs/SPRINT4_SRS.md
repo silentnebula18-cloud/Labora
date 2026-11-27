@@ -438,16 +438,3 @@ Sprint 4 dinyatakan selesai apabila alur lengkap berikut berjalan lancar tanpa e
 6. **Praktikan C (Anna)** membayar denda lewat Midtrans Sandbox Simulator -> webhook backend memverifikasi -> status jadi `success` / `paid`, notifikasi pembayaran berhasil muncul, tercatat di **Riwayat Pembayaran** (status kehadiran tetap terlambat), dan uang denda langsung masuk ke laporan **Riwayat Keuangan Dashboard Aslab (Quinta)** sesuai filter Hari/Minggu/Bulan.
 
 ---
-
-# H. Ketentuan laporan setiap programmer
-
-Setelah menyelesaikan pekerjaan, setiap programmer wajib melaporkan:
-
-1. SRS yang telah diselesaikan.
-2. File yang dibuat atau diubah.
-3. Collection Firestore yang digunakan.
-4. Fitur yang berhasil diuji.
-5. Hasil pengujian yang sebenarnya.
-6. Error atau kendala yang masih ditemukan.
-7. Cara menjalankan dan menguji fitur.
-8. Nama branch dan commit yang digunakan.
