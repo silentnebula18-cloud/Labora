@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,6 +13,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import AppIcon from "../components/AppIcon";
+import { COLORS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 
 interface FieldErrors {
@@ -74,6 +78,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -83,9 +88,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.title}>Labora</Text>
-          <Text style={styles.subtitle}>
-            Masuk untuk melanjutkan
-          </Text>
+          <Text style={styles.subtitle}>Masuk untuk melanjutkan</Text>
 
           {formError && (
             <View style={styles.errorBox}>
@@ -108,8 +111,8 @@ export default function LoginScreen() {
               setCredentialError(false);
             }}
             placeholder="Masukkan email"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -144,8 +147,8 @@ export default function LoginScreen() {
                 setCredentialError(false);
               }}
               placeholder="Masukkan kata sandi"
-              placeholderTextColor="#6EA4BF"
-              selectionColor="#41337A"
+              placeholderTextColor={COLORS.textMuted}
+              selectionColor={COLORS.primary}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
@@ -157,10 +160,16 @@ export default function LoginScreen() {
             <Pressable
               onPress={togglePasswordVisibility}
               hitSlop={8}
+              style={styles.eyeButton}
+              accessibilityLabel={
+                showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"
+              }
             >
-              <Text style={styles.toggle}>
-                {showPassword ? "Sembunyikan" : "Tampilkan"}
-              </Text>
+              <AppIcon
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color={COLORS.textSecondary}
+              />
             </Pressable>
           </View>
 
@@ -174,7 +183,7 @@ export default function LoginScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.textOnPrimary} />
             ) : (
               <Text style={styles.buttonText}>Masuk</Text>
             )}
@@ -197,7 +206,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
+  safe: { flex: 1, backgroundColor: COLORS.surfaceSubtle },
   container: {
     flexGrow: 1,
     justifyContent: "center",
@@ -207,85 +216,85 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: "800",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: "#41337A",
+    color: COLORS.primary,
     marginBottom: 24,
     marginTop: 4,
   },
   label: {
     fontSize: 13.5,
     fontWeight: "600",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     marginTop: 16,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1.5,
-    borderColor: "#6EA4BF",
+    borderColor: COLORS.borderStrong,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15.5,
-    color: "#331E36",
-    backgroundColor: "#FFFFFF",
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
   },
-  inputError: { borderColor: "#dc2626" },
+  inputError: { borderColor: COLORS.dangerText },
   passwordRow: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1.5,
-    borderColor: "#6EA4BF",
+    borderColor: COLORS.borderStrong,
     borderRadius: 12,
     paddingHorizontal: 14,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: COLORS.background,
   },
   passwordInput: {
     flex: 1,
     paddingVertical: 12,
     fontSize: 15.5,
-    color: "#331E36",
+    color: COLORS.textPrimary,
   },
-  toggle: {
-    color: "#41337A",
-    fontWeight: "600",
-    fontSize: 13,
-    paddingHorizontal: 4,
+  eyeButton: {
+    paddingLeft: 8,
+    paddingVertical: 4,
+    justifyContent: "center",
+    alignItems: "center",
   },
   errorText: {
-    color: "#dc2626",
+    color: COLORS.dangerText,
     fontSize: 12.5,
     marginTop: 4,
   },
   errorBox: {
-    backgroundColor: "#fee2e2",
+    backgroundColor: COLORS.dangerBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: COLORS.dangerBorder,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
   },
   errorBoxText: {
-    color: "#b91c1c",
+    color: COLORS.dangerDark,
   },
   button: {
-    backgroundColor: "#41337A",
+    backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: "center",
     marginTop: 28,
-    shadowColor: "#331E36",
+    shadowColor: COLORS.textPrimary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.14,
     shadowRadius: 8,
     elevation: 4,
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: {
-    color: "#ECFEE8",
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: "600",
     paddingHorizontal: 8,
@@ -299,11 +308,11 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   footerText: {
-    color: "#331E36",
+    color: COLORS.textPrimary,
     fontSize: 14,
   },
   footerLink: {
-    color: "#41337A",
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: "600",
     paddingHorizontal: 4,

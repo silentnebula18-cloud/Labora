@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,7 +14,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppIcon from "../../../components/AppIcon";
+import BottomNavBar from "../../../components/BottomNavBar";
+import BottomSheetModal from "../../../components/BottomSheetModal";
 import LaboratoryFormModal from "../../../components/LaboratoryFormModal";
+import { COLORS, RADIUS } from "../../../constants/theme";
 import { useAuth } from "../../../context/AuthContext";
 import {
   createLaboratory,
@@ -29,7 +33,6 @@ import type { Laboratory } from "../../../types";
 export default function KelolaLaboratoriumScreen() {
   const { user } = useAuth();
 
-  // Guard hak akses: Hanya asisten yang boleh mengelola laboratorium
   const isAssistant =
     user?.activeRole === "asisten" ||
     (Array.isArray(user?.roles) && user.roles.includes("asisten"));
@@ -40,16 +43,23 @@ export default function KelolaLaboratoriumScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modal Create / Edit
   const [formVisible, setFormVisible] = useState(false);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [selectedLab, setSelectedLab] = useState<Laboratory | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Modal Konfirmasi Hapus
   const [deleteTarget, setDeleteTarget] = useState<Laboratory | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [detailLabId, setDetailLabId] = useState<string | null>(null);
+
+  const detailLab = useMemo(
+    () =>
+      detailLabId
+        ? (laboratories.find((item) => item.id === detailLabId) ?? null)
+        : null,
+    [laboratories, detailLabId],
+  );
 
   useEffect(() => {
     if (!user || !isAssistant) {
@@ -127,17 +137,22 @@ export default function KelolaLaboratoriumScreen() {
   if (!isAssistant) {
     return (
       <SafeAreaView style={styles.safe}>
+        <StatusBar style="dark" />
         <View style={styles.content}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <AppIcon name="chevron-left" size={16} color="#41337A" />
-            <Text style={styles.backText}>Kembali</Text>
+          <Pressable style={styles.backRow} onPress={() => router.back()}>
+            <AppIcon
+              name="chevron-left"
+              size={20}
+              color={COLORS.textPrimary}
+            />
+            <Text style={styles.title}>Lokasi Laboratorium</Text>
           </Pressable>
           <View style={styles.forbiddenBox}>
-            <AppIcon name="alert" size={32} color="#dc2626" />
-            <Text style={styles.forbiddenTitle}>Akses Terbatas</Text>
+            <AppIcon name="alert" size={30} color={COLORS.dangerText} />
+            <Text style={styles.forbiddenTitle}>Akses terbatas</Text>
             <Text style={styles.forbiddenDesc}>
               Hanya akun dengan peran Asisten yang memiliki wewenang untuk
-              mengelola lokasi laboratorium (SRS-015).
+              mengelola lokasi laboratorium.
             </Text>
           </View>
         </View>
@@ -146,27 +161,32 @@ export default function KelolaLaboratoriumScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar style="dark" />
+
       <ScrollView
+        style={{ flex: 1 }}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <AppIcon name="chevron-left" size={16} color="#41337A" />
-          <Text style={styles.backText}>Kembali</Text>
-        </Pressable>
-
-        <View style={styles.headerRow}>
-          <View style={styles.headerInfo}>
-            <Text style={styles.title}>Kelola Lokasi Laboratorium</Text>
-            <Text style={styles.subtitle}>
-              Atur titik koordinat, radius validasi presensi, dan status
-              operasional laboratorium (SRS-015).
-            </Text>
-          </View>
+        <View style={styles.headerBlock}>
+          <Pressable
+            style={styles.backRow}
+            onPress={() => router.back()}
+            hitSlop={10}
+          >
+            <AppIcon
+              name="chevron-left"
+              size={20}
+              color={COLORS.textPrimary}
+            />
+            <Text style={styles.title}>Lokasi Laboratorium</Text>
+          </Pressable>
+          <Text style={styles.subtitle}>
+            Atur titik koordinat, radius validasi presensi, dan status lab.
+          </Text>
         </View>
 
-        {/* Tombol Tambah Lab & Search */}
         <View style={styles.actionHeader}>
           <Pressable
             style={({ pressed }) => [
@@ -180,11 +200,10 @@ export default function KelolaLaboratoriumScreen() {
               setFormVisible(true);
             }}
           >
-            <AppIcon name="plus" size={16} color="#ffffff" />
-            <Text style={styles.addButtonText}>Tambah Laboratorium</Text>
+            <AppIcon name="plus" size={16} color={COLORS.textOnPrimary} />
+            <Text style={styles.addButtonText}>Tambah laboratorium</Text>
           </Pressable>
 
-          {/* Tombol Cepat ke Peta Interaktif */}
           <Pressable
             style={({ pressed }) => [
               styles.mapNavBtn,
@@ -192,20 +211,20 @@ export default function KelolaLaboratoriumScreen() {
             ]}
             onPress={() => router.push("/asisten/peta" as any)}
           >
-            <AppIcon name="location" size={16} color="#41337A" />
-            <Text style={styles.mapNavBtnText}>Lihat Peta</Text>
+            <AppIcon name="location" size={16} color={COLORS.primary} />
+            <Text style={styles.mapNavBtnText}>Peta</Text>
           </Pressable>
         </View>
 
-        {/* Input Pencarian */}
         <View style={styles.searchBox}>
-          <AppIcon name="search" size={16} color="#6EA4BF" />
+          <AppIcon name="search" size={18} color={COLORS.textSecondary} />
           <TextInput
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Cari nama laboratorium, alamat, atau deskripsi..."
-            placeholderTextColor="#6EA4BF"
+            placeholder="Cari nama atau alamat laboratorium"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
           />
           {searchQuery.length > 0 && (
             <Pressable onPress={() => setSearchQuery("")}>
@@ -216,14 +235,14 @@ export default function KelolaLaboratoriumScreen() {
 
         {loading && (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color="#41337A" />
+            <ActivityIndicator color={COLORS.primary} />
             <Text style={styles.loadingText}>Memuat data laboratorium…</Text>
           </View>
         )}
 
         {loadError && (
           <View style={styles.errorBox}>
-            <AppIcon name="alert" size={16} color="#b91c1c" />
+            <AppIcon name="alert" size={16} color={COLORS.dangerText} />
             <Text style={styles.errorText}>{loadError}</Text>
           </View>
         )}
@@ -231,128 +250,240 @@ export default function KelolaLaboratoriumScreen() {
         {!loading && !loadError && filteredLabs.length === 0 && (
           <View style={styles.emptyBox}>
             <View style={styles.emptyIconBox}>
-              <AppIcon name="location" size={28} color="#6EA4BF" />
+              <AppIcon name="location" size={24} color={COLORS.primary} />
             </View>
             <Text style={styles.emptyTitle}>
               {searchQuery
-                ? "Tidak ada laboratorium yang sesuai"
-                : "Belum Ada Laboratorium"}
+                ? "Laboratorium tidak ditemukan"
+                : "Belum ada laboratorium"}
             </Text>
             <Text style={styles.emptySubtitle}>
               {searchQuery
-                ? "Coba gunakan kata kunci pencarian yang lain."
-                : "Daftarkan laboratorium pertama Anda untuk mengaktifkan validasi lokasi presensi."}
+                ? "Coba kata kunci pencarian lain."
+                : "Daftarkan laboratorium pertama untuk mengaktifkan validasi lokasi presensi."}
             </Text>
           </View>
         )}
 
         {!loading &&
           filteredLabs.map((lab) => (
-            <View key={lab.id} style={styles.labCard}>
+            <Pressable
+              key={lab.id}
+              style={({ pressed }) => [
+                styles.labCard,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => setDetailLabId(lab.id)}
+            >
               <View style={styles.cardHeader}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.labNama}>{lab.nama}</Text>
-                  <View style={styles.alamatRow}>
-                    <AppIcon name="location" size={13} color="#6EA4BF" />
-                    <Text style={styles.labAlamat} numberOfLines={2}>
-                      {lab.alamat}
-                    </Text>
-                  </View>
-                </View>
+                <Text
+                  style={styles.labNama}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {lab.nama}
+                </Text>
+
                 <View
                   style={[
                     styles.statusBadge,
                     lab.aktif ? styles.statusActive : styles.statusInactive,
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: lab.aktif ? "#16a34a" : "#6EA4BF" },
-                    ]}
-                  />
                   <Text
                     style={[
                       styles.statusText,
-                      { color: lab.aktif ? "#15803d" : "#41337A" },
+                      {
+                        color: lab.aktif
+                          ? COLORS.successText
+                          : COLORS.neutralBadgeText,
+                      },
                     ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
                     {lab.aktif ? "Aktif" : "Nonaktif"}
                   </Text>
                 </View>
               </View>
 
-              {lab.deskripsi ? (
-                <Text style={styles.labDeskripsi} numberOfLines={2}>
-                  {lab.deskripsi}
+              <View style={styles.alamatRow}>
+                <AppIcon
+                  name="location"
+                  size={14}
+                  color={COLORS.textSecondary}
+                />
+                <Text
+                  style={styles.labAlamat}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {lab.alamat}
                 </Text>
-              ) : null}
-
-              {/* Detail Koordinat & Radius */}
-              <View style={styles.specsContainer}>
-                <View style={styles.specItem}>
-                  <Text style={styles.specLabel}>TITIK KOORDINAT</Text>
-                  <Text style={styles.specValue}>
-                    {lab.latitude.toFixed(6)}, {lab.longitude.toFixed(6)}
-                  </Text>
-                </View>
-                <View style={styles.specDivider} />
-                <View style={styles.specItem}>
-                  <Text style={styles.specLabel}>RADIUS PRESENSI</Text>
-                  <Text style={styles.specValue}>{lab.radius} Meter</Text>
-                </View>
               </View>
 
-              {/* Tombol Aksi */}
-              <View style={styles.cardActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    pressed && styles.pressed,
-                  ]}
-                  onPress={() => {
-                    setSelectedLab(lab);
-                    setFormMode("edit");
-                    setFormError(null);
-                    setFormVisible(true);
-                  }}
-                >
-                  <Text style={styles.editActionText}>Ubah Data</Text>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    pressed && styles.pressed,
-                  ]}
-                  onPress={() => handleToggleStatus(lab)}
-                >
+              <View style={styles.cardSummaryFooter}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.footerLabel}>Radius presensi</Text>
                   <Text
-                    style={[
-                      styles.toggleActionText,
-                      { color: lab.aktif ? "#d97706" : "#16a34a" },
-                    ]}
+                    style={styles.radiusSummaryText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
-                    {lab.aktif ? "Nonaktifkan" : "Aktifkan"}
+                    {lab.radius} meter
                   </Text>
-                </Pressable>
-
+                </View>
                 <Pressable
                   style={({ pressed }) => [
-                    styles.cardActionBtn,
-                    styles.deleteActionBtn,
+                    styles.detailCtaBtn,
                     pressed && styles.pressed,
                   ]}
-                  onPress={() => setDeleteTarget(lab)}
+                  onPress={() => setDetailLabId(lab.id)}
                 >
-                  <Text style={styles.deleteActionText}>Hapus</Text>
+                  <Text style={styles.detailCtaBtnText}>Lihat detail</Text>
                 </Pressable>
               </View>
-            </View>
+            </Pressable>
           ))}
       </ScrollView>
 
-      {/* Modal Form Tambah/Ubah Laboratorium */}
+      <BottomNavBar role="asisten" activeTab="beranda" />
+
+      {/* Bottom Sheet Detail & Aksi Laboratorium (Tarik ke Bawah atau Ketuk Luar untuk Tutup) */}
+      <BottomSheetModal
+        visible={!!detailLab}
+        onClose={() => setDetailLabId(null)}
+        contentStyle={styles.sheetCardContent}
+      >
+        {detailLab && (
+          <>
+            <View style={styles.cardHeader}>
+              <Text
+                style={styles.sheetTitle}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {detailLab.nama}
+              </Text>
+              <View
+                style={[
+                  styles.statusBadge,
+                  detailLab.aktif
+                    ? styles.statusActive
+                    : styles.statusInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.statusText,
+                    {
+                      color: detailLab.aktif
+                        ? COLORS.successText
+                        : COLORS.neutralBadgeText,
+                    },
+                  ]}
+                >
+                  {detailLab.aktif ? "Aktif" : "Nonaktif"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.alamatRow, { marginTop: 6 }]}>
+              <AppIcon
+                name="location"
+                size={14}
+                color={COLORS.textSecondary}
+              />
+              <Text style={styles.labAlamat}>{detailLab.alamat}</Text>
+            </View>
+
+            {detailLab.deskripsi ? (
+              <Text style={styles.labDeskripsi}>{detailLab.deskripsi}</Text>
+            ) : null}
+
+            <View style={styles.specsContainer}>
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Koordinat pusat</Text>
+                <Text
+                  style={styles.specValue}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {detailLab.latitude.toFixed(6)},{" "}
+                  {detailLab.longitude.toFixed(6)}
+                </Text>
+              </View>
+              <View style={styles.specDivider} />
+              <View style={styles.specItem}>
+                <Text style={styles.specLabel}>Radius presensi</Text>
+                <Text
+                  style={styles.specValue}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {detailLab.radius} meter
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.cardActions}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardActionBtn,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => {
+                  const target = detailLab;
+                  setDetailLabId(null);
+                  setSelectedLab(target);
+                  setFormMode("edit");
+                  setFormError(null);
+                  setFormVisible(true);
+                }}
+              >
+                <Text style={styles.editActionText}>Ubah</Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardActionBtn,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => handleToggleStatus(detailLab)}
+              >
+                <Text
+                  style={[
+                    styles.toggleActionText,
+                    {
+                      color: detailLab.aktif
+                        ? COLORS.warningText
+                        : COLORS.primary,
+                    },
+                  ]}
+                >
+                  {detailLab.aktif ? "Nonaktifkan" : "Aktifkan"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cardActionBtn,
+                  styles.deleteActionBtn,
+                  pressed && styles.pressed,
+                ]}
+                onPress={() => {
+                  const target = detailLab;
+                  setDetailLabId(null);
+                  setDeleteTarget(target);
+                }}
+              >
+                <Text style={styles.deleteActionText}>Hapus</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+      </BottomSheetModal>
+
       <LaboratoryFormModal
         visible={formVisible}
         mode={formMode}
@@ -378,7 +509,6 @@ export default function KelolaLaboratoriumScreen() {
         }}
       />
 
-      {/* Modal Dialog Konfirmasi Hapus */}
       <Modal
         visible={!!deleteTarget}
         transparent
@@ -386,16 +516,15 @@ export default function KelolaLaboratoriumScreen() {
         onRequestClose={() => setDeleteTarget(null)}
       >
         <View style={styles.modalOverlay}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={deleting ? undefined : () => setDeleteTarget(null)}
+          />
           <View style={styles.confirmCard}>
-            <View style={styles.confirmIconBox}>
-              <AppIcon name="alert" size={26} color="#dc2626" />
-            </View>
             <Text style={styles.confirmTitle}>Hapus Laboratorium?</Text>
             <Text style={styles.confirmDesc}>
-              Apakah Anda yakin ingin menghapus{" "}
-              <Text style={{ fontWeight: "700" }}>{deleteTarget?.nama}</Text>?
-              Data koordinat dan radius presensi untuk laboratorium ini akan
-              dihapus dari Firestore.
+              {deleteTarget?.nama} beserta data koordinat dan radius presensinya
+              akan dihapus dari Firestore.
             </Text>
 
             <View style={styles.confirmActionRow}>
@@ -412,7 +541,7 @@ export default function KelolaLaboratoriumScreen() {
                 disabled={deleting}
               >
                 {deleting ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
                 ) : (
                   <Text style={styles.confirmDeleteText}>Hapus</Text>
                 )}
@@ -428,405 +557,387 @@ export default function KelolaLaboratoriumScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.surfaceSubtle,
   },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
-  backBtn: {
+  headerBlock: {
+    marginBottom: 14,
+  },
+  backRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    alignSelf: "flex-start",
-    marginBottom: 16,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    backgroundColor: "#C2EFEB",
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#41337A",
-
-  },
-  headerRow: {
-    marginBottom: 16,
-  },
-  headerInfo: {
-    gap: 4,
+    gap: 8,
   },
   title: {
-    fontSize: 22,
+    fontSize: 19,
     fontWeight: "700",
-    color: "#331E36",
-
+    lineHeight: 24,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
+    fontSize: 12.5,
+    fontWeight: "400",
     lineHeight: 18,
-
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    marginLeft: 28,
   },
   actionHeader: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   addButton: {
     flex: 1,
-    backgroundColor: "#41337A",
-    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 7,
   },
   addButtonText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontWeight: "600",
-
+    color: COLORS.textOnPrimary,
+    fontSize: 13.5,
+    fontWeight: "700",
   },
   mapNavBtn: {
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 12,
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: RADIUS.md,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
   },
   mapNavBtnText: {
-    color: "#41337A",
+    color: COLORS.primary,
     fontSize: 13,
-    fontWeight: "600",
-
+    fontWeight: "700",
   },
   searchBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 16,
-    gap: 8,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    minHeight: 44,
+    marginBottom: 14,
+    gap: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
-    color: "#331E36",
-    paddingVertical: 2,
-
+    fontSize: 13.5,
+    color: COLORS.textPrimary,
+    paddingVertical: 9,
   },
   clearSearchText: {
     fontSize: 12,
-    color: "#6EA4BF",
-    fontWeight: "500",
-
+    color: COLORS.primary,
+    fontWeight: "700",
   },
   loadingBox: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
-    paddingVertical: 24,
+    gap: 10,
+    paddingVertical: 30,
   },
   loadingText: {
-    fontSize: 13,
-    color: "#6EA4BF",
-
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
   },
   errorBox: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fef2f2",
+    backgroundColor: COLORS.dangerBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
     padding: 12,
-    marginBottom: 16,
+    marginBottom: 14,
     gap: 8,
   },
   errorText: {
-    fontSize: 13,
-    color: "#b91c1c",
+    fontSize: 12.5,
+    color: COLORS.dangerDark,
     flex: 1,
-
   },
   emptyBox: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    borderRadius: 16,
-    padding: 28,
-    marginTop: 8,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: 24,
   },
   emptyIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "#ECFEE8",
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     marginBottom: 4,
-
   },
   emptySubtitle: {
-    fontSize: 12,
-    color: "#6EA4BF",
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
     textAlign: "center",
     lineHeight: 18,
-
   },
   labCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    padding: 16,
-    marginBottom: 12,
+    borderColor: COLORS.border,
+    padding: 14,
+    marginBottom: 10,
+    gap: 6,
   },
   cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 8,
+    alignItems: "center",
+    gap: 10,
   },
   labNama: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#331E36",
-    marginBottom: 4,
-
+    flex: 1,
+    minWidth: 0,
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
   },
   alamatRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
   },
   labAlamat: {
-    fontSize: 12,
-    color: "#6EA4BF",
+    fontSize: 13,
+    fontWeight: "400",
+    lineHeight: 18,
+    color: COLORS.textSecondary,
     flex: 1,
-
+    minWidth: 0,
   },
-  statusBadge: {
+  cardSummaryFooter: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 8,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.divider,
+  },
+  footerLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  radiusSummaryText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginTop: 1,
+  },
+  detailCtaBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailCtaBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
+  sheetCardContent: {
+    paddingHorizontal: 16,
+  },
+  sheetTitle: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  statusBadge: {
+    paddingHorizontal: 9,
     paddingVertical: 3,
-    borderRadius: 20,
+    borderRadius: RADIUS.pill,
   },
   statusActive: {
-    backgroundColor: "#f0fdf4",
-    borderWidth: 1,
-    borderColor: "#bbf7d0",
+    backgroundColor: COLORS.successBg,
   },
   statusInactive: {
-    backgroundColor: "#ECFEE8",
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    backgroundColor: COLORS.neutralBadgeBg,
   },
   statusText: {
     fontSize: 11,
     fontWeight: "600",
-
   },
   labDeskripsi: {
-    fontSize: 12,
-    color: "#41337A",
-    marginTop: 10,
-    lineHeight: 16,
-
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    marginTop: 8,
+    lineHeight: 18,
   },
   specsContainer: {
     flexDirection: "row",
-    backgroundColor: "#ECFEE8",
-    borderRadius: 10,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: "#ECFEE8",
-    padding: 10,
+    borderColor: COLORS.border,
+    padding: 11,
     marginTop: 12,
   },
   specItem: {
     flex: 1,
+    gap: 2,
   },
   specDivider: {
     width: 1,
-    backgroundColor: "#C2EFEB",
+    backgroundColor: COLORS.border,
     marginHorizontal: 10,
   },
   specLabel: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#6EA4BF",
-    letterSpacing: 0.5,
-    marginBottom: 2,
-
+    fontSize: 11,
+    color: COLORS.textSecondary,
   },
   specValue: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#331E36",
-
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   cardActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 14,
-    paddingTop: 12,
+    marginTop: 12,
+    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#ECFEE8",
+    borderTopColor: COLORS.divider,
     gap: 8,
   },
   cardActionBtn: {
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#ECFEE8",
+    paddingHorizontal: 11,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   editActionText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#41337A",
-
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   toggleActionText: {
-    fontSize: 12,
-    fontWeight: "600",
-
+    fontSize: 11.5,
+    fontWeight: "700",
   },
   deleteActionBtn: {
-    backgroundColor: "#fef2f2",
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
   },
   deleteActionText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#dc2626",
-
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.dangerText,
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.82,
   },
   forbiddenBox: {
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 24,
+    backgroundColor: COLORS.dangerBg,
+    borderRadius: RADIUS.lg,
+    padding: 20,
     borderWidth: 1,
-    borderColor: "#fecaca",
-    marginTop: 40,
-    gap: 12,
+    borderColor: COLORS.dangerBorder,
+    marginTop: 28,
+    gap: 8,
   },
   forbiddenTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#991b1b",
-
+    color: COLORS.dangerDark,
   },
   forbiddenDesc: {
-    fontSize: 13,
-    color: "#41337A",
+    fontSize: 12.5,
+    color: COLORS.dangerDark,
     textAlign: "center",
     lineHeight: 18,
-
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
+    padding: 22,
   },
   confirmCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 22,
-    width: "100%",
-    maxWidth: 380,
-    alignItems: "center",
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  confirmIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#fef2f2",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
+    padding: 20,
   },
   confirmTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#331E36",
-    marginBottom: 6,
-
+    color: COLORS.textPrimary,
   },
   confirmDesc: {
-    fontSize: 13,
-    color: "#41337A",
-    textAlign: "center",
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
     lineHeight: 18,
-    marginBottom: 20,
-
+    marginTop: 5,
+    marginBottom: 16,
   },
   confirmActionRow: {
     flexDirection: "row",
     gap: 10,
-    width: "100%",
   },
   confirmBtn: {
     flex: 1,
-    paddingVertical: 11,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
     alignItems: "center",
     justifyContent: "center",
   },
   confirmCancelBtn: {
-    backgroundColor: "#ECFEE8",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
   },
   confirmCancelText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: "600",
-    color: "#41337A",
-
+    color: COLORS.textSecondary,
   },
   confirmDeleteBtn: {
-    backgroundColor: "#dc2626",
+    backgroundColor: COLORS.dangerText,
   },
   confirmDeleteText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#ffffff",
-
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
   },
 });

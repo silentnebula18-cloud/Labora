@@ -1,5 +1,6 @@
 import * as Location from "expo-location";
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,14 +13,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppIcon from "../../../components/AppIcon";
+import BottomNavBar from "../../../components/BottomNavBar";
 import InteractiveLabMap from "../../../components/InteractiveLabMap";
 import LabDetailCard from "../../../components/LabDetailCard";
+import { COLORS, RADIUS } from "../../../constants/theme";
 import { useSession } from "../../../context/SessionContext";
 import {
   describeFirestoreError,
   subscribeLaboratories,
 } from "../../../services/laboratoryService";
 import {
+  calculateHaversineDistanceMeters,
   openLocationSettings,
   promptEnableLocationServices,
   type Coordinates,
@@ -40,7 +44,6 @@ export default function AsistenPetaScreen() {
 
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
 
-  // 1. Langganan Realtime Koleksi Laboratorium
   useEffect(() => {
     const unsubscribe = subscribeLaboratories(
       (items) => {
@@ -51,7 +54,9 @@ export default function AsistenPetaScreen() {
             Number.isFinite(lab.longitude),
         );
         setLaboratories(activeLabs);
-        setSelectedLab((prev) => prev ?? (activeLabs.length > 0 ? activeLabs[0] : null));
+        setSelectedLab(
+          (prev) => prev ?? (activeLabs.length > 0 ? activeLabs[0] : null),
+        );
         setLoadError(null);
         setLoading(false);
       },
@@ -64,7 +69,6 @@ export default function AsistenPetaScreen() {
     return unsubscribe;
   }, []);
 
-  // 2. Pemantauan Real-time Posisi Pengguna (SRS-016 & SRS-018)
   async function refreshCurrentLocation() {
     setRefreshingLocation(true);
     setGpsError(null);
@@ -134,9 +138,21 @@ export default function AsistenPetaScreen() {
           },
           (location) => {
             if (!isMounted) return;
-            setUserCoords({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
+            const nextLat = location.coords.latitude;
+            const nextLng = location.coords.longitude;
+            setUserCoords((prev) => {
+              if (
+                prev &&
+                calculateHaversineDistanceMeters(
+                  prev.latitude,
+                  prev.longitude,
+                  nextLat,
+                  nextLng,
+                ) < 3
+              ) {
+                return prev;
+              }
+              return { latitude: nextLat, longitude: nextLng };
             });
             setGpsError(null);
           },
@@ -162,38 +178,46 @@ export default function AsistenPetaScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "left", "right"]}>
-      {/* Top Header Bar */}
-      <View style={styles.topBar}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar style="dark" />
+
+      <View style={styles.header}>
         <Pressable
           style={styles.backBtn}
           onPress={() => router.back()}
-          accessibilityLabel="Kembali ke beranda"
+          hitSlop={8}
         >
-          <AppIcon name="chevron-left" size={18} color="#41337A" />
-          <Text style={styles.backText}>Kembali</Text>
+          <AppIcon name="chevron-left" size={20} color={COLORS.textPrimary} />
         </Pressable>
 
-        <View style={styles.titleContainer}>
-          <Text style={styles.headerTitle}>Peta Laboratorium</Text>
-          <Text style={styles.headerSubtitle}>
-            Lokasi, radius validasi & jadwal aktif
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text
+            style={styles.headerTitle}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            Peta Laboratorium
+          </Text>
+          <Text
+            style={styles.headerSubtitle}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            Lokasi, radius validasi, dan jadwal aktif.
           </Text>
         </View>
 
         <Pressable
           style={styles.manageShortcutBtn}
           onPress={() => router.push("/asisten/laboratorium" as any)}
-          accessibilityLabel="Buka kelola laboratorium"
         >
           <Text style={styles.manageShortcutText}>Kelola</Text>
         </Pressable>
       </View>
 
-      {/* Banner GPS Error jika terjadi masalah izin/GPS */}
       {gpsError && (
         <View style={styles.gpsWarningBanner}>
-          <AppIcon name="alert" size={14} color="#b45309" />
+          <AppIcon name="alert" size={14} color={COLORS.warningText} />
           <Text style={styles.gpsWarningText}>{gpsError}</Text>
           <View style={styles.gpsWarningActions}>
             {gpsError.toLowerCase().includes("izin") ? (
@@ -201,7 +225,7 @@ export default function AsistenPetaScreen() {
                 onPress={() => void openLocationSettings()}
                 hitSlop={8}
               >
-                <Text style={styles.gpsActionText}>Buka Pengaturan</Text>
+                <Text style={styles.gpsActionText}>Pengaturan</Text>
               </Pressable>
             ) : gpsError.toLowerCase().includes("aktif") ? (
               <Pressable
@@ -215,61 +239,65 @@ export default function AsistenPetaScreen() {
               </Pressable>
             ) : null}
             <Pressable onPress={refreshCurrentLocation} hitSlop={8}>
-              <Text style={styles.gpsRetryText}>Coba Lagi</Text>
+              <Text style={styles.gpsRetryText}>Coba lagi</Text>
             </Pressable>
           </View>
         </View>
       )}
 
-      {/* Horizontal Lab Picker Pills */}
-      <View style={styles.labPillsWrapper}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.labPillsScroll}
-        >
-          {laboratories.map((lab) => {
-            const isSelected = selectedLab?.id === lab.id;
-            return (
-              <Pressable
-                key={lab.id}
-                style={[
-                  styles.labPill,
-                  isSelected && styles.labPillSelected,
-                ]}
-                onPress={() => setSelectedLab(lab)}
-              >
-                <View
+      {laboratories.length > 0 && (
+        <View style={styles.labPillsWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.labPillsScroll}
+          >
+            {laboratories.map((lab) => {
+              const isSelected = selectedLab?.id === lab.id;
+              return (
+                <Pressable
+                  key={lab.id}
                   style={[
-                    styles.labPillDot,
-                    { backgroundColor: isSelected ? "#ffffff" : "#41337A" },
+                    styles.labPill,
+                    isSelected && styles.labPillSelected,
                   ]}
-                />
-                <Text
-                  style={[
-                    styles.labPillText,
-                    isSelected && styles.labPillTextSelected,
-                  ]}
+                  onPress={() => setSelectedLab(lab)}
                 >
-                  {lab.nama}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+                  <View
+                    style={[
+                      styles.labPillDot,
+                      {
+                        backgroundColor: isSelected
+                          ? COLORS.textOnPrimary
+                          : COLORS.primary,
+                      },
+                    ]}
+                  />
+                  <Text
+                    style={[
+                      styles.labPillText,
+                      isSelected && styles.labPillTextSelected,
+                    ]}
+                  >
+                    {lab.nama}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
-      {/* Area Peta Interaktif */}
       <View style={styles.mapArea}>
         {loading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator size="large" color="#41337A" />
-            <Text style={styles.loadingText}>Memuat peta & laboratorium…</Text>
+            <ActivityIndicator size="large" color={COLORS.primary} />
+            <Text style={styles.loadingText}>Memuat peta laboratorium…</Text>
           </View>
         ) : loadError ? (
           <View style={styles.errorBox}>
-            <AppIcon name="alert" size={24} color="#dc2626" />
-            <Text style={styles.errorTitle}>Gagal Memuat Peta</Text>
+            <AppIcon name="alert" size={24} color={COLORS.dangerText} />
+            <Text style={styles.errorTitle}>Gagal memuat peta</Text>
             <Text style={styles.errorDesc}>{loadError}</Text>
           </View>
         ) : (
@@ -277,6 +305,7 @@ export default function AsistenPetaScreen() {
             laboratories={laboratories}
             selectedLab={selectedLab}
             onSelectLab={(lab) => setSelectedLab(lab)}
+            onMapPress={() => setSelectedLab(null)}
             userCoords={userCoords}
             onRefreshLocation={refreshCurrentLocation}
             refreshingLocation={refreshingLocation}
@@ -284,7 +313,6 @@ export default function AsistenPetaScreen() {
         )}
       </View>
 
-      {/* Bottom Sheet Detail Laboratorium & Aktivitas Ongoing/Upcoming */}
       {selectedLab && (
         <LabDetailCard
           laboratory={selectedLab}
@@ -294,6 +322,8 @@ export default function AsistenPetaScreen() {
           onManageLab={() => router.push("/asisten/laboratorium" as any)}
         />
       )}
+
+      <BottomNavBar role="asisten" activeTab="beranda" />
     </SafeAreaView>
   );
 }
@@ -301,74 +331,59 @@ export default function AsistenPetaScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.background,
   },
-  topBar: {
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#ECFEE8",
-    backgroundColor: "#ffffff",
+    borderBottomColor: COLORS.border,
+    backgroundColor: COLORS.background,
+    gap: 10,
   },
   backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  backText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#41337A",
-
-  },
-  titleContainer: {
-    alignItems: "center",
+    paddingVertical: 4,
+    paddingRight: 4,
   },
   headerTitle: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: "700",
-    color: "#331E36",
-
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   headerSubtitle: {
-    fontSize: 10.5,
-    color: "#6EA4BF",
-
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   manageShortcutBtn: {
-    paddingVertical: 6,
+    backgroundColor: COLORS.primarySoft,
     paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
+    paddingVertical: 7,
+    borderRadius: RADIUS.md,
   },
   manageShortcutText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
   gpsWarningBanner: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fffbeb",
+    backgroundColor: COLORS.warningBg,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: "#fef3c7",
+    borderBottomColor: COLORS.warningBorder,
     gap: 8,
   },
   gpsWarningText: {
     flex: 1,
-    fontSize: 11,
-    color: "#92400e",
-
+    fontSize: 12,
+    color: COLORS.warningText,
   },
   gpsWarningActions: {
     flexDirection: "row",
@@ -376,39 +391,36 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   gpsActionText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#b45309",
-    textDecorationLine: "underline",
-
+    color: COLORS.warningText,
   },
   gpsRetryText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
   labPillsWrapper: {
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.background,
     borderBottomWidth: 1,
-    borderBottomColor: "#ECFEE8",
-    paddingVertical: 8,
+    borderBottomColor: COLORS.border,
+    paddingVertical: 10,
   },
   labPillsScroll: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     gap: 8,
   },
   labPill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "#ECFEE8",
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primarySoft,
   },
   labPillSelected: {
-    backgroundColor: "#41337A",
+    backgroundColor: COLORS.primary,
   },
   labPillDot: {
     width: 6,
@@ -418,11 +430,10 @@ const styles = StyleSheet.create({
   labPillText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
   labPillTextSelected: {
-    color: "#ffffff",
+    color: COLORS.textOnPrimary,
   },
   mapArea: {
     flex: 1,
@@ -431,12 +442,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: 10,
   },
   loadingText: {
-    fontSize: 13,
-    color: "#6EA4BF",
-
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
   },
   errorBox: {
     flex: 1,
@@ -446,15 +456,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   errorTitle: {
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: "#dc2626",
-
+    color: COLORS.dangerText,
   },
   errorDesc: {
-    fontSize: 12,
-    color: "#6EA4BF",
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
     textAlign: "center",
-
   },
 });

@@ -64,6 +64,24 @@ function mapPermissionRecord(
   id: string,
   data: Record<string, unknown>,
 ): PermissionRecord {
+  const alasan = readString(data.alasan);
+  let aiCategory = isAiCategory(data.aiCategory) ? data.aiCategory : null;
+  let aiConfidence =
+    typeof data.aiConfidence === "number" ? data.aiConfidence : null;
+  let aiStatus: "success" | "failed" =
+    data.aiStatus === "success" && aiCategory ? "success" : "failed";
+
+  // Jika dokumen lama di Firestore belum memiliki aiCategory (karena kata sebelumnya belum dikenali),
+  // jalankan analisis sentimen lokal secara otomatis saat membaca data.
+  if (!aiCategory && alasan.trim().length > 0) {
+    const fallbackAi = analyzeSentiment(alasan);
+    if (fallbackAi.status === "success" && fallbackAi.label) {
+      aiCategory = fallbackAi.label;
+      aiConfidence = fallbackAi.confidence;
+      aiStatus = "success";
+    }
+  }
+
   return {
     id,
     uid: readString(data.uid),
@@ -73,12 +91,14 @@ function mapPermissionRecord(
     sessionId: readString(data.sessionId),
     mataKuliah: readString(data.mataKuliah) || undefined,
     namaPraktikum: readString(data.namaPraktikum) || undefined,
-    nomorPraktikum: data.nomorPraktikum ? readNumber(data.nomorPraktikum) : undefined,
-    alasan: readString(data.alasan),
+    nomorPraktikum: data.nomorPraktikum
+      ? readNumber(data.nomorPraktikum)
+      : undefined,
+    alasan,
     status: isPermissionStatus(data.status) ? data.status : "pending",
-    aiStatus: data.aiStatus === "success" ? "success" : "failed",
-    aiCategory: isAiCategory(data.aiCategory) ? data.aiCategory : null,
-    aiConfidence: typeof data.aiConfidence === "number" ? data.aiConfidence : null,
+    aiStatus,
+    aiCategory,
+    aiConfidence,
     aiProcessedAt: toDate(data.aiProcessedAt),
     decidedBy: readNullableString(data.decidedBy),
     decidedAt: toDate(data.decidedAt),

@@ -1,6 +1,6 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -20,153 +20,57 @@ import BottomNavBar, {
 } from "../../components/BottomNavBar";
 import ProfileView from "../../components/ProfileView";
 import ScheduleFormModal from "../../components/ScheduleFormModal";
+import { COLORS, getDisplayName, RADIUS } from "../../constants/theme";
 import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useSession } from "../../context/SessionContext";
 import {
   describeFirestoreError,
   subscribeAssistantClasses,
+  subscribeClassMembers,
 } from "../../services/classService";
 import { subscribeAssistantPermissions } from "../../services/permissionService";
-import type { ScheduleInput } from "../../services/sessionService";
-import type {
-  ClassRecord,
-  PermissionRecord,
-  SessionStatus,
-} from "../../types";
+import {
+  subscribeSessionAttendances,
+  type AttendanceWithStudent,
+  type ScheduleInput,
+} from "../../services/sessionService";
+import type { ClassRecord, PermissionRecord } from "../../types";
 import { formatJam, formatTanggal } from "../../utils/format";
+import IzinAsistenListScreen from "./izin";
+import KelolaKelasScreen from "./kelas";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<
-  SessionStatus,
-  { label: string; bg: string; border: string; text: string; dot: string }
-> = {
-  scheduled: {
-    label: "Terjadwal",
-    bg: "#ECFEE8",
-    border: "#6EA4BF",
-    text: "#331E36",
-    dot: "#6EA4BF",
-  },
-  open: {
-    label: "Sesi Dibuka",
-    bg: "#e6f4ea",
-    border: "#b7dfc2",
-    text: "#0f5132",
-    dot: "#15803d",
-  },
-  closed: {
-    label: "Selesai",
-    bg: "#ECFEE8",
-    border: "#6EA4BF",
-    text: "#41337A",
-    dot: "#6EA4BF",
-  },
-};
-
-// ─── Komponen Kartu Sesi ──────────────────────────────────────────────────────
-
-interface SessionCardProps {
-  id: string;
-  mataKuliah: string;
-  nomorPraktikum: number;
-  namaPraktikum: string;
-  namaKelas: string;
-  tanggal: Date;
-  jamMulai: Date;
-  jamSelesai: Date;
-  ruang: string;
-  status: SessionStatus;
+function formatJamTitik(date: Date): string {
+  return formatJam(date).replace(":", ".");
 }
-
-function SessionCard({
-  id,
-  mataKuliah,
-  nomorPraktikum,
-  namaPraktikum,
-  namaKelas,
-  tanggal,
-  jamMulai,
-  jamSelesai,
-  ruang,
-  status,
-}: SessionCardProps) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.scheduled;
-
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={() =>
-        router.push({ pathname: "/asisten/session/[id]", params: { id } } as any)
-      }
-      android_ripple={{ color: "#C2EFEB" }}
-    >
-      <View style={styles.cardTopRow}>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: cfg.bg, borderColor: cfg.border },
-          ]}
-        >
-          <View style={[styles.statusDot, { backgroundColor: cfg.dot }]} />
-          <Text style={[styles.statusText, { color: cfg.text }]}>
-            {cfg.label}
-          </Text>
-        </View>
-
-        <View style={styles.classBadge}>
-          <Text style={styles.classBadgeText}>Kelas {namaKelas}</Text>
-        </View>
-      </View>
-
-      <Text style={styles.mataKuliah} numberOfLines={1}>
-        {mataKuliah}
-      </Text>
-      <Text style={styles.namaPraktikum} numberOfLines={1}>
-        Pertemuan {nomorPraktikum} · {namaPraktikum}
-      </Text>
-
-      <View style={styles.cardDivider} />
-
-      <View style={styles.infoRow}>
-        <View style={styles.infoItem}>
-          <AppIcon name="calendar" size={14} color="#6EA4BF" />
-          <Text style={styles.infoText}>{formatTanggal(tanggal)}</Text>
-        </View>
-        <View style={styles.infoBottomInline}>
-          <View style={styles.infoItemInline}>
-            <AppIcon name="clock" size={14} color="#6EA4BF" />
-            <Text style={styles.infoText}>
-              {formatJam(jamMulai)} – {formatJam(jamSelesai)}
-            </Text>
-          </View>
-          <View style={styles.infoItemInline}>
-            <AppIcon name="location" size={14} color="#6EA4BF" />
-            <Text style={styles.infoText} numberOfLines={1}>
-              {ruang}
-            </Text>
-          </View>
-        </View>
-      </View>
-    </Pressable>
-  );
-}
-
-// ─── Layar Utama Asisten ──────────────────────────────────────────────────────
 
 export default function HomeAsisten() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const { openNotificationModal, unreadCount } = useNotification();
+  const { unreadCount, openNotificationModal } = useNotification();
   const {
     sessions,
     sessionsLoading,
     sessionsError,
     createSchedule,
+    getEnrolled,
   } = useSession();
 
+  const params = useLocalSearchParams<{ tab?: string }>();
   const [activeTab, setActiveTab] = useState<BottomNavTab>("beranda");
+  const [prevParamTab, setPrevParamTab] = useState(params.tab);
+  if (params.tab !== prevParamTab) {
+    setPrevParamTab(params.tab);
+    if (
+      params.tab === "beranda" ||
+      params.tab === "kelas" ||
+      params.tab === "izin" ||
+      params.tab === "profil"
+    ) {
+      setActiveTab(params.tab);
+    }
+  }
+
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [permissions, setPermissions] = useState<PermissionRecord[]>([]);
 
@@ -207,13 +111,73 @@ export default function HomeAsisten() {
     return unsubscribe;
   }, [classes]);
 
-  if (!user) return null;
+  const pendingPermissionsCount = useMemo(
+    () => permissions.filter((p) => p.status === "pending").length,
+    [permissions],
+  );
 
-  const pendingPermissionsCount = permissions.filter(
-    (p) => p.status === "pending",
-  ).length;
-  const upcoming = sessions.filter((s) => s.status !== "closed");
-  const past = sessions.filter((s) => s.status === "closed");
+  // Pilih Sesi Aktif (open) atau sesi mendatang terdekat untuk Hero Card
+  const featuredSession = useMemo(() => {
+    const openSess = sessions.find((s) => s.status === "open");
+    if (openSess) return openSess;
+
+    const scheduledList = [...sessions]
+      .filter((s) => s.status === "scheduled")
+      .sort((a, b) => a.jamMulai.getTime() - b.jamMulai.getTime());
+    return scheduledList[0] ?? null;
+  }, [sessions]);
+
+  const nextAgendaSessions = useMemo(() => {
+    return [...sessions]
+      .filter((s) => s.status !== "closed" && s.id !== featuredSession?.id)
+      .sort((a, b) => a.jamMulai.getTime() - b.jamMulai.getTime());
+  }, [sessions, featuredSession]);
+
+  const featuredSessionId = featuredSession?.id ?? "";
+  const featuredClassId = featuredSession?.classId ?? "";
+
+  const [featuredAttendances, setFeaturedAttendances] = useState<
+    AttendanceWithStudent[]
+  >([]);
+  const [featuredMemberCount, setFeaturedMemberCount] = useState<number | null>(
+    null,
+  );
+
+  // Langganan real-time daftar hadir sesi utama (Hero Card) dari Firestore
+  useEffect(() => {
+    if (!featuredSessionId) {
+      return;
+    }
+    const unsubscribe = subscribeSessionAttendances(
+      featuredSessionId,
+      (items) => {
+        setFeaturedAttendances(items);
+      },
+      () => {
+        setFeaturedAttendances([]);
+      },
+    );
+    return unsubscribe;
+  }, [featuredSessionId]);
+
+  // Langganan real-time jumlah anggota kelas sesi utama dari Firestore
+  useEffect(() => {
+    if (!featuredClassId) {
+      return;
+    }
+    const unsubscribe = subscribeClassMembers(
+      featuredClassId,
+      (items) => {
+        setFeaturedMemberCount(items.length);
+      },
+      () => {
+        setFeaturedMemberCount(null);
+      },
+    );
+    return unsubscribe;
+  }, [featuredClassId]);
+
+  if (!user) return null;
 
   async function handleCreateSchedule(values: ScheduleInput) {
     const targetClass = classes.find((c) => c.id === values.classId);
@@ -234,268 +198,446 @@ export default function HomeAsisten() {
     }
   }
 
+  const featuredClass = featuredSession
+    ? classes.find((c) => c.id === featuredSession.classId)
+    : undefined;
+  const featuredHadir = featuredSession ? featuredAttendances.length : 0;
+  const featuredEnrolled = featuredSession
+    ? featuredMemberCount !== null && featuredMemberCount > 0
+      ? featuredMemberCount
+      : featuredClass?.memberIds?.length ?? getEnrolled(featuredSession.classId)
+    : 0;
+
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+
       {activeTab === "beranda" ? (
-        <>
-          {/* Header Beranda */}
-          <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-            <View style={styles.headerTopRow}>
-              <Text style={styles.greeting}>Selamat datang,</Text>
-              <View style={styles.headerTopRight}>
-                <View style={styles.rolePill}>
-                  <Text style={styles.rolePillText}>ASISTEN PRAKTIKUM</Text>
-                </View>
-                <Pressable
-                  style={styles.bellBtn}
-                  onPress={openNotificationModal}
-                  accessibilityLabel="Notifikasi"
-                  accessibilityRole="button"
-                >
-                  <AppIcon name="bell" size={17} color="#ffffff" />
-                  {unreadCount > 0 && (
-                    <View style={styles.bellBadge}>
-                      <Text style={styles.bellBadgeText}>
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-            <Text style={styles.name}>{user.nama}</Text>
-            <Text style={styles.nim}>NIM {user.nim}</Text>
-          </View>
-
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Menu Aksi Utama (Gaya Super-App Ringkas) */}
-            <View style={styles.quickActionsGrid}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.quickActionTile,
-                  pressed && styles.cardPressed,
-                ]}
-                onPress={() => router.push("/asisten/kelas" as any)}
-                android_ripple={{ color: "#C2EFEB" }}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: Math.max(insets.top + 14, 24) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Bersih: Hi, <Nama Lengkap Max 3 Kata> */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextWrap}>
+              <Text
+                style={styles.headerTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
               >
-                <View style={styles.quickActionIconBox}>
-                  <AppIcon name="class" size={20} color="#41337A" />
-                </View>
-                <Text style={styles.quickActionTitle}>Kelola Kelas</Text>
-                <Text style={styles.quickActionSub}>
-                  {classes.length} kelas aktif
-                </Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.quickActionTile,
-                  styles.quickActionTilePrimary,
-                  pressed && styles.cardPressed,
-                ]}
-                onPress={() => {
-                  setFormError(null);
-                  setFormVisible(true);
-                }}
-                android_ripple={{ color: "#41337A" }}
-              >
-                <View style={styles.quickActionIconBoxPrimary}>
-                  <AppIcon name="plus" size={20} color="#ffffff" />
-                </View>
-                <Text style={styles.quickActionTitlePrimary}>
-                  Tambah Jadwal
-                </Text>
-                <Text style={styles.quickActionSubPrimary}>
-                  Buat jadwal & sesi
-                </Text>
-              </Pressable>
+                Hi, {getDisplayName(user.nama, 3)}
+              </Text>
             </View>
 
-            {/* Menu Pemeriksaan Pengajuan Izin (SRS 011) */}
             <Pressable
-              style={({ pressed }) => [
-                styles.permissionActionBanner,
-                pressed && styles.cardPressed,
-              ]}
-              onPress={() => router.push("/asisten/izin" as any)}
-              android_ripple={{ color: "#C2EFEB" }}
+              style={styles.bellBtn}
+              onPress={openNotificationModal}
+              accessibilityLabel="Notifikasi"
+              hitSlop={8}
             >
-              <View style={styles.permissionActionIconBox}>
-                <AppIcon name="clipboard" size={20} color="#41337A" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.permissionActionTitle}>
-                  Pemeriksaan Pengajuan Izin
-                </Text>
-                <Text style={styles.permissionActionSub}>
-                  {pendingPermissionsCount > 0
-                    ? `${pendingPermissionsCount} pengajuan menunggu keputusan`
-                    : `${permissions.length} total pengajuan izin`}
-                </Text>
-              </View>
-              {pendingPermissionsCount > 0 && (
-                <View style={styles.pendingCountBadge}>
-                  <Text style={styles.pendingCountBadgeText}>
-                    {pendingPermissionsCount}
+              <AppIcon name="bell" size={22} color={COLORS.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </Text>
                 </View>
               )}
-              <AppIcon name="chevron-right" size={16} color="#6EA4BF" />
             </Pressable>
+          </View>
 
-            {/* Menu Kelola Lab & Peta Interaktif (SRS-015 & SRS-016) */}
-            <View style={styles.labActionsGrid}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.labActionTile,
-                  pressed && styles.cardPressed,
-                ]}
-                onPress={() => router.push("/asisten/laboratorium" as any)}
-                android_ripple={{ color: "#C2EFEB" }}
-              >
-                <View style={styles.labActionIconBox}>
-                  <AppIcon name="location" size={18} color="#41337A" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.labActionTitle}>Kelola Lab</Text>
-                  <Text style={styles.labActionSub}>
-                    Lokasi & radius presensi
-                  </Text>
-                </View>
-                <AppIcon name="chevron-right" size={14} color="#6EA4BF" />
-              </Pressable>
+          {sessionsLoading && (
+            <View style={styles.loadingBox}>
+              <ActivityIndicator color={COLORS.primary} />
+              <Text style={styles.loadingText}>Memuat sesi praktikum…</Text>
+            </View>
+          )}
 
-              <Pressable
-                style={({ pressed }) => [
-                  styles.labActionTile,
-                  pressed && styles.cardPressed,
-                ]}
-                onPress={() => router.push("/asisten/peta" as any)}
-                android_ripple={{ color: "#C2EFEB" }}
-              >
+          {sessionsError && (
+            <View style={styles.errorBox}>
+              <Text style={styles.errorText}>{sessionsError}</Text>
+            </View>
+          )}
+
+          {/* Hero Section: 1) Sesi Sedang Berlangsung / Akan Datang */}
+          {featuredSession ? (
+            <View style={styles.featuredCard}>
+              <View style={styles.featuredTopRow}>
+                <Text style={styles.featuredOverline}>
+                  {featuredSession.status === "open"
+                    ? "SESI AKTIF"
+                    : "SESI TERDEKAT"}
+                </Text>
                 <View
                   style={[
-                    styles.labActionIconBox,
-                    { backgroundColor: "#ECFEE8" },
+                    styles.statusPill,
+                    {
+                      backgroundColor:
+                        featuredSession.status === "open"
+                          ? COLORS.successBg
+                          : COLORS.neutralBadgeBg,
+                      borderColor:
+                        featuredSession.status === "open"
+                          ? COLORS.primaryBorder
+                          : COLORS.border,
+                    },
                   ]}
                 >
-                  <AppIcon name="location" size={18} color="#41337A" />
+                  <Text
+                    style={[
+                      styles.statusPillText,
+                      {
+                        color:
+                          featuredSession.status === "open"
+                            ? COLORS.successText
+                            : COLORS.neutralBadgeText,
+                      },
+                    ]}
+                  >
+                    {featuredSession.status === "open"
+                      ? "Sedang berlangsung"
+                      : "Akan datang"}
+                  </Text>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.labActionTitle}>Peta Lab</Text>
-                  <Text style={styles.labActionSub}>Denah & info sesi</Text>
+              </View>
+
+              <View style={styles.cardDivider} />
+
+              <Text
+                style={styles.featuredCourse}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {featuredSession.practicum?.mataKuliah ?? "Mata Kuliah"}
+              </Text>
+              <Text
+                style={styles.featuredSub}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Kelas {featuredSession.kelas?.namaKelas ?? "—"} · Pertemuan{" "}
+                {String(
+                  featuredSession.practicum?.nomorPraktikum ?? 1,
+                ).padStart(2, "0")}
+              </Text>
+
+              <View style={styles.featuredStatsRow}>
+                <View>
+                  <Text style={styles.codeLabel}>Kode sesi</Text>
+                  <Text style={styles.codeValue}>
+                    {featuredSession.kodePresensi || "—"}
+                  </Text>
                 </View>
-                <AppIcon name="chevron-right" size={14} color="#6EA4BF" />
+
+                <View style={styles.countRightBox}>
+                  <Text style={styles.countBigText}>
+                    {featuredHadir} / {featuredEnrolled}
+                  </Text>
+                  <Text style={styles.countSubLabel}>praktikan hadir</Text>
+                </View>
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  pressed && styles.primaryBtnPressed,
+                ]}
+                onPress={() =>
+                  router.push({
+                    pathname: "/asisten/session/[id]",
+                    params: { id: featuredSession.id },
+                  } as any)
+                }
+              >
+                <Text style={styles.primaryBtnText}>Pantau presensi</Text>
               </Pressable>
             </View>
-
-            {sessionsLoading && (
-              <View style={styles.loadingBox}>
-                <ActivityIndicator color="#41337A" />
-                <Text style={styles.loadingText}>Memuat jadwal & sesi…</Text>
-              </View>
-            )}
-
-            {sessionsError && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorBoxText}>{sessionsError}</Text>
-              </View>
-            )}
-
-            {!sessionsLoading && !sessionsError && sessions.length === 0 && (
-              <View style={styles.empty}>
-                <View style={styles.emptyIconCircle}>
-                  <AppIcon name="clipboard" size={28} color="#41337A" />
-                </View>
-                <Text style={styles.emptyTitle}>Belum ada jadwal</Text>
-                <Text style={styles.emptySubtitle}>
-                  Pilih menu Tambah Jadwal di atas untuk menjadwalkan sesi
-                  praktikum baru.
+          ) : (
+            !sessionsLoading && (
+              <View style={styles.featuredCard}>
+                <Text style={styles.featuredOverline}>SESI PRAKTIKUM</Text>
+                <View style={styles.cardDivider} />
+                <Text style={styles.featuredCourse}>
+                  Tidak ada sesi terjadwal
                 </Text>
+                <Text style={[styles.featuredSub, { marginBottom: 16 }]}>
+                  Jadwalkan sesi pertemuan baru untuk kelas yang kamu ampu.
+                </Text>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.primaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                  ]}
+                  onPress={() => {
+                    setFormError(null);
+                    setFormVisible(true);
+                  }}
+                >
+                  <Text style={styles.primaryBtnText}>+ Buat sesi baru</Text>
+                </Pressable>
               </View>
-            )}
+            )
+          )}
 
-            {/* Sesi Aktif / Mendatang */}
-            {upcoming.length > 0 && (
-              <>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    Jadwal Aktif & Mendatang
-                  </Text>
-                  <Text style={styles.sectionCount}>{upcoming.length}</Text>
-                </View>
-                {upcoming.map((s) => (
-                  <SessionCard
-                    key={s.id}
-                    id={s.id}
-                    mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
-                    nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
-                    namaPraktikum={
-                      s.practicum?.namaPraktikum ?? "Sesi Praktikum"
-                    }
-                    namaKelas={s.kelas?.namaKelas ?? "—"}
-                    tanggal={s.tanggal}
-                    jamMulai={s.jamMulai}
-                    jamSelesai={s.jamSelesai}
-                    ruang={s.ruang}
-                    status={s.status}
-                  />
-                ))}
-              </>
-            )}
+          {/* Hero Section: 2) Aksi Cepat (Seragam dengan Praktikan: 3 Tombol Bulat Hijau) */}
+          <Text style={styles.labShortcutsTitle}>Aksi Cepat</Text>
+          <View style={styles.labShortcutsRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.labShortcutItem,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => {
+                setFormError(null);
+                setFormVisible(true);
+              }}
+            >
+              <View style={styles.labShortcutCircle}>
+                <AppIcon
+                  name="plus"
+                  size={24}
+                  color={COLORS.textOnPrimary}
+                  strokeWidth={2.2}
+                />
+              </View>
+              <Text
+                style={styles.labShortcutLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Buat Sesi
+              </Text>
+            </Pressable>
 
-            {/* Riwayat Sesi */}
-            {past.length > 0 && (
-              <>
-                <View style={[styles.sectionHeaderRow, { marginTop: 14 }]}>
-                  <Text style={[styles.sectionTitle, styles.sectionTitlePast]}>
-                    Riwayat Sesi Ditutup
-                  </Text>
-                  <Text style={styles.sectionCount}>{past.length}</Text>
-                </View>
-                {past.map((s) => (
-                  <SessionCard
-                    key={s.id}
-                    id={s.id}
-                    mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
-                    nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
-                    namaPraktikum={
-                      s.practicum?.namaPraktikum ?? "Sesi Praktikum"
-                    }
-                    namaKelas={s.kelas?.namaKelas ?? "—"}
-                    tanggal={s.tanggal}
-                    jamMulai={s.jamMulai}
-                    jamSelesai={s.jamSelesai}
-                    ruang={s.ruang}
-                    status={s.status}
-                  />
-                ))}
-              </>
-            )}
+            <Pressable
+              style={({ pressed }) => [
+                styles.labShortcutItem,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => router.push("/asisten/laboratorium" as any)}
+            >
+              <View style={styles.labShortcutCircle}>
+                <AppIcon
+                  name="laptop-minimal"
+                  size={22}
+                  color={COLORS.textOnPrimary}
+                  strokeWidth={2.05}
+                />
+              </View>
+              <Text
+                style={styles.labShortcutLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Kelola Lab
+              </Text>
+            </Pressable>
 
-            <View style={styles.bottomPad} />
-          </ScrollView>
-        </>
-      ) : (
-        <>
-          <View
-            style={[styles.profileHeader, { paddingTop: insets.top + 15 }]}
-          >
-            <Text style={styles.profileHeaderTitle}>Profil Pengguna</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.labShortcutItem,
+                pressed && styles.pressed,
+              ]}
+              onPress={() => router.push("/asisten/peta" as any)}
+            >
+              <View style={styles.labShortcutCircle}>
+                <AppIcon
+                  name="location"
+                  size={22}
+                  color={COLORS.textOnPrimary}
+                  strokeWidth={2.05}
+                />
+              </View>
+              <Text
+                style={styles.labShortcutLabel}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Peta Lab
+              </Text>
+            </Pressable>
           </View>
-          <ProfileView />
-        </>
+
+          {/* Agenda Berikutnya */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Agenda Berikutnya</Text>
+          </View>
+
+          {nextAgendaSessions.length === 0 ? (
+            <View style={styles.agendaEmptyCard}>
+              <Text style={styles.agendaEmptyText}>
+                Tidak ada agenda tambahan yang dijadwalkan.
+              </Text>
+            </View>
+          ) : (
+            nextAgendaSessions.slice(0, 4).map((s) => {
+              const openSess = () =>
+                router.push({
+                  pathname: "/asisten/session/[id]",
+                  params: { id: s.id },
+                } as any);
+              const noStr = String(
+                s.practicum?.nomorPraktikum ?? 1,
+              ).padStart(2, "0");
+
+              return (
+                <Pressable
+                  key={s.id}
+                  style={({ pressed }) => [
+                    styles.agendaCard,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={openSess}
+                >
+                  <View style={styles.agendaHeaderRow}>
+                    <View style={styles.agendaHeaderLeft}>
+                      <View style={styles.agendaIconBox}>
+                        <AppIcon
+                          name="calendar"
+                          size={15}
+                          color={COLORS.primary}
+                        />
+                      </View>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text
+                          style={styles.agendaHeaderTitle}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          Kelas {s.kelas?.namaKelas ?? "—"} · Pertemuan {noStr}
+                        </Text>
+                        <Text
+                          style={styles.agendaHeaderDate}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {formatTanggal(s.tanggal)}
+                        </Text>
+                      </View>
+                    </View>
+                    <View
+                      style={[
+                        styles.statusPill,
+                        {
+                          backgroundColor:
+                            s.status === "open"
+                              ? COLORS.successBg
+                              : COLORS.neutralBadgeBg,
+                          borderColor:
+                            s.status === "open"
+                              ? COLORS.primaryBorder
+                              : COLORS.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusPillText,
+                          {
+                            color:
+                              s.status === "open"
+                                ? COLORS.successText
+                                : COLORS.neutralBadgeText,
+                          },
+                        ]}
+                      >
+                        {s.status === "open" ? "Berlangsung" : "Akan datang"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+
+                  <Text
+                    style={styles.agendaTitle}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {s.practicum?.mataKuliah ?? "Mata Kuliah"}
+                  </Text>
+                  <Text
+                    style={styles.agendaMetaText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {formatJamTitik(s.jamMulai)}–{formatJamTitik(s.jamSelesai)}{" "}
+                    WIB
+                  </Text>
+
+                  <View style={styles.agendaFooterRow}>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.agendaFooterLabel}>Laboratorium</Text>
+                      <Text
+                        style={styles.agendaFooterValue}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {s.ruang}
+                      </Text>
+                    </View>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.detailCtaBtn,
+                        pressed && styles.primaryBtnPressed,
+                      ]}
+                      onPress={openSess}
+                    >
+                      <Text style={styles.detailCtaBtnText}>Lihat detail</Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              );
+            })
+          )}
+
+          {/* Banner Pengajuan Izin */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.permissionBanner,
+              pressed && styles.pressed,
+            ]}
+            onPress={() => setActiveTab("izin")}
+          >
+            <AppIcon name="file-text" size={20} color={COLORS.primary} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text
+                style={styles.permissionBannerTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {pendingPermissionsCount > 0
+                  ? `${pendingPermissionsCount} izin menunggu ditinjau`
+                  : "Tinjau pengajuan izin"}
+              </Text>
+              <Text
+                style={styles.permissionBannerSub}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Bantu praktikan mendapat kepastian.
+              </Text>
+            </View>
+            <AppIcon name="chevron-right" size={16} color={COLORS.primary} />
+          </Pressable>
+        </ScrollView>
+      ) : activeTab === "kelas" ? (
+        <KelolaKelasScreen embedded />
+      ) : activeTab === "izin" ? (
+        <IzinAsistenListScreen embedded />
+      ) : (
+        <ProfileView />
       )}
 
-      {/* Bottom Navbar 2 Menu */}
-      <BottomNavBar activeTab={activeTab} onChangeTab={setActiveTab} />
+      <BottomNavBar
+        role="asisten"
+        activeTab={activeTab}
+        onChangeTab={setActiveTab}
+      />
 
-      {/* Modal Tambah Jadwal */}
       {formVisible && (
         <ScheduleFormModal
           visible
@@ -513,383 +655,332 @@ export default function HomeAsisten() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
-
-  // Header
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 18,
-    backgroundColor: "#331E36",
+  safe: { flex: 1, backgroundColor: COLORS.surfaceSubtle },
+  scroll: { flex: 1, backgroundColor: COLORS.surfaceSubtle },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
   },
-  headerTopRow: {
+  pressed: { opacity: 0.88 },
+
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    gap: 12,
+    marginBottom: 14,
   },
-  greeting: {
-    color: "#C2EFEB",
-    fontSize: 13,
-    fontWeight: "600",
-
-  },
-  headerTopRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  headerTextWrap: { flex: 1, minWidth: 0 },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    lineHeight: 22,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.2,
   },
   bellBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   bellBadge: {
     position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: "#ef4444",
-    borderRadius: 8,
+    top: 3,
+    right: 3,
     minWidth: 16,
     height: 16,
-    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: COLORS.dangerText,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#331E36",
+    paddingHorizontal: 3,
   },
   bellBadgeText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontWeight: "800",
-
+    color: COLORS.textOnPrimary,
+    fontSize: 9.5,
+    fontWeight: "700",
   },
-  rolePill: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 6,
+
+  featuredCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
+  },
+  featuredTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  featuredOverline: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.primary,
+    letterSpacing: 0.4,
+  },
+  statusPill: {
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  rolePillText: {
-    color: "#ffffff",
-    fontSize: 10.5,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
-  name: { color: "#ffffff", fontSize: 19, fontWeight: "800", },
-  nim: { color: "#C2EFEB", fontSize: 12, marginTop: 2, fontWeight: "500", },
-
-  profileHeader: {
-    backgroundColor: "#331E36",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  profileHeaderTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800",
-
-  },
-
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
-  bottomPad: { height: 24 },
-
-  // Quick Actions Grid
-  quickActionsGrid: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 12,
-  },
-  quickActionTile: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  quickActionTilePrimary: {
-    backgroundColor: "#41337A",
-    borderColor: "#41337A",
-  },
-  quickActionIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  quickActionIconBoxPrimary: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  quickActionTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-  quickActionSub: {
-    fontSize: 11.5,
-    color: "#6EA4BF",
-    marginTop: 2,
-
-  },
-  quickActionTitlePrimary: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#ffffff",
-
-  },
-  quickActionSubPrimary: {
-    fontSize: 11.5,
-    color: "#C2EFEB",
-    marginTop: 2,
-
-  },
-
-  permissionActionBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 10,
-  },
-
-  // Lab Actions Grid
-  labActionsGrid: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 18,
-  },
-  labActionTile: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    gap: 10,
-  },
-  labActionIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  labActionTitle: {
-    fontSize: 13,
+  featuredCourse: {
+    fontSize: 15.5,
     fontWeight: "700",
-    color: "#331E36",
-
+    lineHeight: 22,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
   },
-  labActionSub: {
-    fontSize: 10.5,
-    color: "#6EA4BF",
-    marginTop: 1,
-
+  featuredSub: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: COLORS.textSecondary,
   },
-  permissionActionIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "#C2EFEB",
+  featuredStatsRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 14,
+    marginBottom: 16,
+  },
+  codeLabel: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
+  },
+  codeValue: {
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: "700",
+    color: COLORS.primary,
+    letterSpacing: 0.8,
+  },
+  countRightBox: {
+    alignItems: "flex-end",
+  },
+  countBigText: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  countSubLabel: {
+    fontSize: 11.5,
+    lineHeight: 16,
+    color: COLORS.textSecondary,
+    marginTop: 3,
+  },
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
   },
-  permissionActionTitle: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#331E36",
-
+  primaryBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
   },
-  permissionActionSub: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    marginTop: 2,
-
-  },
-  pendingCountBadge: {
-    backgroundColor: "#fef9c3",
-    borderWidth: 1,
-    borderColor: "#fde047",
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-  },
-  pendingCountBadgeText: {
-    fontSize: 11.5,
-    fontWeight: "800",
-    color: "#854d0e",
-
+  primaryBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 13.5,
+    fontWeight: "700",
   },
 
-  loadingBox: {
-    alignItems: "center",
-    paddingVertical: 32,
-    gap: 10,
-  },
-  loadingText: { fontSize: 13, color: "#6EA4BF", },
-
-  errorBox: {
-    backgroundColor: "#fef2f2",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-  },
-  errorBoxText: { color: "#991b1b", fontSize: 13, },
-
-  // Section Header
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 10,
-    paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 12.5,
-    fontWeight: "800",
-    color: "#41337A",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-
-  },
-  sectionTitlePast: { color: "#6EA4BF" },
-  sectionCount: {
-    fontSize: 12,
+    fontSize: 14.5,
     fontWeight: "700",
-    color: "#6EA4BF",
-
+    color: COLORS.textPrimary,
   },
 
-  // Card
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 15,
-    marginBottom: 10,
+  agendaCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
+    marginBottom: 10,
   },
-  cardPressed: { opacity: 0.85 },
-
-  cardTopRow: {
+  agendaHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 10,
+    gap: 8,
   },
-  statusBadge: {
+  agendaHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 3.5,
-    gap: 6,
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
   },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 11.5, fontWeight: "700", },
-
-  classBadge: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+  agendaIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  classBadgeText: {
-    fontSize: 11.5,
+  agendaHeaderTitle: {
+    fontSize: 12.5,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.textPrimary,
   },
-
-  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#331E36", },
-  namaPraktikum: {
-    fontSize: 13,
-    color: "#41337A",
-    marginTop: 2,
-
+  agendaHeaderDate: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    marginTop: 1,
   },
   cardDivider: {
     height: 1,
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.divider,
     marginVertical: 10,
   },
-
-  infoRow: { gap: 6 },
-  infoItem: { flexDirection: "row", alignItems: "center", gap: 7 },
-  infoBottomInline: {
+  agendaTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  agendaMetaText: {
+    fontSize: 12,
+    fontWeight: "400",
+    color: COLORS.textSecondary,
+  },
+  agendaFooterRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 12,
   },
-  infoItemInline: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  agendaFooterLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
   },
-  infoText: { fontSize: 12.5, color: "#41337A", fontWeight: "500", },
-
-  // Empty
-  empty: {
+  agendaFooterValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginTop: 1,
+  },
+  detailCtaBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     alignItems: "center",
-    paddingVertical: 44,
-    paddingHorizontal: 28,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    justifyContent: "center",
+  },
+  detailCtaBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
+  agendaEmptyCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
+    marginBottom: 12,
   },
-  emptyIconCircle: {
+  agendaEmptyText: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+  },
+
+  permissionBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  permissionBannerTitle: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  permissionBannerSub: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+
+  labShortcutsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginTop: 2,
+    marginBottom: 14,
+  },
+  labShortcutsRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-around",
+    gap: 12,
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  labShortcutItem: {
+    flex: 1,
+    alignItems: "center",
+    gap: 7,
+  },
+  labShortcutCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  labShortcutLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    textAlign: "center",
+  },
+
+  loadingBox: {
+    alignItems: "center",
+    paddingVertical: 22,
+    gap: 8,
+  },
+  loadingText: { fontSize: 12.5, color: COLORS.textSecondary },
+  errorBox: {
+    backgroundColor: COLORS.dangerBg,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 11,
     marginBottom: 12,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#331E36",
-    marginBottom: 6,
-
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 19,
-
-  },
+  errorText: { fontSize: 12.5, color: COLORS.dangerDark },
 });

@@ -49,14 +49,14 @@ export function getLaboratoryActivities(
   return { ongoing, upcoming };
 }
 
-/** Format singkat rentang waktu sesi, mis. "08:00 - 10:00 WIB". */
+/** Format singkat rentang waktu sesi, mis. "08.00–10.00 WIB". */
 export function formatSessionTimeRange(session: SessionWithMeta): string {
   const pad = (value: number) => String(value).padStart(2, "0");
-  const start = `${pad(session.jamMulai.getHours())}:${pad(
+  const start = `${pad(session.jamMulai.getHours())}.${pad(
     session.jamMulai.getMinutes(),
   )}`;
-  const end = `${pad(session.jamSelesai.getHours())}:${pad(
+  const end = `${pad(session.jamSelesai.getHours())}.${pad(
     session.jamSelesai.getMinutes(),
   )}`;
-  return `${start} - ${end} WIB`;
+  return `${start}–${end} WIB`;
 }

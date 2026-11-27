@@ -1,25 +1,36 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ROLE_LABEL } from "../constants/roles";
+import { COLORS, RADIUS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 import AppIcon from "./AppIcon";
 
 export default function ProfileView() {
   const { user, activeRole, logout, changeRole } = useAuth();
+  const insets = useSafeAreaInsets();
 
   if (!user || !activeRole) return null;
 
   return (
     <ScrollView
       style={styles.scroll}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: Math.max(insets.top + 22, 30) },
+      ]}
       showsVerticalScrollIndicator={false}
     >
-      {/* Bagian Atas: Icon User di Tengah Atas */}
+      {/* Bagian Atas: Icon User Proporsional */}
       <View style={styles.topProfileSection}>
         <View style={styles.avatarOuterRing}>
           <View style={styles.avatarCircle}>
-            <AppIcon name="user" size={44} color="#ffffff" />
+            <AppIcon
+              name="user"
+              size={44}
+              color={COLORS.textOnPrimary}
+              strokeWidth={1.9}
+            />
           </View>
         </View>
 
@@ -28,7 +39,7 @@ export default function ProfileView() {
         </View>
       </View>
 
-      {/* Bagian Bawah Icon User: Informasi Identitas User (Nama, NIM, Email) */}
+      {/* Kartu Identitas Lebih Lega & Naik ke Atas Agar Nyaman Dibaca */}
       <View style={styles.identityCard}>
         <Text style={styles.sectionHeaderTitle}>IDENTITAS PENGGUNA</Text>
 
@@ -61,7 +72,7 @@ export default function ProfileView() {
         </View>
       </View>
 
-      {/* Bagian Bawah: Tombol Ganti Peran & Tombol Logout */}
+      {/* Bagian Bawah: Tombol Ganti Peran & Logout */}
       <View style={styles.bottomActionsSection}>
         {user.roles.length > 1 && (
           <Pressable
@@ -71,7 +82,7 @@ export default function ProfileView() {
             ]}
             onPress={changeRole}
           >
-            <AppIcon name="switch" size={16} color="#41337A" />
+            <AppIcon name="switch" size={16} color={COLORS.primary} />
             <Text style={styles.switchRoleText}>Ganti Peran Aktif</Text>
           </Pressable>
         )}
@@ -83,7 +94,7 @@ export default function ProfileView() {
           ]}
           onPress={logout}
         >
-          <AppIcon name="logout" size={16} color="#b91c1c" />
+          <AppIcon name="logout" size={16} color={COLORS.dangerText} />
           <Text style={styles.logoutBtnText}>Keluar dari Akun</Text>
         </Pressable>
       </View>
@@ -94,135 +105,129 @@ export default function ProfileView() {
 const styles = StyleSheet.create({
   scroll: {
     flex: 1,
-    backgroundColor: "#ECFEE8",
+    width: "100%",
+    backgroundColor: COLORS.surfaceSubtle,
   },
   content: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    paddingTop: 28,
     paddingBottom: 24,
-    justifyContent: "space-between",
   },
 
-  // Bagian Icon User di Tengah Atas
+  // Bagian Icon User di Atas (Lebih Ringkas agar Kartu Identitas Naik ke Atas)
   topProfileSection: {
     alignItems: "center",
-    marginBottom: 22,
+    marginBottom: 20,
   },
   avatarOuterRing: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: "#C2EFEB",
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
+    borderColor: COLORS.primaryBorder,
   },
   avatarCircle: {
-    width: 86,
-    height: 86,
-    borderRadius: 43,
-    backgroundColor: "#41337A",
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
   },
   roleBadge: {
-    backgroundColor: "#C2EFEB",
+    backgroundColor: COLORS.primarySoft,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 999,
+    borderColor: COLORS.primaryBorder,
+    borderRadius: RADIUS.sm,
     paddingHorizontal: 14,
     paddingVertical: 5,
   },
   roleBadgeText: {
-    color: "#41337A",
+    color: COLORS.primary,
     fontSize: 11.5,
     fontWeight: "800",
     letterSpacing: 0.5,
     textTransform: "uppercase",
-
   },
 
-  // Kartu Identitas di Bawah Icon User
+  // Kartu Identitas Lebih Besar & Nyaman Dibaca
   identityCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: 20,
+    paddingVertical: 22,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 24,
+    borderColor: COLORS.border,
   },
   sectionHeaderTitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
-    color: "#6EA4BF",
+    color: COLORS.primary,
     letterSpacing: 0.8,
-    marginBottom: 12,
-
+    marginBottom: 14,
   },
   infoItem: {
-    paddingVertical: 5,
+    paddingVertical: 8,
   },
   infoLabel: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "600",
-    color: "#6EA4BF",
-    marginBottom: 3,
-
+    color: COLORS.textSecondary,
+    marginBottom: 4,
   },
   infoValue: {
-    fontSize: 15,
+    fontSize: 16.5,
+    lineHeight: 22,
     fontWeight: "700",
-    color: "#331E36",
-
+    color: COLORS.textPrimary,
   },
   divider: {
     height: 1,
-    backgroundColor: "#ECFEE8",
-    marginVertical: 8,
+    backgroundColor: COLORS.divider,
+    marginVertical: 10,
   },
 
-  // Bagian Bawah: Tombol Ganti Peran & Logout
+  // Tombol Ganti Peran & Logout
   bottomActionsSection: {
     marginTop: "auto",
+    paddingTop: 18,
     gap: 10,
-    paddingTop: 8,
   },
   switchRoleBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 12,
+    borderColor: COLORS.primary,
+    borderRadius: RADIUS.md,
     paddingVertical: 14,
   },
   switchRoleText: {
     fontSize: 14.5,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    backgroundColor: "#fef2f2",
+    backgroundColor: COLORS.dangerBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
     paddingVertical: 14,
   },
   logoutBtnText: {
     fontSize: 14.5,
     fontWeight: "800",
-    color: "#b91c1c",
-
+    color: COLORS.dangerText,
   },
   btnPressed: {
     opacity: 0.8,

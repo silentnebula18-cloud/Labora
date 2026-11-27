@@ -1,7 +1,19 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Animated,
+  PanResponder,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import AppIcon from "./AppIcon";
-import { calculateHaversineDistanceMeters, type Coordinates } from "../services/locationService";
+import { COLORS, RADIUS } from "../constants/theme";
+import {
+  calculateHaversineDistanceMeters,
+  type Coordinates,
+} from "../services/locationService";
 import type { SessionWithMeta } from "../services/sessionService";
 import type { Laboratory } from "../types";
 import { formatTanggal } from "../utils/format";
@@ -9,6 +21,7 @@ import {
   formatSessionTimeRange,
   getLaboratoryActivities,
 } from "../utils/laboratoryActivity";
+import AppIcon from "./AppIcon";
 
 interface LabDetailCardProps {
   laboratory: Laboratory;
@@ -26,6 +39,97 @@ export default function LabDetailCard({
   onManageLab,
 }: LabDetailCardProps) {
   const activities = getLaboratoryActivities(laboratory, sessions);
+  const [translateY] = useState(() => new Animated.Value(0));
+  const [isScrollAtTop, setIsScrollAtTop] = useState(true);
+  const [prevLabId, setPrevLabId] = useState(laboratory.id);
+  if (laboratory.id !== prevLabId) {
+    setPrevLabId(laboratory.id);
+    setIsScrollAtTop(true);
+  }
+
+  useEffect(() => {
+    translateY.stopAnimation();
+    translateY.setValue(0);
+  }, [laboratory.id, translateY]);
+
+  const animateClose = useCallback(() => {
+    translateY.stopAnimation();
+    Animated.timing(translateY, {
+      toValue: 420,
+      duration: 170,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        onClose();
+      }
+    });
+  }, [translateY, onClose]);
+
+  const resetPosition = useCallback(() => {
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+      bounciness: 5,
+    }).start();
+  }, [translateY]);
+
+  const handlePanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_evt, gesture) =>
+          gesture.dy > 5 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onMoveShouldSetPanResponderCapture: (_evt, gesture) =>
+          gesture.dy > 8 && Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_evt, gesture) => {
+          if (gesture.dy > 0) {
+            translateY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_evt, gesture) => {
+          if (gesture.dy > 60 || gesture.vy > 0.5) {
+            animateClose();
+          } else {
+            resetPosition();
+          }
+        },
+        onPanResponderTerminate: () => {
+          resetPosition();
+        },
+      }),
+    [translateY, animateClose, resetPosition],
+  );
+
+  const bodyPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_evt, gesture) =>
+          isScrollAtTop &&
+          gesture.dy > 8 &&
+          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onMoveShouldSetPanResponderCapture: (_evt, gesture) =>
+          isScrollAtTop &&
+          gesture.dy > 10 &&
+          Math.abs(gesture.dy) > Math.abs(gesture.dx),
+        onPanResponderMove: (_evt, gesture) => {
+          if (gesture.dy > 0) {
+            translateY.setValue(gesture.dy);
+          }
+        },
+        onPanResponderRelease: (_evt, gesture) => {
+          if (gesture.dy > 60 || gesture.vy > 0.5) {
+            animateClose();
+          } else {
+            resetPosition();
+          }
+        },
+        onPanResponderTerminate: () => {
+          resetPosition();
+        },
+      }),
+    [isScrollAtTop, translateY, animateClose, resetPosition],
+  );
 
   let distanceMeters: number | null = null;
   let isWithinRadius = false;
@@ -44,133 +148,100 @@ export default function LabDetailCard({
     isWithinRadius = distanceMeters <= laboratory.radius;
   }
 
+  const radiusBadge =
+    distanceMeters === null
+      ? {
+          label: "Lokasi belum terdeteksi",
+          bg: COLORS.neutralBadgeBg,
+          border: COLORS.border,
+          text: COLORS.neutralBadgeText,
+        }
+      : isWithinRadius
+        ? {
+            label: "Berada dalam radius",
+            bg: COLORS.successBg,
+            border: COLORS.primaryBorder,
+            text: COLORS.successText,
+          }
+        : {
+            label: "Di luar radius",
+            bg: COLORS.warningBg,
+            border: COLORS.warningBorder,
+            text: COLORS.warningText,
+          };
+
   return (
-    <View style={styles.cardContainer}>
-      <View style={styles.dragHandleContainer}>
-        <View style={styles.dragHandle} />
+    <Animated.View
+      style={[styles.cardContainer, { transform: [{ translateY }] }]}
+      {...bodyPanResponder.panHandlers}
+    >
+      {/* Zona Tarik ke Bawah: Handle + Header Lab */}
+      <View {...handlePanResponder.panHandlers}>
+        <View style={styles.dragHandleContainer}>
+          <View style={styles.dragHandle} />
+        </View>
+
+        <View style={styles.header}>
+          <View style={styles.titleRow}>
+            <Text
+              style={styles.labName}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {laboratory.nama}
+            </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: radiusBadge.bg,
+                  borderColor: radiusBadge.border,
+                },
+              ]}
+            >
+              <Text
+                style={[styles.statusText, { color: radiusBadge.text }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {radiusBadge.label}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.addressRow}>
+            <AppIcon name="location" size={14} color={COLORS.textSecondary} />
+            <Text
+              style={styles.addressText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {laboratory.alamat}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        onScroll={(e) => {
+          const atTop = e.nativeEvent.contentOffset.y <= 2;
+          setIsScrollAtTop((prev) => (prev === atTop ? prev : atTop));
+        }}
+        scrollEventThrottle={16}
       >
-        {/* Header Lab */}
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            <View style={styles.titleRow}>
-              <Text style={styles.labName}>{laboratory.nama}</Text>
-              <View
-                style={[
-                  styles.statusBadge,
-                  laboratory.aktif ? styles.badgeActive : styles.badgeInactive,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: laboratory.aktif ? "#16a34a" : "#6EA4BF",
-                    },
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.statusText,
-                    { color: laboratory.aktif ? "#15803d" : "#41337A" },
-                  ]}
-                >
-                  {laboratory.aktif ? "Aktif" : "Nonaktif"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.addressRow}>
-              <AppIcon name="location" size={13} color="#6EA4BF" />
-              <Text style={styles.addressText}>{laboratory.alamat}</Text>
-            </View>
-          </View>
-
-          <Pressable
-            style={styles.closeBtn}
-            onPress={onClose}
-            accessibilityLabel="Tutup detail laboratorium"
-          >
-            <Text style={styles.closeBtnText}>✕</Text>
-          </Pressable>
-        </View>
-
-        {/* Deskripsi */}
         {laboratory.deskripsi ? (
-          <Text style={styles.description}>{laboratory.deskripsi}</Text>
+          <Text
+            style={styles.description}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {laboratory.deskripsi}
+          </Text>
         ) : null}
 
-        {/* Kartu Status Jarak & Radius Presensi (SRS-014 & SRS-016) */}
-        <View
-          style={[
-            styles.proximityBox,
-            distanceMeters !== null
-              ? isWithinRadius
-                ? styles.proximityInside
-                : styles.proximityOutside
-              : styles.proximityUnknown,
-          ]}
-        >
-          <View style={styles.proximityHeader}>
-            <AppIcon
-              name="location"
-              size={16}
-              color={
-                distanceMeters !== null
-                  ? isWithinRadius
-                    ? "#15803d"
-                    : "#b45309"
-                  : "#6EA4BF"
-              }
-            />
-            <Text
-              style={[
-                styles.proximityTitle,
-                {
-                  color:
-                    distanceMeters !== null
-                      ? isWithinRadius
-                        ? "#15803d"
-                        : "#b45309"
-                      : "#41337A",
-                },
-              ]}
-            >
-              {distanceMeters !== null
-                ? isWithinRadius
-                  ? "Di Dalam Radius Presensi"
-                  : "Di Luar Radius Presensi"
-                : "Posisi Pengguna Belum Tersedia"}
-            </Text>
-          </View>
-
-          <View style={styles.proximityDetails}>
-            <View style={styles.proximityCol}>
-              <Text style={styles.proximityLabel}>JARAK ANDA</Text>
-              <Text style={styles.proximityValue}>
-                {distanceMeters !== null ? `${distanceMeters} Meter` : "—"}
-              </Text>
-            </View>
-            <View style={styles.proximityDivider} />
-            <View style={styles.proximityCol}>
-              <Text style={styles.proximityLabel}>RADIUS VALIDASI</Text>
-              <Text style={styles.proximityValue}>{laboratory.radius} Meter</Text>
-            </View>
-            <View style={styles.proximityDivider} />
-            <View style={styles.proximityCol}>
-              <Text style={styles.proximityLabel}>KOORDINAT PUSAT</Text>
-              <Text style={styles.proximityCoord}>
-                {laboratory.latitude.toFixed(4)}, {laboratory.longitude.toFixed(4)}
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Aktivitas Berlangsung (Ongoing) */}
+        {/* Praktikum Berlangsung: Hanya Nama Kelas & Jam */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <View style={styles.liveIndicator} />
@@ -182,33 +253,28 @@ export default function LabDetailCard({
           {activities.ongoing.length === 0 ? (
             <View style={styles.emptyActivityBox}>
               <Text style={styles.emptyActivityText}>
-                Tidak ada praktikum yang sedang berlangsung saat ini.
+                Tidak ada praktikum berlangsung
               </Text>
             </View>
           ) : (
             activities.ongoing.map((session) => (
               <View key={session.id} style={styles.activityCardActive}>
-                <View style={styles.activityTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.matkulText}>
-                      {session.practicum?.mataKuliah ?? "Mata Kuliah"}
-                    </Text>
-                    <Text style={styles.praktikumTitle}>
-                      Pertemuan {session.practicum?.nomorPraktikum ?? 1}:{" "}
-                      {session.practicum?.namaPraktikum ?? "Praktikum"}
-                    </Text>
-                  </View>
-                  <View style={styles.ongoingBadge}>
-                    <Text style={styles.ongoingBadgeText}>BERLANGSUNG</Text>
-                  </View>
-                </View>
+                <Text
+                  style={styles.classNameText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {session.practicum?.mataKuliah ?? "Mata Kuliah"} · Kelas{" "}
+                  {session.kelas?.namaKelas ?? "—"}
+                </Text>
 
                 <View style={styles.activityMetaRow}>
-                  <Text style={styles.activityMetaText}>
-                    Kelas {session.kelas?.namaKelas ?? "—"}
-                  </Text>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={styles.activityMetaText}>
+                  <AppIcon name="clock" size={13} color={COLORS.primary} />
+                  <Text
+                    style={styles.activityMetaText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
                     {formatSessionTimeRange(session)}
                   </Text>
                 </View>
@@ -217,10 +283,10 @@ export default function LabDetailCard({
           )}
         </View>
 
-        {/* Aktivitas Berikutnya (Upcoming) */}
+        {/* Praktikum Berikutnya: Hanya Nama Kelas, Tanggal, & Jam */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <AppIcon name="clock" size={15} color="#6EA4BF" />
+            <AppIcon name="clock" size={15} color={COLORS.textSecondary} />
             <Text style={styles.sectionTitle}>
               Praktikum Berikutnya ({activities.upcoming.length})
             </Text>
@@ -229,35 +295,33 @@ export default function LabDetailCard({
           {activities.upcoming.length === 0 ? (
             <View style={styles.emptyActivityBox}>
               <Text style={styles.emptyActivityText}>
-                Belum ada jadwal praktikum berikutnya di laboratorium ini.
+                Tidak ada jadwal praktikum
               </Text>
             </View>
           ) : (
             activities.upcoming.map((session) => (
               <View key={session.id} style={styles.activityCard}>
-                <View style={styles.activityTop}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.matkulText}>
-                      {session.practicum?.mataKuliah ?? "Mata Kuliah"}
-                    </Text>
-                    <Text style={styles.praktikumTitle}>
-                      Pertemuan {session.practicum?.nomorPraktikum ?? 1}:{" "}
-                      {session.practicum?.namaPraktikum ?? "Praktikum"}
-                    </Text>
-                  </View>
-                  <Text style={styles.upcomingBadge}>TERJADWAL</Text>
-                </View>
+                <Text
+                  style={styles.classNameText}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {session.practicum?.mataKuliah ?? "Mata Kuliah"} · Kelas{" "}
+                  {session.kelas?.namaKelas ?? "—"}
+                </Text>
 
                 <View style={styles.activityMetaRow}>
-                  <Text style={styles.activityMetaText}>
-                    Kelas {session.kelas?.namaKelas ?? "—"}
-                  </Text>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={styles.activityMetaText}>
-                    {formatTanggal(session.tanggal)}
-                  </Text>
-                  <Text style={styles.metaDot}>•</Text>
-                  <Text style={styles.activityMetaText}>
+                  <AppIcon
+                    name="calendar"
+                    size={13}
+                    color={COLORS.textSecondary}
+                  />
+                  <Text
+                    style={styles.activityMetaText}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {formatTanggal(session.tanggal)} ·{" "}
                     {formatSessionTimeRange(session)}
                   </Text>
                 </View>
@@ -266,7 +330,6 @@ export default function LabDetailCard({
           )}
         </View>
 
-        {/* Tombol Pengelolaan khusus Asisten jika onManageLab disediakan */}
         {onManageLab && (
           <Pressable
             style={({ pressed }) => [
@@ -275,305 +338,169 @@ export default function LabDetailCard({
             ]}
             onPress={() => onManageLab(laboratory)}
           >
-            <AppIcon name="location" size={16} color="#41337A" />
-            <Text style={styles.manageBtnText}>Ubah Data Laboratorium Ini</Text>
+            <AppIcon name="edit" size={15} color={COLORS.primary} />
+            <Text style={styles.manageBtnText}>Ubah data laboratorium</Text>
           </Pressable>
         )}
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   cardContainer: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: 440,
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 12,
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    maxHeight: 370,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
   dragHandleContainer: {
     alignItems: "center",
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 6,
   },
   dragHandle: {
-    width: 40,
+    width: 38,
     height: 4,
     borderRadius: 2,
-    backgroundColor: "#6EA4BF",
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 28,
+    backgroundColor: COLORS.borderStrong,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: 12,
+    paddingHorizontal: 16,
+    paddingBottom: 6,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
   },
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
-    flexWrap: "wrap",
     marginBottom: 4,
   },
   labName: {
-    fontSize: 17,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#331E36",
-
+    color: COLORS.textPrimary,
   },
   statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  badgeActive: {
-    backgroundColor: "#f0fdf4",
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: RADIUS.xs,
     borderWidth: 1,
-    borderColor: "#bbf7d0",
-  },
-  badgeInactive: {
-    backgroundColor: "#ECFEE8",
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    flexShrink: 0,
   },
   statusText: {
-    fontSize: 10,
-    fontWeight: "700",
-
+    fontSize: 11,
+    fontWeight: "600",
   },
   addressRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 5,
+    marginTop: 2,
   },
   addressText: {
     fontSize: 12,
-    color: "#6EA4BF",
-
-  },
-  closeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#ECFEE8",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  closeBtnText: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    fontWeight: "700",
-
+    color: COLORS.textSecondary,
+    flex: 1,
+    minWidth: 0,
   },
   description: {
-    fontSize: 12,
-    color: "#41337A",
-    marginTop: 8,
-    lineHeight: 16,
-
-  },
-  proximityBox: {
-    borderRadius: 14,
-    padding: 12,
-    marginTop: 14,
-    borderWidth: 1,
-  },
-  proximityInside: {
-    backgroundColor: "#f0fdf4",
-    borderColor: "#bbf7d0",
-  },
-  proximityOutside: {
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
-  },
-  proximityUnknown: {
-    backgroundColor: "#ECFEE8",
-    borderColor: "#C2EFEB",
-  },
-  proximityHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 8,
-  },
-  proximityTitle: {
     fontSize: 12.5,
-    fontWeight: "700",
-
-  },
-  proximityDetails: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  proximityCol: {
-    flex: 1,
-  },
-  proximityDivider: {
-    width: 1,
-    height: 24,
-    backgroundColor: "rgba(0,0,0,0.08)",
-    marginHorizontal: 8,
-  },
-  proximityLabel: {
-    fontSize: 9.5,
-    fontWeight: "700",
-    color: "#6EA4BF",
-    letterSpacing: 0.5,
-
-  },
-  proximityValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#331E36",
-    marginTop: 2,
-
-  },
-  proximityCoord: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#41337A",
-    marginTop: 2,
-
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginTop: 4,
   },
   section: {
-    marginTop: 16,
+    marginTop: 12,
   },
   sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 7,
     marginBottom: 8,
   },
   liveIndicator: {
-    width: 8,
-    height: 8,
+    width: 7,
+    height: 7,
     borderRadius: 4,
-    backgroundColor: "#16a34a",
+    backgroundColor: COLORS.primary,
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: "700",
-    color: "#331E36",
-
+    color: COLORS.textPrimary,
   },
   emptyActivityBox: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 10,
-    padding: 10,
+    padding: 11,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#ECFEE8",
+    borderColor: COLORS.border,
   },
   emptyActivityText: {
-    fontSize: 11.5,
-    color: "#6EA4BF",
-    textAlign: "center",
-
+    fontSize: 12,
+    color: COLORS.textSecondary,
   },
   activityCardActive: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primarySurface,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    padding: 12,
-    marginBottom: 8,
+    borderColor: COLORS.primaryBorder,
+    marginBottom: 10,
   },
   activityCard: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
+    padding: 14,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.card,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    padding: 12,
-    marginBottom: 8,
+    borderColor: COLORS.border,
+    marginBottom: 10,
   },
-  activityTop: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  matkulText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#6EA4BF",
-
-  },
-  praktikumTitle: {
-    fontSize: 13,
+  classNameText: {
+    fontSize: 13.5,
     fontWeight: "700",
-    color: "#331E36",
-    marginTop: 1,
-
-  },
-  ongoingBadge: {
-    backgroundColor: "#16a34a",
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-  },
-  ongoingBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#ffffff",
-
-  },
-  upcomingBadge: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#6EA4BF",
-
+    lineHeight: 20,
+    color: COLORS.textPrimary,
   },
   activityMetaRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 6,
     gap: 6,
+    marginTop: 6,
   },
   activityMetaText: {
-    fontSize: 11,
-    color: "#41337A",
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    lineHeight: 17,
+    color: COLORS.textSecondary,
     fontWeight: "500",
-
-  },
-  metaDot: {
-    fontSize: 10,
-    color: "#6EA4BF",
-
   },
   manageBtn: {
+    marginTop: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 10,
-    paddingVertical: 10,
-    marginTop: 14,
+    gap: 7,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primarySoft,
   },
   manageBtnText: {
-    fontSize: 12.5,
-    fontWeight: "600",
-    color: "#41337A",
-
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.85,
   },
 });

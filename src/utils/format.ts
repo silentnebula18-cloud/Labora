@@ -35,16 +35,20 @@ function toValidDate(value: Date | string | null | undefined): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-/** "Kamis, 22 Oktober 2026" */
+/** "13 Jan 2026" */
 export function formatTanggal(value: Date | string | null | undefined): string {
   const d = toValidDate(value);
   if (!d) return "—";
-  return d.toLocaleDateString("id-ID", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  return `${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+/** "Sel, 13 Jan 2026" */
+export function formatTanggalHari(
+  value: Date | string | null | undefined,
+): string {
+  const d = toValidDate(value);
+  if (!d) return "—";
+  return `${HARI[d.getDay()]}, ${d.getDate()} ${BULAN[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 /** Pecahan tanggal untuk badge kalender: { hari, tanggal, bulan } */
@@ -64,37 +68,34 @@ export function tanggalRingkas(value: Date | string | null | undefined): {
   };
 }
 
-/** "07:40" */
+/** "05.10" (tanpa detik) */
 export function formatJam(value: Date | string | null | undefined): string {
-  if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value.trim())) {
-    return value.trim();
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(\d{2})[:.](\d{2})(?:[:.]\d{2})?$/);
+    if (match) {
+      return `${match[1]}.${match[2]}`;
+    }
   }
   const d = toValidDate(value);
   if (!d) return "—";
   const hours = String(d.getHours()).padStart(2, "0");
   const minutes = String(d.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
+  return `${hours}.${minutes}`;
 }
 
-/** "08:05:12" */
+/** "05.10" (ringkas hingga menit, tanpa detik) */
 export function formatWaktuLengkap(
   value: Date | string | null | undefined,
 ): string {
-  const d = toValidDate(value);
-  if (!d) return "—";
-  return d.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  });
+  return formatJam(value);
 }
 
-/** "Kamis, 22 Oktober 2026 · 08:05:12" */
+/** "13 Jan 2026 · 05.10" */
 export function formatTanggalWaktu(
   value: Date | string | null | undefined,
 ): string {
   const d = toValidDate(value);
   if (!d) return "—";
-  return `${formatTanggal(d)} · ${formatWaktuLengkap(d)}`;
+  return `${formatTanggal(d)} · ${formatJam(d)}`;
 }

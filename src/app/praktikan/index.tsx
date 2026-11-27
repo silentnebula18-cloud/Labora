@@ -1,90 +1,53 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
-    ActivityIndicator,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import {
-    SafeAreaView,
-    useSafeAreaInsets,
+  SafeAreaView,
+  useSafeAreaInsets,
 } from "react-native-safe-area-context";
 
 import AppIcon from "../../components/AppIcon";
 import BottomNavBar, {
-    type BottomNavTab,
+  type BottomNavTab,
 } from "../../components/BottomNavBar";
 import PraktikanPresensiView from "../../components/PraktikanPresensiView";
 import ProfileView from "../../components/ProfileView";
+import { COLORS, getDisplayName, RADIUS } from "../../constants/theme";
 import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../../context/NotificationContext";
 import { useSession } from "../../context/SessionContext";
 import {
-    describeFirestoreError,
-    subscribeStudentClasses,
+  describeFirestoreError,
+  subscribeStudentClasses,
 } from "../../services/classService";
-import type { AttendanceWithSession } from "../../services/sessionService";
+import { isScheduleExpired } from "../../services/sessionService";
 import type { ClassRecord, SessionStatus } from "../../types";
 import {
-    formatJam,
-    formatTanggal,
-    formatWaktuLengkap,
-    tanggalRingkas,
+  formatJam,
+  formatTanggal,
+  formatTanggalHari,
 } from "../../utils/format";
+import PraktikanPetaScreen from "./peta";
 
-// ─── Konfigurasi Status ───────────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<
-  SessionStatus,
-  { label: string; bg: string; border: string; text: string; dot: string }
-> = {
-  scheduled: {
-    label: "Terjadwal",
-    bg: "#ECFEE8",
-    border: "#6EA4BF",
-    text: "#331E36",
-    dot: "#6EA4BF",
-  },
-  open: {
-    label: "Presensi Dibuka",
-    bg: "#e6f4ea",
-    border: "#b7dfc2",
-    text: "#0f5132",
-    dot: "#15803d",
-  },
-  closed: {
-    label: "Selesai",
-    bg: "#ECFEE8",
-    border: "#6EA4BF",
-    text: "#41337A",
-    dot: "#6EA4BF",
-  },
-};
-
-// ─── Kartu Jadwal ─────────────────────────────────────────────────────────────
-
-interface SessionCardProps {
-  id: string;
-  mataKuliah: string;
-  namaPraktikum: string;
-  nomorPraktikum: number;
-  namaKelas: string;
-  tanggal: Date;
-  jamMulai: Date;
-  jamSelesai: Date;
-  ruang: string;
-  status: SessionStatus;
-  sudahPresensi: boolean;
+function formatJamTitik(date: Date): string {
+  return formatJam(date);
 }
 
-function SessionCard({
+function formatHariTanggalPendek(date: Date): string {
+  return formatTanggalHari(date);
+}
+
+function SessionListCard({
   id,
   mataKuliah,
-  namaPraktikum,
   nomorPraktikum,
   namaKelas,
   tanggal,
@@ -93,118 +56,148 @@ function SessionCard({
   ruang,
   status,
   sudahPresensi,
-}: SessionCardProps) {
-  const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.scheduled;
+}: {
+  id: string;
+  mataKuliah: string;
+  nomorPraktikum: number;
+  namaKelas: string;
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
+  ruang: string;
+  status: SessionStatus;
+  sudahPresensi: boolean;
+}) {
+  const badge = sudahPresensi
+    ? {
+        label: "Hadir",
+        bg: COLORS.successBg,
+        border: COLORS.primaryBorder,
+        text: COLORS.successText,
+      }
+    : status === "open"
+      ? {
+          label: "Sedang berlangsung",
+          bg: COLORS.successBg,
+          border: COLORS.primaryBorder,
+          text: COLORS.successText,
+        }
+      : status === "scheduled"
+        ? {
+            label: "Akan datang",
+            bg: COLORS.neutralBadgeBg,
+            border: COLORS.border,
+            text: COLORS.neutralBadgeText,
+          }
+        : {
+            label: "Selesai",
+            bg: COLORS.neutralBadgeBg,
+            border: COLORS.border,
+            text: COLORS.neutralBadgeText,
+          };
+
+  const nomorStr = String(nomorPraktikum).padStart(2, "0");
+
+  const openDetail = () =>
+    router.push({
+      pathname: "/praktikan/session/[id]",
+      params: { id },
+    } as any);
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-      onPress={() =>
-        router.push({ pathname: "/praktikan/session/[id]", params: { id } } as any)
-      }
-      android_ripple={{ color: "#C2EFEB" }}
+      style={({ pressed }) => [styles.sessionCard, pressed && styles.pressed]}
+      onPress={openDetail}
     >
-      <View style={styles.cardTopRow}>
-        <View
-          style={[
-            styles.statusBadge,
-            { backgroundColor: cfg.bg, borderColor: cfg.border },
-          ]}
-        >
-          <View style={[styles.statusDot, { backgroundColor: cfg.dot }]} />
-          <Text style={[styles.statusText, { color: cfg.text }]}>
-            {cfg.label}
-          </Text>
+      {/* Header Kartu (Gaya Tokopedia) */}
+      <View style={styles.sessionTopRow}>
+        <View style={styles.cardHeaderLeft}>
+          <View style={styles.cardSmallIcon}>
+            <AppIcon name="calendar" size={16} color={COLORS.primary} />
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text
+              style={styles.sessionOverline}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              Kelas {namaKelas} · Pertemuan {nomorStr}
+            </Text>
+            <Text
+              style={styles.sessionDateSub}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {formatTanggal(tanggal)}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.topRightBadges}>
-          {sudahPresensi && (
-            <View style={styles.presensiChip}>
-              <AppIcon name="check" size={11} color="#0f5132" />
-              <Text style={styles.presensiChipText}>Hadir</Text>
-            </View>
-          )}
-          <View style={styles.classBadge}>
-            <Text style={styles.classBadgeText}>Kelas {namaKelas}</Text>
-          </View>
+        <View
+          style={[
+            styles.badgePill,
+            { backgroundColor: badge.bg, borderColor: badge.border },
+          ]}
+        >
+          <Text
+            style={[styles.badgePillText, { color: badge.text }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {badge.label}
+          </Text>
         </View>
       </View>
 
-      <Text style={styles.mataKuliah} numberOfLines={1}>
-        {mataKuliah}
-      </Text>
-      <Text style={styles.namaPraktikum} numberOfLines={1}>
-        Pertemuan {nomorPraktikum} · {namaPraktikum}
-      </Text>
-
       <View style={styles.cardDivider} />
 
-      <View style={styles.infoRow}>
-        <View style={styles.infoItem}>
-          <AppIcon name="calendar" size={14} color="#6EA4BF" />
-          <Text style={styles.infoText}>{formatTanggal(tanggal)}</Text>
+      {/* Konten Utama */}
+      <Text
+        style={styles.sessionCourse}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {mataKuliah}
+      </Text>
+      <Text
+        style={styles.metaText}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {formatJamTitik(jamMulai)}–{formatJamTitik(jamSelesai)} WIB
+      </Text>
+
+      {/* Footer Kartu + Tombol Lihat Detail */}
+      <View style={styles.cardFooterRow}>
+        <View style={styles.cardFooterLeft}>
+          <Text style={styles.cardFooterLabel}>Laboratorium</Text>
+          <Text
+            style={styles.cardFooterValue}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {ruang}
+          </Text>
         </View>
-        <View style={styles.infoBottomInline}>
-          <View style={styles.infoItemInline}>
-            <AppIcon name="clock" size={14} color="#6EA4BF" />
-            <Text style={styles.infoText}>
-              {formatJam(jamMulai)} – {formatJam(jamSelesai)}
-            </Text>
-          </View>
-          <View style={styles.infoItemInline}>
-            <AppIcon name="location" size={14} color="#6EA4BF" />
-            <Text style={styles.infoText} numberOfLines={1}>
-              {ruang}
-            </Text>
-          </View>
-        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.detailCtaBtn,
+            pressed && styles.detailCtaBtnPressed,
+          ]}
+          onPress={openDetail}
+        >
+          <Text style={styles.detailCtaBtnText}>Lihat detail</Text>
+        </Pressable>
       </View>
     </Pressable>
   );
 }
 
-// ─── Kartu Riwayat Kehadiran ──────────────────────────────────────────────────
-
-function AttendanceCard({ item }: { item: AttendanceWithSession }) {
-  const tanggal = tanggalRingkas(item.session?.tanggal);
-
-  return (
-    <View style={styles.attendanceCard}>
-      <View style={styles.dateBox}>
-        <Text style={styles.dateBoxDay}>{tanggal.hari}</Text>
-        <Text style={styles.dateBoxNumber}>{tanggal.tanggal}</Text>
-        <Text style={styles.dateBoxMonth}>{tanggal.bulan}</Text>
-      </View>
-
-      <View style={styles.attendanceInfo}>
-        <Text style={styles.attendanceCourse} numberOfLines={1}>
-          {item.session?.practicum?.mataKuliah ?? "Praktikum"}
-        </Text>
-        <Text style={styles.attendanceSub} numberOfLines={1}>
-          Pertemuan {item.session?.practicum?.nomorPraktikum ?? 1} ·{" "}
-          {item.session?.practicum?.namaPraktikum ?? "Sesi Praktikum"}
-        </Text>
-        <Text style={styles.attendanceSub} numberOfLines={1}>
-          Kelas {item.session?.kelas?.namaKelas ?? "—"} ·{" "}
-          {item.session?.ruang ?? "—"}
-        </Text>
-        <View style={styles.attendanceTimeRow}>
-          <View style={styles.attendanceDot} />
-          <Text style={styles.attendanceTime}>
-            Hadir pukul {formatWaktuLengkap(item.waktuHadir)}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-// ─── Layar Utama Praktikan ────────────────────────────────────────────────────
-
 export default function HomePraktikan() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const { openNotificationModal, unreadCount } = useNotification();
+  const { unreadCount, openNotificationModal } = useNotification();
   const {
     studentSessions,
     sessionsLoading,
@@ -212,8 +205,30 @@ export default function HomePraktikan() {
     myAttendances,
   } = useSession();
 
+  const params = useLocalSearchParams<{ tab?: string }>();
   const [activeNavTab, setActiveNavTab] = useState<BottomNavTab>("beranda");
-  const [tab, setTab] = useState<"jadwal" | "kehadiran" | "kelas">("jadwal");
+  const [prevParamTab, setPrevParamTab] = useState(params.tab);
+  if (params.tab !== prevParamTab) {
+    setPrevParamTab(params.tab);
+    if (
+      params.tab === "beranda" ||
+      params.tab === "presensi" ||
+      params.tab === "peta" ||
+      params.tab === "profil"
+    ) {
+      setActiveNavTab(params.tab);
+    }
+  }
+
+  const [subTab, setSubTab] = useState<"jadwal" | "kelas">("jadwal");
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const [classList, setClassList] = useState<ClassRecord[]>([]);
   const [classesLoading, setClassesLoading] = useState(true);
@@ -243,788 +258,999 @@ export default function HomePraktikan() {
     [myAttendances],
   );
 
+  // Pilih kelas/sesi mendatang yang paling dekat dari hari ini untuk Hero Section
+  const nearestUpcomingSession = useMemo(() => {
+    const candidates = studentSessions.filter(
+      (s) =>
+        s.status !== "closed" &&
+        !isScheduleExpired(s.tanggal, s.jamSelesai, currentTime),
+    );
+
+    if (candidates.length === 0) return null;
+
+    const sorted = [...candidates].sort((a, b) => {
+      // Prioritaskan sesi yang sedang dibuka saat ini
+      if (a.status === "open" && b.status !== "open") return -1;
+      if (a.status !== "open" && b.status === "open") return 1;
+      return a.jamMulai.getTime() - b.jamMulai.getTime();
+    });
+
+    return sorted[0] ?? null;
+  }, [studentSessions, currentTime]);
+
   if (!user) return null;
 
-  const upcoming = studentSessions.filter((s) => s.status !== "closed");
-  const past = studentSessions.filter((s) => s.status === "closed");
+  const upcomingSessions = [...studentSessions]
+    .filter(
+      (s) =>
+        s.status !== "closed" &&
+        !isScheduleExpired(s.tanggal, s.jamSelesai, currentTime),
+    )
+    .sort((a, b) => a.jamMulai.getTime() - b.jamMulai.getTime());
 
   return (
     <SafeAreaView style={styles.safe} edges={["left", "right", "bottom"]}>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
+
       {activeNavTab === "beranda" ? (
-        <>
-          {/* Header Beranda */}
-          <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-            <View style={styles.headerTopRow}>
-              <Text style={styles.greeting}>Selamat datang,</Text>
-              <View style={styles.headerTopRight}>
-                <View style={styles.rolePill}>
-                  <Text style={styles.rolePillText}>PRAKTIKAN</Text>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingTop: Math.max(insets.top + 14, 24) },
+          ]}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header Bersih: Hi, <Nama Lengkap Max 3 Kata> */}
+          <View style={styles.headerRow}>
+            <View style={styles.headerTextWrap}>
+              <Text
+                style={styles.headerTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {subTab === "kelas"
+                  ? "Kelas Saya"
+                  : `Hi, ${getDisplayName(user.nama, 3)}`}
+              </Text>
+            </View>
+
+            <Pressable
+              style={styles.bellBtn}
+              onPress={openNotificationModal}
+              accessibilityLabel="Notifikasi"
+              hitSlop={8}
+            >
+              <AppIcon name="bell" size={22} color={COLORS.textPrimary} />
+              {unreadCount > 0 && (
+                <View style={styles.bellBadge}>
+                  <Text style={styles.bellBadgeText}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
                 </View>
-                <Pressable
-                  style={styles.bellBtn}
-                  onPress={openNotificationModal}
-                  accessibilityLabel="Notifikasi"
-                  accessibilityRole="button"
-                >
-                  <AppIcon name="bell" size={17} color="#ffffff" />
-                  {unreadCount > 0 && (
-                    <View style={styles.bellBadge}>
-                      <Text style={styles.bellBadgeText}>
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </Text>
-                    </View>
-                  )}
-                </Pressable>
-              </View>
-            </View>
-            <View style={styles.headerInfoRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.name}>{user.nama}</Text>
-                <Text style={styles.nim}>NIM {user.nim}</Text>
-              </View>
-              <View style={styles.headerActions}>
-                <Pressable
-                  style={styles.headerPetaBtn}
-                  onPress={() => router.push("/praktikan/peta" as any)}
-                >
-                  <AppIcon name="location" size={13} color="#ffffff" />
-                  <Text style={styles.headerIzinText}>Peta</Text>
-                </Pressable>
-                <Pressable
-                  style={styles.headerIzinBtn}
-                  onPress={() => router.push("/praktikan/izin" as any)}
-                >
-                  <AppIcon name="clipboard" size={13} color="#ffffff" />
-                  <Text style={styles.headerIzinText}>Izin</Text>
-                </Pressable>
-              </View>
-            </View>
+              )}
+            </Pressable>
           </View>
 
-          {/* Segment */}
-          <View style={styles.segment}>
+          {subTab === "jadwal" && (
+            <>
+              {/* Hero Card: Gaya Seragam dengan Asisten (Tanpa Kode Sesi & Jumlah Praktikan Hadir) */}
+              {nearestUpcomingSession ? (
+                <View style={styles.featuredCard}>
+                  <View style={styles.featuredTopRow}>
+                    <Text
+                      style={styles.featuredOverline}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {nearestUpcomingSession.status === "open"
+                        ? "SESI AKTIF"
+                        : "SESI TERDEKAT"}
+                    </Text>
+                    <View
+                      style={[
+                        styles.badgePill,
+                        {
+                          backgroundColor:
+                            nearestUpcomingSession.status === "open"
+                              ? COLORS.successBg
+                              : COLORS.neutralBadgeBg,
+                          borderColor:
+                            nearestUpcomingSession.status === "open"
+                              ? COLORS.primaryBorder
+                              : COLORS.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.badgePillText,
+                          {
+                            color:
+                              nearestUpcomingSession.status === "open"
+                                ? COLORS.successText
+                                : COLORS.neutralBadgeText,
+                          },
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {nearestUpcomingSession.status === "open"
+                          ? "Sedang berlangsung"
+                          : "Akan datang"}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+
+                  <Text
+                    style={styles.featuredCourse}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {nearestUpcomingSession.practicum?.mataKuliah ??
+                      "Praktikum"}
+                  </Text>
+                  <Text
+                    style={styles.featuredSub}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Kelas {nearestUpcomingSession.kelas?.namaKelas ?? "—"} ·
+                    Pertemuan{" "}
+                    {String(
+                      nearestUpcomingSession.practicum?.nomorPraktikum ?? 1,
+                    ).padStart(2, "0")}
+                  </Text>
+
+                  <View style={styles.featuredMetaRow}>
+                    <AppIcon
+                      name="clock"
+                      size={14}
+                      color={COLORS.textSecondary}
+                    />
+                    <Text
+                      style={styles.featuredMetaText}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {formatHariTanggalPendek(nearestUpcomingSession.tanggal)}{" "}
+                      · {formatJamTitik(nearestUpcomingSession.jamMulai)}–
+                      {formatJamTitik(nearestUpcomingSession.jamSelesai)} ·{" "}
+                      {nearestUpcomingSession.ruang}
+                    </Text>
+                  </View>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.featuredPrimaryBtn,
+                      pressed && styles.detailCtaBtnPressed,
+                    ]}
+                    onPress={() =>
+                      router.push({
+                        pathname: "/praktikan/session/[id]",
+                        params: { id: nearestUpcomingSession.id },
+                      } as any)
+                    }
+                  >
+                    <Text style={styles.featuredPrimaryBtnText}>
+                      Lihat detail sesi
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={styles.featuredCard}>
+                  <Text style={styles.featuredOverline}>SESI PRAKTIKUM</Text>
+                  <View style={styles.cardDivider} />
+                  <Text style={styles.featuredCourse}>
+                    Tidak ada sesi terjadwal
+                  </Text>
+                  <Text style={styles.featuredSub}>
+                    Jadwal praktikum berikutnya akan otomatis tampil di sini.
+                  </Text>
+                </View>
+              )}
+
+              {/* Aksi Cepat (Tombol Bulat Hijau Proporsional) */}
+              <Text style={styles.quickActionsTitle}>Aksi Cepat</Text>
+              <View style={styles.quickActionsRow}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quickActionItem,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() => setActiveNavTab("presensi")}
+                >
+                  <View style={styles.quickActionCircle}>
+                    <AppIcon
+                      name="user-round-check"
+                      size={23}
+                      color={COLORS.textOnPrimary}
+                      strokeWidth={2.05}
+                    />
+                  </View>
+                  <Text
+                    style={styles.quickActionLabel}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Presensi
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quickActionItem,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() => router.push("/praktikan/izin" as any)}
+                >
+                  <View style={styles.quickActionCircle}>
+                    <AppIcon
+                      name="file-text"
+                      size={22}
+                      color={COLORS.textOnPrimary}
+                      strokeWidth={2.05}
+                    />
+                  </View>
+                  <Text
+                    style={styles.quickActionLabel}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Izin
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.quickActionItem,
+                    pressed && styles.pressed,
+                  ]}
+                  onPress={() => setActiveNavTab("peta")}
+                >
+                  <View style={styles.quickActionCircle}>
+                    <AppIcon
+                      name="location"
+                      size={22}
+                      color={COLORS.textOnPrimary}
+                      strokeWidth={2.05}
+                    />
+                  </View>
+                  <Text
+                    style={styles.quickActionLabel}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    Peta Lab
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+
+          {/* Segmented Control: Jadwal | Kelas Saya */}
+          <View style={styles.segmentedTrack}>
             <Pressable
               style={[
-                styles.segmentItem,
-                tab === "jadwal" && styles.segmentActive,
+                styles.segmentBtn,
+                subTab === "jadwal" && styles.segmentBtnActive,
               ]}
-              onPress={() => setTab("jadwal")}
+              onPress={() => setSubTab("jadwal")}
             >
               <Text
                 style={[
-                  styles.segmentText,
-                  tab === "jadwal" && styles.segmentTextActive,
+                  styles.segmentBtnText,
+                  subTab === "jadwal" && styles.segmentBtnTextActive,
                 ]}
               >
                 Jadwal
               </Text>
-              <View
-                style={[
-                  styles.segmentCount,
-                  tab === "jadwal" && styles.segmentCountActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentCountText,
-                    tab === "jadwal" && styles.segmentCountTextActive,
-                  ]}
-                >
-                  {studentSessions.length}
-                </Text>
-              </View>
             </Pressable>
 
             <Pressable
               style={[
-                styles.segmentItem,
-                tab === "kehadiran" && styles.segmentActive,
+                styles.segmentBtn,
+                subTab === "kelas" && styles.segmentBtnActive,
               ]}
-              onPress={() => setTab("kehadiran")}
+              onPress={() => setSubTab("kelas")}
             >
               <Text
                 style={[
-                  styles.segmentText,
-                  tab === "kehadiran" && styles.segmentTextActive,
+                  styles.segmentBtnText,
+                  subTab === "kelas" && styles.segmentBtnTextActive,
                 ]}
               >
-                Kehadiran
+                Kelas Saya
               </Text>
-              <View
-                style={[
-                  styles.segmentCount,
-                  tab === "kehadiran" && styles.segmentCountActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentCountText,
-                    tab === "kehadiran" && styles.segmentCountTextActive,
-                  ]}
-                >
-                  {myAttendances.length}
-                </Text>
-              </View>
-            </Pressable>
-
-            <Pressable
-              style={[
-                styles.segmentItem,
-                tab === "kelas" && styles.segmentActive,
-              ]}
-              onPress={() => setTab("kelas")}
-            >
-              <Text
-                style={[
-                  styles.segmentText,
-                  tab === "kelas" && styles.segmentTextActive,
-                ]}
-              >
-                Kelas
-              </Text>
-              <View
-                style={[
-                  styles.segmentCount,
-                  tab === "kelas" && styles.segmentCountActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.segmentCountText,
-                    tab === "kelas" && styles.segmentCountTextActive,
-                  ]}
-                >
-                  {classList.length}
-                </Text>
-              </View>
             </Pressable>
           </View>
 
-          <ScrollView
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
-            {tab === "jadwal" && (
-              <>
-                {/* Banner Akses Cepat Peta Interaktif (SRS-016) */}
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.mapBanner,
-                    pressed && styles.cardPressed,
-                  ]}
-                  onPress={() => router.push("/praktikan/peta" as any)}
-                >
-                  <View style={styles.mapBannerIcon}>
-                    <AppIcon name="location" size={18} color="#41337A" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.mapBannerTitle}>
-                      Peta Interaktif & Aktivitas Lab
-                    </Text>
-                    <Text style={styles.mapBannerSub}>
-                      Cek radius presensi GPS dan jadwal praktikum terkini
-                    </Text>
-                  </View>
-                  <AppIcon name="chevron-right" size={14} color="#6EA4BF" />
-                </Pressable>
+          {subTab === "jadwal" ? (
+            <>
+              {sessionsLoading && (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator color={COLORS.primary} />
+                  <Text style={styles.loadingText}>Memuat jadwal…</Text>
+                </View>
+              )}
 
-                {sessionsLoading && (
-                  <View style={styles.classLoading}>
-                    <ActivityIndicator color="#41337A" />
-                    <Text style={styles.classLoadingText}>
-                      Memuat jadwal & sesi…
-                    </Text>
-                  </View>
-                )}
+              {sessionsError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{sessionsError}</Text>
+                </View>
+              )}
 
-                {sessionsError && (
-                  <View style={styles.classErrorBox}>
-                    <Text style={styles.classErrorText}>{sessionsError}</Text>
-                  </View>
-                )}
-
-                {!sessionsLoading &&
-                  !sessionsError &&
-                  studentSessions.length === 0 && (
-                    <View style={styles.empty}>
-                      <View style={styles.emptyIconCircle}>
-                        <AppIcon name="calendar" size={26} color="#41337A" />
-                      </View>
-                      <Text style={styles.emptyTitle}>Belum ada jadwal</Text>
-                      <Text style={styles.emptySubtitle}>
-                        Jadwal praktikum untuk kelas yang Anda ikuti akan muncul
-                        di sini.
-                      </Text>
+              {!sessionsLoading &&
+                !sessionsError &&
+                upcomingSessions.length === 0 && (
+                  <View style={styles.emptyCard}>
+                    <View style={styles.emptyIconCircle}>
+                      <AppIcon
+                        name="calendar"
+                        size={22}
+                        color={COLORS.primary}
+                      />
                     </View>
-                  )}
+                    <Text style={styles.emptyTitle}>
+                      Tidak ada sesi terjadwal
+                    </Text>
+                    <Text style={styles.emptySubtitle}>
+                      Jadwal praktikum yang akan datang akan tampil di sini.
+                    </Text>
+                  </View>
+                )}
 
-                {upcoming.length > 0 && (
-                  <>
+              {upcomingSessions.length > 0 && (
+                <>
+                  <View style={styles.sectionHeaderRow}>
                     <Text style={styles.sectionTitle}>Jadwal Mendatang</Text>
-                    {upcoming.map((s) => (
-                      <SessionCard
-                        key={s.id}
-                        id={s.id}
-                        mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
-                        namaPraktikum={
-                          s.practicum?.namaPraktikum ?? "Sesi Praktikum"
-                        }
-                        nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
-                        namaKelas={s.kelas?.namaKelas ?? "—"}
-                        tanggal={s.tanggal}
-                        jamMulai={s.jamMulai}
-                        jamSelesai={s.jamSelesai}
-                        ruang={s.ruang}
-                        status={s.status}
-                        sudahPresensi={attendedSessionIds.has(s.id)}
-                      />
-                    ))}
-                  </>
-                )}
+                    <Text style={styles.sectionRightMeta}>
+                      {formatHariTanggalPendek(new Date())}
+                    </Text>
+                  </View>
+                  {upcomingSessions.map((s) => (
+                    <SessionListCard
+                      key={s.id}
+                      id={s.id}
+                      mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
+                      nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
+                      namaKelas={s.kelas?.namaKelas ?? "—"}
+                      tanggal={s.tanggal}
+                      jamMulai={s.jamMulai}
+                      jamSelesai={s.jamSelesai}
+                      ruang={s.ruang}
+                      status={s.status}
+                      sudahPresensi={attendedSessionIds.has(s.id)}
+                    />
+                  ))}
+                </>
+              )}
+            </>
+          ) : (
+            /* Tab Kelas Saya (Sesuai `docs/ui/praktikan/kelas-saya.png`) */
+            <>
+              <View style={styles.kelasSummaryRow}>
+                <Text style={styles.kelasSummaryText}>
+                  Kelas praktikum terdaftar
+                </Text>
+                <View style={styles.kelasCountPill}>
+                  <Text style={styles.kelasCountPillText}>
+                    {classList.length} kelas
+                  </Text>
+                </View>
+              </View>
 
-                {past.length > 0 && (
-                  <>
-                    <Text
-                      style={[styles.sectionTitle, styles.sectionTitlePast]}
+              {classesLoading && (
+                <View style={styles.loadingBox}>
+                  <ActivityIndicator color={COLORS.primary} />
+                  <Text style={styles.loadingText}>Memuat kelas…</Text>
+                </View>
+              )}
+
+              {classesError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{classesError}</Text>
+                </View>
+              )}
+
+              {!classesLoading && !classesError && classList.length === 0 && (
+                <View style={styles.emptyCard}>
+                  <View style={styles.emptyIconCircle}>
+                    <AppIcon name="book" size={24} color={COLORS.primary} />
+                  </View>
+                  <Text style={styles.emptyTitle}>Belum terdaftar di kelas</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Asisten akan menambahkan NIM kamu ke kelas praktikum yang
+                    diikuti.
+                  </Text>
+                </View>
+              )}
+
+              {!classesLoading &&
+                classList.map((kelas) => {
+                  const classSessions = studentSessions.filter(
+                    (s) => s.classId === kelas.id,
+                  );
+                  const attendedCount = classSessions.filter((s) =>
+                    attendedSessionIds.has(s.id),
+                  ).length;
+                  const attendancePct =
+                    classSessions.length > 0
+                      ? Math.round((attendedCount / classSessions.length) * 100)
+                      : 0;
+                  const nextClassSess =
+                    classSessions.find((s) => s.status !== "closed") ??
+                    classSessions[0];
+
+                  const openClassHistory = () => {
+                    router.push({
+                      pathname: "/praktikan/kelas/[id]",
+                      params: {
+                        id: kelas.id,
+                        mataKuliah: kelas.mataKuliah,
+                        kodeKelas: kelas.kodeKelas,
+                      },
+                    } as any);
+                  };
+
+                  return (
+                    <Pressable
+                      key={kelas.id}
+                      style={({ pressed }) => [
+                        styles.myClassCard,
+                        pressed && styles.pressed,
+                      ]}
+                      onPress={openClassHistory}
                     >
-                      Riwayat Sesi
-                    </Text>
-                    {past.map((s) => (
-                      <SessionCard
-                        key={s.id}
-                        id={s.id}
-                        mataKuliah={s.practicum?.mataKuliah ?? "Mata Kuliah"}
-                        namaPraktikum={
-                          s.practicum?.namaPraktikum ?? "Sesi Praktikum"
-                        }
-                        nomorPraktikum={s.practicum?.nomorPraktikum ?? 1}
-                        namaKelas={s.kelas?.namaKelas ?? "—"}
-                        tanggal={s.tanggal}
-                        jamMulai={s.jamMulai}
-                        jamSelesai={s.jamSelesai}
-                        ruang={s.ruang}
-                        status={s.status}
-                        sudahPresensi={attendedSessionIds.has(s.id)}
-                      />
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-
-            {tab === "kehadiran" && (
-              <>
-                {myAttendances.length === 0 ? (
-                  <View style={styles.empty}>
-                    <View style={styles.emptyIconCircle}>
-                      <AppIcon name="clipboard" size={26} color="#41337A" />
-                    </View>
-                    <Text style={styles.emptyTitle}>Belum ada kehadiran</Text>
-                    <Text style={styles.emptySubtitle}>
-                      Catatan presensi Anda akan tersimpan dan tampil di sini
-                      setelah melakukan presensi pada sesi yang dibuka.
-                    </Text>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.sectionTitle}>Catatan Kehadiran</Text>
-                    {myAttendances.map((item) => (
-                      <AttendanceCard
-                        key={`${item.sessionId}_${item.studentId}`}
-                        item={item}
-                      />
-                    ))}
-                  </>
-                )}
-              </>
-            )}
-
-            {tab === "kelas" && (
-              <>
-                {classesLoading ? (
-                  <View style={styles.classLoading}>
-                    <ActivityIndicator color="#41337A" />
-                    <Text style={styles.classLoadingText}>Memuat kelas…</Text>
-                  </View>
-                ) : classesError ? (
-                  <View style={styles.classErrorBox}>
-                    <Text style={styles.classErrorText}>{classesError}</Text>
-                  </View>
-                ) : classList.length === 0 ? (
-                  <View style={styles.empty}>
-                    <View style={styles.emptyIconCircle}>
-                      <AppIcon name="class" size={26} color="#41337A" />
-                    </View>
-                    <Text style={styles.emptyTitle}>Belum ada kelas</Text>
-                    <Text style={styles.emptySubtitle}>
-                      Kelas praktikum yang Anda ikuti akan muncul di sini
-                      setelah ditambahkan oleh asisten.
-                    </Text>
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.sectionTitle}>Kelas Saya</Text>
-                    {classList.map((item) => (
-                      <View key={item.id} style={styles.classCard}>
-                        <View style={styles.classIconBox}>
-                          <AppIcon name="class" size={20} color="#41337A" />
+                      <View style={styles.sessionTopRow}>
+                        <View style={styles.cardHeaderLeft}>
+                          <View style={styles.cardSmallIcon}>
+                            <AppIcon
+                              name="book"
+                              size={16}
+                              color={COLORS.primary}
+                            />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text
+                              style={styles.sessionOverline}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              Kelas {kelas.kodeKelas}
+                            </Text>
+                            <Text
+                              style={styles.sessionDateSub}
+                              numberOfLines={1}
+                              ellipsizeMode="tail"
+                            >
+                              {classSessions.length} sesi terjadwal
+                            </Text>
+                          </View>
                         </View>
-                        <View style={styles.classInfo}>
-                          <Text style={styles.classCourse} numberOfLines={2}>
-                            {item.mataKuliah}
-                          </Text>
-                          <Text style={styles.classMeta}>
-                            Kelas {item.kodeKelas}
+
+                        <View
+                          style={[
+                            styles.badgePill,
+                            {
+                              backgroundColor: COLORS.successBg,
+                              borderColor: COLORS.primaryBorder,
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.badgePillText,
+                              { color: COLORS.successText },
+                            ]}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            Terdaftar
                           </Text>
                         </View>
                       </View>
-                    ))}
-                  </>
-                )}
-              </>
-            )}
 
-            <View style={styles.bottomPad} />
-          </ScrollView>
-        </>
+                      <View style={styles.cardDivider} />
+
+                      <Text
+                        style={styles.myClassCourse}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {kelas.mataKuliah}
+                      </Text>
+
+                      <Text
+                        style={styles.myClassScheduleText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {nextClassSess
+                          ? `${formatHariTanggalPendek(nextClassSess.tanggal)} · ${formatJamTitik(nextClassSess.jamMulai)}–${formatJamTitik(nextClassSess.jamSelesai)} · ${nextClassSess.ruang}`
+                          : "Belum ada sesi terjadwal"}
+                      </Text>
+
+                      <View style={styles.progressTrack}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${Math.min(100, attendancePct)}%` },
+                          ]}
+                        />
+                      </View>
+
+                      <View style={styles.cardFooterRow}>
+                        <View style={styles.cardFooterLeft}>
+                          <Text style={styles.cardFooterLabel}>Kehadiran</Text>
+                          <Text
+                            style={styles.cardFooterValue}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {classSessions.length > 0
+                              ? `${attendancePct}% (${attendedCount}/${classSessions.length})`
+                              : "Belum ada sesi"}
+                          </Text>
+                        </View>
+
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.detailCtaBtn,
+                            pressed && styles.detailCtaBtnPressed,
+                          ]}
+                          onPress={openClassHistory}
+                        >
+                          <Text style={styles.detailCtaBtnText}>
+                            Lihat riwayat
+                          </Text>
+                        </Pressable>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+            </>
+          )}
+        </ScrollView>
       ) : activeNavTab === "presensi" ? (
-        <>
-          <View
-            style={[styles.profileHeader, { paddingTop: insets.top + 15 }]}
-          >
-            <Text style={styles.profileHeaderTitle}>Presensi Praktikum</Text>
-          </View>
-          <PraktikanPresensiView />
-        </>
+        <PraktikanPresensiView
+          onBackToHome={() => setActiveNavTab("beranda")}
+        />
+      ) : activeNavTab === "peta" ? (
+        <PraktikanPetaScreen embedded />
       ) : (
-        <>
-          <View
-            style={[styles.profileHeader, { paddingTop: insets.top + 15 }]}
-          >
-            <Text style={styles.profileHeaderTitle}>Profil Pengguna</Text>
-          </View>
-          <ProfileView />
-        </>
+        <ProfileView />
       )}
 
-      {/* Bottom Navbar 3 Menu untuk Praktikan */}
       <BottomNavBar
+        role="praktikan"
         activeTab={activeNavTab}
         onChangeTab={setActiveNavTab}
-        showPresensiTab
       />
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
+  safe: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceSubtle,
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceSubtle,
+  },
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  pressed: {
+    opacity: 0.9,
+  },
 
   // Header
-  header: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 18,
-    backgroundColor: "#331E36",
-  },
-  headerTopRow: {
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 4,
+    gap: 12,
+    marginBottom: 14,
   },
-  greeting: {
-    color: "#C2EFEB",
-    fontSize: 13,
-    fontWeight: "600",
-
+  headerTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
-  headerTopRight: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    lineHeight: 22,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.2,
   },
   bellBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.18)",
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
   },
   bellBadge: {
     position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: "#ef4444",
-    borderRadius: 8,
+    top: 3,
+    right: 3,
     minWidth: 16,
     height: 16,
-    paddingHorizontal: 4,
+    borderRadius: 8,
+    backgroundColor: COLORS.dangerText,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#331E36",
+    paddingHorizontal: 3,
   },
   bellBadgeText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontWeight: "800",
+    color: COLORS.textOnPrimary,
+    fontSize: 9.5,
+    fontWeight: "700",
+  },
 
+  // Hero Card (Padding & jarak antar baris seragam dengan kartu jadwal di bawahnya)
+  featuredCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 16,
   },
-  rolePill: {
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  rolePillText: {
-    color: "#ffffff",
-    fontSize: 10.5,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-
-  },
-  headerInfoRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-  },
-  headerActions: {
+  featuredTopRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
   },
-  headerPetaBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-  },
-  headerIzinBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    backgroundColor: "rgba(255,255,255,0.22)",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  headerIzinText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
-
-  },
-  name: { color: "#ffffff", fontSize: 19, fontWeight: "800", },
-  nim: { color: "#C2EFEB", fontSize: 12, marginTop: 2, fontWeight: "500", },
-
-  profileHeader: {
-    backgroundColor: "#331E36",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    alignItems: "center",
-  },
-  profileHeaderTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "800",
-
-  },
-
-  // Segment
-  segment: {
-    flexDirection: "row",
-    marginHorizontal: 16,
-    marginTop: 14,
-    padding: 4,
-    backgroundColor: "#C2EFEB",
-    borderRadius: 12,
-  },
-  segmentItem: {
+  featuredOverline: {
     flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 9,
-  },
-  segmentActive: {
-    backgroundColor: "#ffffff",
-  },
-  segmentText: { fontSize: 12.5, fontWeight: "600", color: "#331E36", },
-  segmentTextActive: { color: "#41337A", fontWeight: "800", },
-  segmentCount: {
-    minWidth: 20,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 999,
-    backgroundColor: "#6EA4BF",
-    alignItems: "center",
-  },
-  segmentCountActive: { backgroundColor: "#C2EFEB" },
-  segmentCountText: { fontSize: 11, fontWeight: "700", color: "#ffffff", },
-  segmentCountTextActive: { color: "#41337A" },
-
-  scroll: { flex: 1 },
-  scrollContent: { padding: 16 },
-  bottomPad: { height: 24 },
-
-  mapBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 16,
-    gap: 12,
-  },
-  mapBannerIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  mapBannerTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-  mapBannerSub: {
+    minWidth: 0,
     fontSize: 11,
-    color: "#6EA4BF",
-    marginTop: 2,
-    lineHeight: 15,
-
-  },
-
-  sectionTitle: {
-    fontSize: 12.5,
-    fontWeight: "800",
-    color: "#41337A",
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginTop: 4,
-    marginBottom: 10,
-    marginLeft: 2,
-
-
-  },
-  sectionTitlePast: { color: "#6EA4BF", marginTop: 20 },
-
-  // Card
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  cardPressed: { opacity: 0.85 },
-  cardTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  topRightBadges: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 3.5,
-    gap: 6,
-  },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 11.5, fontWeight: "700", },
-
-  presensiChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#e6f4ea",
-    borderWidth: 1,
-    borderColor: "#b7dfc2",
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  presensiChipText: { fontSize: 11, fontWeight: "700", color: "#0f5132", },
-
-  classBadge: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  classBadgeText: {
-    fontSize: 11.5,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.primary,
+    letterSpacing: 0.4,
   },
-
-  mataKuliah: { fontSize: 15.5, fontWeight: "800", color: "#331E36", },
-  namaPraktikum: {
+  featuredCourse: {
+    fontSize: 15.5,
+    fontWeight: "700",
+    lineHeight: 22,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  featuredSub: {
     fontSize: 13,
-    color: "#41337A",
+    fontWeight: "400",
+    lineHeight: 19,
+    color: COLORS.textSecondary,
+  },
+  featuredMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    marginBottom: 16,
+  },
+  featuredMetaText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  featuredPrimaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 11,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featuredPrimaryBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+
+  // Quick Actions (Tombol Bulat Hijau Semua + Ikon Proporsional)
+  quickActionsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     marginTop: 2,
-
+    marginBottom: 14,
   },
-  cardDivider: {
-    height: 1,
-    backgroundColor: "#ECFEE8",
-    marginVertical: 10,
-  },
-
-  infoRow: { gap: 6 },
-  infoItem: { flexDirection: "row", alignItems: "center", gap: 7 },
-  infoBottomInline: {
+  quickActionsRow: {
     flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-around",
+    gap: 12,
+    marginBottom: 18,
+    paddingHorizontal: 4,
+  },
+  quickActionItem: {
+    flex: 1,
     alignItems: "center",
-    gap: 16,
+    gap: 7,
   },
-  infoItemInline: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  infoText: { fontSize: 12.5, color: "#41337A", fontWeight: "500", },
-
-  // Riwayat kehadiran
-  attendanceCard: {
-    flexDirection: "row",
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  dateBox: {
-    width: 52,
-    borderRadius: 10,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 8,
-    marginRight: 12,
-  },
-  dateBoxDay: { fontSize: 10.5, fontWeight: "700", color: "#41337A", },
-  dateBoxNumber: {
-    fontSize: 19,
-    fontWeight: "800",
-    color: "#41337A",
-    lineHeight: 23,
-
-  },
-  dateBoxMonth: { fontSize: 10.5, fontWeight: "700", color: "#41337A", },
-
-  attendanceInfo: { flex: 1 },
-  attendanceCourse: { fontSize: 15, fontWeight: "800", color: "#331E36", },
-  attendanceSub: { fontSize: 12, color: "#6EA4BF", marginTop: 2, },
-  attendanceTimeRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-  },
-  attendanceDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#15803d",
-  },
-  attendanceTime: { fontSize: 12, fontWeight: "700", color: "#0f5132", },
-
-  // Kelas & Loading
-  classLoading: { paddingVertical: 40, alignItems: "center", gap: 10 },
-  classLoadingText: { fontSize: 13, color: "#6EA4BF", },
-  classErrorBox: {
-    backgroundColor: "#fef2f2",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-  },
-  classErrorText: { color: "#991b1b", fontSize: 13, },
-  classCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  classIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
-  },
-  classInfo: { flex: 1 },
-  classCourse: { fontSize: 15, fontWeight: "800", color: "#331E36", },
-  classMeta: { fontSize: 12, color: "#6EA4BF", marginTop: 3, },
-
-  // Empty
-  empty: {
-    alignItems: "center",
-    paddingVertical: 44,
-    paddingHorizontal: 28,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  emptyIconCircle: {
+  quickActionCircle: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
+  },
+  quickActionLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    textAlign: "center",
+  },
+
+  // Segmented Control
+  segmentedTrack: {
+    flexDirection: "row",
+    backgroundColor: COLORS.segmentedTrack,
+    borderRadius: RADIUS.md,
+    padding: 3,
+    marginBottom: 14,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: RADIUS.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentBtnActive: {
+    backgroundColor: COLORS.background,
+  },
+  segmentBtnText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  segmentBtnTextActive: {
+    color: COLORS.primary,
+    fontWeight: "700",
+  },
+
+  // Section Headers
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  sectionRightMeta: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+
+  // Session Card (Tokopedia Crisp Card)
+  sessionCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+  },
+  sessionTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  cardHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  cardSmallIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sessionOverline: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  sessionDateSub: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 10,
+  },
+  badgePill: {
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgePillText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  sessionCourse: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: "400",
+    color: COLORS.textSecondary,
+  },
+  cardFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 12,
+  },
+  cardFooterLeft: {
+    flex: 1,
+    minWidth: 0,
+  },
+  cardFooterLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  cardFooterValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginTop: 1,
+  },
+  detailCtaBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailCtaBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  detailCtaBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
+
+  // Kelas Saya Tab
+  kelasSummaryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#331E36",
-    marginBottom: 6,
+  kelasSummaryText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  kelasCountPill: {
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  kelasCountPillText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  myClassCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+  },
+  myClassCourse: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  myClassScheduleText: {
+    fontSize: 12,
+    fontWeight: "400",
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: RADIUS.xs,
+    backgroundColor: COLORS.segmentedTrack,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: RADIUS.xs,
+    backgroundColor: COLORS.primary,
+  },
 
+  // Loading / Empty / Error
+  loadingBox: {
+    alignItems: "center",
+    paddingVertical: 32,
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerBg,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 12,
+    marginBottom: 12,
+  },
+  errorText: {
+    fontSize: 12.5,
+    color: COLORS.dangerDark,
+  },
+  emptyCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    paddingVertical: 26,
+    paddingHorizontal: 20,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
   },
   emptySubtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
     textAlign: "center",
-    lineHeight: 19,
-
+    lineHeight: 18,
   },
 });

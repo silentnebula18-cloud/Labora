@@ -13,6 +13,7 @@ import {
 } from "react-native";
 
 import { isClassCode } from "../constants/classes";
+import { COLORS, RADIUS } from "../constants/theme";
 import type { ClassInput } from "../services/classService";
 import ClassCodeDropdown from "./ClassCodeDropdown";
 
@@ -90,12 +91,12 @@ export default function ClassFormModal({
             keyboardShouldPersistTaps="handled"
           >
             <Text style={styles.title}>
-              {mode === "create" ? "Tambah Kelas" : "Ubah Kelas"}
+              {mode === "create" ? "Tambah Kelas Baru" : "Ubah Informasi Kelas"}
             </Text>
             <Text style={styles.subtitle}>
               {mode === "create"
-                ? "Buat kelas praktikum baru untuk dikelola bersama peserta."
-                : "Perbarui informasi mata kuliah dan kode kelas."}
+                ? "Atur nama mata kuliah dan kode kelas praktikum."
+                : "Perbarui nama mata kuliah dan kode kelas."}
             </Text>
 
             {error && (
@@ -112,11 +113,14 @@ export default function ClassFormModal({
               value={mataKuliah}
               onChangeText={(text) => {
                 setMataKuliah(text);
-                setErrors((current) => ({ ...current, mataKuliah: undefined }));
+                setErrors((current) => ({
+                  ...current,
+                  mataKuliah: undefined,
+                }));
               }}
-              placeholder="Contoh: Pemrograman Berorientasi Objek"
-              placeholderTextColor="#6EA4BF"
-              selectionColor="#41337A"
+              placeholder="Contoh: Algoritma & Pemrograman"
+              placeholderTextColor={COLORS.textMuted}
+              selectionColor={COLORS.primary}
               maxLength={120}
               editable={!submitting}
             />
@@ -131,7 +135,10 @@ export default function ClassFormModal({
               value={kodeKelas}
               onChange={(selected) => {
                 setKodeKelas(selected);
-                setErrors((current) => ({ ...current, kodeKelas: undefined }));
+                setErrors((current) => ({
+                  ...current,
+                  kodeKelas: undefined,
+                }));
               }}
               placeholder="Pilih kode kelas (A1 – E2)"
               disabled={submitting}
@@ -158,17 +165,17 @@ export default function ClassFormModal({
                 style={({ pressed }) => [
                   styles.button,
                   styles.saveButton,
-                  pressed && styles.buttonPressed,
+                  pressed && !submitting && styles.saveButtonPressed,
                   submitting && styles.buttonDisabled,
                 ]}
                 onPress={handleSubmit}
                 disabled={submitting}
               >
                 {submitting ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={COLORS.textOnPrimary} />
                 ) : (
                   <Text style={styles.saveText}>
-                    {mode === "create" ? "Tambah Kelas" : "Simpan Perubahan"}
+                    {mode === "create" ? "Simpan Kelas" : "Simpan"}
                   </Text>
                 )}
               </Pressable>
@@ -183,94 +190,98 @@ export default function ClassFormModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "center",
-    padding: 20,
+    padding: 22,
   },
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
+    padding: 22,
     maxHeight: "88%",
-    shadowColor: "#331E36",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#331E36",
-    textAlign: "center",
-
+    fontSize: 17.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 19,
-    marginTop: 6,
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginTop: 4,
     marginBottom: 6,
-
   },
   errorBox: {
-    backgroundColor: "#fee2e2",
-    borderRadius: 8,
-    padding: 12,
-    marginTop: 10,
+    backgroundColor: COLORS.dangerBg,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 11,
+    marginTop: 8,
   },
-  errorBoxText: { color: "#b91c1c", fontSize: 13, },
+  errorBoxText: { color: COLORS.dangerDark, fontSize: 12.5 },
   label: {
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: "600",
-    color: "#331E36",
-    marginTop: 16,
+    color: COLORS.textPrimary,
+    marginTop: 14,
     marginBottom: 6,
-
   },
   requiredMark: {
-    color: "#dc2626",
+    color: COLORS.dangerText,
     fontWeight: "700",
-
   },
   input: {
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#331E36",
-    backgroundColor: "#fff",
-
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 13.5,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
   },
-  inputError: { borderColor: "#dc2626" },
+  inputError: { borderColor: COLORS.dangerText },
   errorText: {
-    color: "#dc2626",
-    fontSize: 13,
+    color: COLORS.dangerText,
+    fontSize: 11.5,
     marginTop: 4,
-
   },
-  actions: { flexDirection: "row", gap: 10, marginTop: 22 },
+  actions: { flexDirection: "row", gap: 10, marginTop: 20 },
   button: {
-    paddingVertical: 14,
-    borderRadius: 12,
+    flex: 1,
+    borderRadius: RADIUS.md,
+    paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   cancelButton: {
-    flex: 1,
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#6EA4BF",
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
   },
-  cancelText: { fontSize: 14, fontWeight: "700", color: "#331E36", },
   saveButton: {
-    flex: 1.4,
-    backgroundColor: "#41337A",
+    backgroundColor: COLORS.primary,
   },
-  saveText: { fontSize: 14, fontWeight: "700", color: "#fff", },
-  buttonPressed: { opacity: 0.82 },
-  buttonDisabled: { opacity: 0.6 },
+  saveButtonPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  buttonPressed: {
+    opacity: 0.85,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  cancelText: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  saveText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
 });
