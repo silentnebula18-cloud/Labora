@@ -14,7 +14,7 @@ import {
   View,
 } from "react-native";
 
-import AppIcon from "./AppIcon";
+import { COLORS, RADIUS } from "../constants/theme";
 import {
   LABORATORY_LIMITS,
   validateLaboratoryDraft,
@@ -25,6 +25,7 @@ import {
   openLocationSettings,
   promptEnableLocationServices,
 } from "../services/locationService";
+import AppIcon from "./AppIcon";
 
 interface LaboratoryFormModalProps {
   visible: boolean;
@@ -139,35 +140,25 @@ function LaboratoryFormInner({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <AppIcon name="location" size={22} color="#41337A" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.title}>
-              {mode === "create"
-                ? "Tambah Laboratorium"
-                : "Ubah Laboratorium"}
-            </Text>
-            <Text style={styles.subtitle}>
-              {mode === "create"
-                ? "Daftarkan laboratorium dan batas radius presensi (SRS-015)."
-                : "Perbarui koordinat, radius, atau informasi laboratorium."}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.title}>
+          {mode === "create" ? "Tambah Laboratorium" : "Ubah Laboratorium"}
+        </Text>
+        <Text style={styles.subtitle}>
+          {mode === "create"
+            ? "Daftarkan laboratorium dan batas radius presensi."
+            : "Perbarui koordinat, radius, atau informasi laboratorium."}
+        </Text>
 
         {error && (
           <View style={styles.bannerError}>
-            <AppIcon name="alert" size={16} color="#b91c1c" />
+            <AppIcon name="alert" size={16} color={COLORS.dangerText} />
             <Text style={styles.bannerErrorText}>{error}</Text>
           </View>
         )}
 
-        {/* Nama Laboratorium */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
-            Nama Laboratorium / Ruang <Text style={styles.req}>*</Text>
+            Nama laboratorium <Text style={styles.req}>*</Text>
           </Text>
           <TextInput
             style={[styles.input, errors.nama && styles.inputError]}
@@ -177,7 +168,8 @@ function LaboratoryFormInner({
               setErrors((prev) => ({ ...prev, nama: undefined }));
             }}
             placeholder="Contoh: Laboratorium Komputer B"
-            placeholderTextColor="#6EA4BF"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             maxLength={LABORATORY_LIMITS.namaMax}
             editable={!submitting}
           />
@@ -185,16 +177,14 @@ function LaboratoryFormInner({
             <Text style={styles.errorText}>{errors.nama}</Text>
           ) : (
             <Text style={styles.hintText}>
-              Cocokkan dengan nama ruang pada jadwal agar presensi GPS otomatis
-              terhubung.
+              Sesuaikan dengan nama laboratorium pada jadwal praktikum.
             </Text>
           )}
         </View>
 
-        {/* Alamat / Lokasi Gedung */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
-            Alamat / Lokasi Gedung <Text style={styles.req}>*</Text>
+            Alamat / gedung <Text style={styles.req}>*</Text>
           </Text>
           <TextInput
             style={[styles.input, errors.alamat && styles.inputError]}
@@ -204,7 +194,8 @@ function LaboratoryFormInner({
               setErrors((prev) => ({ ...prev, alamat: undefined }));
             }}
             placeholder="Contoh: Gedung Laboratorium Terpadu Lt. 3"
-            placeholderTextColor="#6EA4BF"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             maxLength={LABORATORY_LIMITS.alamatMax}
             editable={!submitting}
           />
@@ -213,15 +204,15 @@ function LaboratoryFormInner({
           )}
         </View>
 
-        {/* Deskripsi */}
         <View style={styles.fieldGroup}>
-          <Text style={styles.label}>Deskripsi (Opsional)</Text>
+          <Text style={styles.label}>Deskripsi (opsional)</Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={deskripsi}
             onChangeText={setDeskripsi}
-            placeholder="Fasilitas, spesifikasi PC, atau petunjuk menuju lab..."
-            placeholderTextColor="#6EA4BF"
+            placeholder="Fasilitas atau petunjuk menuju laboratorium..."
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             multiline
             numberOfLines={3}
             maxLength={LABORATORY_LIMITS.deskripsiMax}
@@ -229,27 +220,26 @@ function LaboratoryFormInner({
           />
         </View>
 
-        {/* Koordinat GPS & Bantuan Lokasi Saat Ini */}
         <View style={styles.fieldGroup}>
           <View style={styles.labelWithAction}>
             <Text style={styles.label}>
-              Koordinat Titik Pusat <Text style={styles.req}>*</Text>
+              Koordinat titik pusat <Text style={styles.req}>*</Text>
             </Text>
             <Pressable
               style={({ pressed }) => [
                 styles.gpsBtn,
-                pressed && styles.gpsBtnPressed,
-                gpsLoading && styles.gpsBtnDisabled,
+                pressed && { opacity: 0.85 },
+                gpsLoading && { opacity: 0.6 },
               ]}
               onPress={handleGetCurrentLocation}
               disabled={gpsLoading || submitting}
             >
               {gpsLoading ? (
-                <ActivityIndicator size="small" color="#41337A" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
                 <>
-                  <AppIcon name="location" size={14} color="#41337A" />
-                  <Text style={styles.gpsBtnText}>Ambil GPS Saat Ini</Text>
+                  <AppIcon name="location" size={14} color={COLORS.primary} />
+                  <Text style={styles.gpsBtnText}>Ambil GPS saat ini</Text>
                 </>
               )}
             </Pressable>
@@ -265,7 +255,9 @@ function LaboratoryFormInner({
                     onPress={openLocationSettings}
                     hitSlop={6}
                   >
-                    <Text style={styles.gpsErrorActionText}>Buka Pengaturan</Text>
+                    <Text style={styles.gpsErrorActionText}>
+                      Buka Pengaturan
+                    </Text>
                   </Pressable>
                 ) : gpsError.toLowerCase().includes("aktif") ? (
                   <Pressable
@@ -284,7 +276,9 @@ function LaboratoryFormInner({
                   onPress={handleGetCurrentLocation}
                   hitSlop={6}
                 >
-                  <Text style={styles.gpsErrorActionTextSecondary}>Coba Lagi</Text>
+                  <Text style={styles.gpsErrorActionTextSecondary}>
+                    Coba lagi
+                  </Text>
                 </Pressable>
               </View>
             </View>
@@ -300,8 +294,9 @@ function LaboratoryFormInner({
                   setLatitude(text);
                   setErrors((prev) => ({ ...prev, latitude: undefined }));
                 }}
-                placeholder="-7.2575"
-                placeholderTextColor="#6EA4BF"
+                placeholder="-7.0512"
+                placeholderTextColor={COLORS.textMuted}
+                selectionColor={COLORS.primary}
                 keyboardType="numeric"
                 editable={!submitting}
               />
@@ -319,8 +314,9 @@ function LaboratoryFormInner({
                   setLongitude(text);
                   setErrors((prev) => ({ ...prev, longitude: undefined }));
                 }}
-                placeholder="112.7521"
-                placeholderTextColor="#6EA4BF"
+                placeholder="110.4401"
+                placeholderTextColor={COLORS.textMuted}
+                selectionColor={COLORS.primary}
                 keyboardType="numeric"
                 editable={!submitting}
               />
@@ -331,10 +327,9 @@ function LaboratoryFormInner({
           </View>
         </View>
 
-        {/* Radius Validasi Presensi (Meter) */}
         <View style={styles.fieldGroup}>
           <Text style={styles.label}>
-            Radius Presensi (Meter) <Text style={styles.req}>*</Text>
+            Radius presensi (meter) <Text style={styles.req}>*</Text>
           </Text>
           <TextInput
             style={[styles.input, errors.radius && styles.inputError]}
@@ -344,7 +339,8 @@ function LaboratoryFormInner({
               setErrors((prev) => ({ ...prev, radius: undefined }));
             }}
             placeholder="50"
-            placeholderTextColor="#6EA4BF"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             keyboardType="numeric"
             editable={!submitting}
           />
@@ -352,31 +348,27 @@ function LaboratoryFormInner({
             <Text style={styles.errorText}>{errors.radius}</Text>
           ) : (
             <Text style={styles.hintText}>
-              Batas jarak maksimal praktikan dari titik pusat lab saat melakukan
-              presensi (5 - 10.000 meter).
+              Batas jarak maksimal dari titik pusat lab (5 – 10.000 meter).
             </Text>
           )}
         </View>
 
-        {/* Status Aktif */}
         <View style={styles.switchRow}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.label}>Status Laboratorium Aktif</Text>
+            <Text style={styles.label}>Laboratorium aktif</Text>
             <Text style={styles.hintText}>
-              Laboratorium aktif dapat digunakan untuk jadwal dan validasi
-              presensi.
+              Laboratorium aktif dapat dipilih untuk jadwal dan presensi.
             </Text>
           </View>
           <Switch
             value={aktif}
             onValueChange={setAktif}
-            trackColor={{ false: "#6EA4BF", true: "#6EA4BF" }}
-            thumbColor={aktif ? "#41337A" : "#ECFEE8"}
+            trackColor={{ false: COLORS.borderStrong, true: COLORS.primaryBorder }}
+            thumbColor={aktif ? COLORS.primary : COLORS.background}
             disabled={submitting}
           />
         </View>
 
-        {/* Tombol Aksi */}
         <View style={styles.actionRow}>
           <Pressable
             style={[styles.btn, styles.cancelBtn]}
@@ -390,16 +382,16 @@ function LaboratoryFormInner({
             style={[
               styles.btn,
               styles.submitBtn,
-              submitting && styles.submitBtnDisabled,
+              submitting && { opacity: 0.7 },
             ]}
             onPress={handleSubmit}
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator size="small" color="#ffffff" />
+              <ActivityIndicator size="small" color={COLORS.textOnPrimary} />
             ) : (
               <Text style={styles.submitBtnText}>
-                {mode === "create" ? "Simpan Laboratorium" : "Simpan Perubahan"}
+                {mode === "create" ? "Simpan Lab" : "Simpan"}
               </Text>
             )}
           </Pressable>
@@ -438,7 +430,11 @@ export default function LaboratoryFormModal({
         />
 
         <LaboratoryFormInner
-          key={initialValues ? `${initialValues.nama}-${initialValues.latitude}` : "new"}
+          key={
+            initialValues
+              ? `${initialValues.nama}-${initialValues.latitude}`
+              : "new"
+          }
           mode={mode}
           initialValues={initialValues}
           submitting={submitting}
@@ -454,119 +450,93 @@ export default function LaboratoryFormModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.55)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "center",
     paddingHorizontal: 20,
     paddingVertical: 24,
   },
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
     padding: 22,
     maxHeight: "90%",
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    elevation: 8,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 18,
-    gap: 12,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#C2EFEB",
-    justifyContent: "center",
-    alignItems: "center",
   },
   title: {
-    fontSize: 18,
+    fontSize: 17.5,
     fontWeight: "700",
-    color: "#331E36",
-
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    marginTop: 2,
-    lineHeight: 16,
-
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    marginTop: 3,
+    marginBottom: 14,
+    lineHeight: 18,
   },
   bannerError: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fef2f2",
+    backgroundColor: COLORS.dangerBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 14,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 11,
+    marginBottom: 12,
     gap: 8,
   },
   bannerErrorText: {
     flex: 1,
     fontSize: 12,
-    color: "#b91c1c",
+    color: COLORS.dangerDark,
     fontWeight: "500",
-
   },
   fieldGroup: {
-    marginBottom: 16,
+    marginBottom: 13,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "600",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     marginBottom: 6,
-
   },
   subLabel: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: "600",
-    color: "#6EA4BF",
+    color: COLORS.textSecondary,
     marginBottom: 4,
-
   },
   req: {
-    color: "#dc2626",
+    color: COLORS.dangerText,
+    fontWeight: "700",
   },
   input: {
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.background,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 13,
     paddingVertical: 10,
-    fontSize: 14,
-    color: "#331E36",
-
+    fontSize: 13.5,
+    color: COLORS.textPrimary,
   },
   textArea: {
     minHeight: 70,
     textAlignVertical: "top",
   },
   inputError: {
-    borderColor: "#ef4444",
-    backgroundColor: "#fff5f5",
+    borderColor: COLORS.dangerText,
   },
   errorText: {
-    fontSize: 11,
-    color: "#ef4444",
+    fontSize: 11.5,
+    color: COLORS.dangerText,
     marginTop: 4,
-
   },
   hintText: {
-    fontSize: 11,
-    color: "#6EA4BF",
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
     marginTop: 4,
-    lineHeight: 15,
-
+    lineHeight: 16,
   },
   labelWithAction: {
     flexDirection: "row",
@@ -577,40 +547,29 @@ const styles = StyleSheet.create({
   gpsBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
-  },
-  gpsBtnPressed: {
-    backgroundColor: "#C2EFEB",
-  },
-  gpsBtnDisabled: {
-    opacity: 0.6,
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    gap: 5,
   },
   gpsBtnText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#41337A",
-
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
   gpsErrorBox: {
-    backgroundColor: "#fef2f2",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
+    backgroundColor: COLORS.dangerBg,
+    borderRadius: RADIUS.md,
+    padding: 11,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: COLORS.dangerBorder,
   },
   gpsErrorText: {
-    fontSize: 11,
-    color: "#dc2626",
-    marginBottom: 6,
-
+    fontSize: 12,
+    color: COLORS.dangerDark,
+    marginBottom: 7,
   },
   gpsErrorActionRow: {
     flexDirection: "row",
@@ -618,28 +577,28 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   gpsErrorActionBtn: {
-    backgroundColor: "#dc2626",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: COLORS.dangerText,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.xs,
   },
   gpsErrorActionText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: "700",
-    color: "#ffffff",
-
+    color: COLORS.textOnPrimary,
   },
   gpsErrorActionBtnSecondary: {
-    backgroundColor: "#ECFEE8",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
   gpsErrorActionTextSecondary: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: "600",
-    color: "#41337A",
-
+    color: COLORS.textPrimary,
   },
   coordRow: {
     flexDirection: "row",
@@ -652,45 +611,41 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.surfaceSubtle,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 20,
+    borderColor: COLORS.border,
+    marginBottom: 16,
     gap: 12,
   },
   actionRow: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 8,
   },
   btn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: RADIUS.md,
     alignItems: "center",
     justifyContent: "center",
   },
   cancelBtn: {
-    backgroundColor: "#ECFEE8",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
   },
   cancelBtnText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: "600",
-    color: "#41337A",
-
+    color: COLORS.textSecondary,
   },
   submitBtn: {
-    backgroundColor: "#331E36",
-  },
-  submitBtnDisabled: {
-    opacity: 0.7,
+    backgroundColor: COLORS.primary,
   },
   submitBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ffffff",
-
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
   },
 });

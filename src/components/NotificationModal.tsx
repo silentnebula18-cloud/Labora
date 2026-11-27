@@ -1,18 +1,20 @@
 import { router } from "expo-router";
+import { useState } from "react";
 import {
   Linking,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { COLORS, RADIUS } from "../constants/theme";
 import { requestNotificationPermissionAgain } from "../services/notificationService";
 import type { AppNotification, NotificationType } from "../types";
+import { formatTanggal } from "../utils/format";
 import AppIcon, { type AppIconName } from "./AppIcon";
+import BottomSheetModal from "./BottomSheetModal";
 
 interface NotificationModalProps {
   visible: boolean;
@@ -32,36 +34,31 @@ function getNotificationStyle(type: NotificationType): {
   iconName: AppIconName;
   iconColor: string;
   bgColor: string;
-  borderColor: string;
 } {
   switch (type) {
     case "session_opened":
       return {
         iconName: "play",
-        iconColor: "#16a34a",
-        bgColor: "#dcfce7",
-        borderColor: "#bbf7d0",
+        iconColor: COLORS.primary,
+        bgColor: COLORS.primarySoft,
       };
     case "schedule_updated":
       return {
         iconName: "calendar",
-        iconColor: "#d97706",
-        bgColor: "#fef3c7",
-        borderColor: "#fde68a",
+        iconColor: COLORS.warningText,
+        bgColor: COLORS.warningBg,
       };
     case "permission_decided":
       return {
-        iconName: "clipboard",
-        iconColor: "#41337A",
-        bgColor: "#C2EFEB",
-        borderColor: "#6EA4BF",
+        iconName: "file-text",
+        iconColor: COLORS.primary,
+        bgColor: COLORS.primarySoft,
       };
     default:
       return {
-        iconName: "info",
-        iconColor: "#41337A",
-        bgColor: "#ECFEE8",
-        borderColor: "#C2EFEB",
+        iconName: "bell",
+        iconColor: COLORS.primary,
+        bgColor: COLORS.primarySoft,
       };
   }
 }
@@ -76,10 +73,7 @@ function formatTimeAgo(date: Date | null): string {
   if (diffHour < 24) return `${diffHour} jam lalu`;
   const diffDay = Math.floor(diffHour / 24);
   if (diffDay < 7) return `${diffDay} hari lalu`;
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "short",
-  });
+  return formatTanggal(date);
 }
 
 export default function NotificationModal({
@@ -95,7 +89,14 @@ export default function NotificationModal({
   onRefreshPermission,
   onRetryConnection,
 }: NotificationModalProps) {
-  const insets = useSafeAreaInsets();
+  const [isScrollAtTop, setIsScrollAtTop] = useState(true);
+  const [prevVisible, setPrevVisible] = useState(visible);
+  if (visible !== prevVisible) {
+    setPrevVisible(visible);
+    if (visible) {
+      setIsScrollAtTop(true);
+    }
+  }
 
   const handleNotificationPress = async (item: AppNotification) => {
     if (!item.isRead) {
@@ -104,7 +105,6 @@ export default function NotificationModal({
 
     onClose();
 
-    // Navigasi kontekstual berdasarkan tipe notifikasi
     if (item.type === "session_opened" && item.data?.sessionId) {
       const sessionId = String(item.data.sessionId);
       if (userRole === "praktikan") {
@@ -122,476 +122,346 @@ export default function NotificationModal({
   };
 
   return (
-    <Modal
+    <BottomSheetModal
       visible={visible}
-      animationType="slide"
-      transparent
-      onRequestClose={onClose}
-    >
-      <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} />
+      onClose={onClose}
+      maxHeight="80%"
+      canDragBody={isScrollAtTop}
+      header={
+        <View style={styles.header}>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            Daftar Notifikasi
+          </Text>
 
-        <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-          {/* Header Modal */}
-          <View style={styles.header}>
-            <View style={styles.titleRow}>
-              <View style={styles.bellIconBox}>
-                <AppIcon name="bell" size={18} color="#41337A" />
-              </View>
-              <Text style={styles.title}>Notifikasi</Text>
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount} Baru</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.headerRightActions}>
-              {unreadCount > 0 && (
-                <Pressable
-                  style={styles.markAllBtn}
-                  onPress={() => onMarkAllAsRead()}
-                >
-                  <Text style={styles.markAllText}>Tandai Dibaca</Text>
-                </Pressable>
-              )}
-              <Pressable
-                style={styles.closeBtn}
-                onPress={onClose}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Text style={styles.closeBtnText}>✕</Text>
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Banner Peringatan Izin Notifikasi (SRS-018) */}
-          {isNotificationPermissionGranted === false && (
-            <View style={styles.permWarningBanner}>
-              <View style={styles.warningIconCircle}>
-                <AppIcon name="bell" size={15} color="#b45309" />
-              </View>
-              <View style={styles.warningTextWrap}>
-                <Text style={styles.warningTitle}>Izin Notifikasi Belum Aktif</Text>
-                <Text style={styles.warningDesc}>
-                  Pemberitahuan ke status bar HP nonaktif. Notifikasi tetap dapat dibaca di sini.
-                </Text>
-              </View>
-              <Pressable
-                style={styles.warningActionBtn}
-                onPress={async () => {
-                  try {
-                    const granted = await requestNotificationPermissionAgain();
-                    if (!granted) {
-                      await Linking.openSettings();
-                    }
-                  } catch (err) {
-                    console.warn("Gagal membuka pengaturan:", err);
-                  }
-                  if (onRefreshPermission) onRefreshPermission();
-                }}
-              >
-                <Text style={styles.warningActionText}>Aktifkan</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Banner Gangguan Jaringan / Server Notifikasi (SRS-018) */}
-          {isConnectionError && (
-            <View style={styles.connectionErrorBanner}>
-              <View style={styles.connErrorIconCircle}>
-                <AppIcon name="alert" size={15} color="#b91c1c" />
-              </View>
-              <View style={styles.warningTextWrap}>
-                <Text style={styles.connErrorTitle}>Koneksi Mengalami Gangguan</Text>
-                <Text style={styles.connErrorDesc}>
-                  Gagal tersambung ke server notifikasi. Menampilkan riwayat tersimpan.
-                </Text>
-              </View>
-              {onRetryConnection && (
-                <Pressable
-                  style={styles.connRetryBtn}
-                  onPress={onRetryConnection}
-                >
-                  <Text style={styles.connRetryText}>Coba Lagi</Text>
-                </Pressable>
-              )}
-            </View>
-          )}
-
-          {/* List Notifikasi */}
-          {notifications.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <AppIcon name="bell" size={32} color="#6EA4BF" />
-              </View>
-              <Text style={styles.emptyTitle}>Belum Ada Notifikasi</Text>
-              <Text style={styles.emptyDesc}>
-                Pemberitahuan pembukaan sesi praktikum, pembaruan jadwal, dan hasil izin akan muncul di sini.
-              </Text>
-            </View>
-          ) : (
-            <ScrollView
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
+          {unreadCount > 0 && (
+            <Pressable
+              style={({ pressed }) => [
+                styles.markAllBtn,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => onMarkAllAsRead()}
+              hitSlop={8}
             >
-              {notifications.map((item) => {
-                const style = getNotificationStyle(item.type);
-                return (
-                  <Pressable
-                    key={item.id}
-                    style={({ pressed }) => [
-                      styles.card,
-                      !item.isRead && styles.cardUnread,
-                      pressed && styles.cardPressed,
-                    ]}
-                    onPress={() => handleNotificationPress(item)}
-                  >
-                    <View
-                      style={[
-                        styles.iconContainer,
-                        {
-                          backgroundColor: style.bgColor,
-                          borderColor: style.borderColor,
-                        },
-                      ]}
-                    >
-                      <AppIcon
-                        name={style.iconName}
-                        size={16}
-                        color={style.iconColor}
-                      />
-                    </View>
-
-                    <View style={styles.cardContent}>
-                      <View style={styles.cardHeaderRow}>
-                        <Text
-                          style={[
-                            styles.cardTitle,
-                            !item.isRead && styles.cardTitleUnread,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {item.title}
-                        </Text>
-                        <Text style={styles.timeText}>
-                          {formatTimeAgo(item.createdAt)}
-                        </Text>
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.cardBody,
-                          !item.isRead && styles.cardBodyUnread,
-                        ]}
-                        numberOfLines={3}
-                      >
-                        {item.body}
-                      </Text>
-                    </View>
-
-                    {!item.isRead && <View style={styles.unreadDot} />}
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+              <Text style={styles.markAllText}>Tandai dibaca</Text>
+            </Pressable>
           )}
         </View>
-      </View>
-    </Modal>
+      }
+    >
+      {isNotificationPermissionGranted === false && (
+        <View style={styles.bannerWarning}>
+          <AppIcon name="bell" size={15} color={COLORS.warningText} />
+          <Text
+            style={styles.bannerWarningText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            Izin notifikasi belum aktif
+          </Text>
+          <Pressable
+            style={styles.bannerWarningBtn}
+            onPress={async () => {
+              try {
+                const granted = await requestNotificationPermissionAgain();
+                if (!granted) {
+                  await Linking.openSettings();
+                }
+              } catch (err) {
+                console.warn("Gagal membuka pengaturan:", err);
+              }
+              if (onRefreshPermission) onRefreshPermission();
+            }}
+          >
+            <Text style={styles.bannerActionText}>Aktifkan</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {isConnectionError && (
+        <View style={styles.bannerError}>
+          <AppIcon name="alert" size={15} color={COLORS.dangerText} />
+          <Text
+            style={styles.bannerErrorText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            Gangguan koneksi notifikasi
+          </Text>
+          {onRetryConnection && (
+            <Pressable style={styles.bannerErrorBtn} onPress={onRetryConnection}>
+              <Text style={styles.bannerActionText}>Coba lagi</Text>
+            </Pressable>
+          )}
+        </View>
+      )}
+
+      {notifications.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconCircle}>
+            <AppIcon name="bell" size={22} color={COLORS.primary} />
+          </View>
+          <Text style={styles.emptyTitle}>Belum ada notifikasi</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.list}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          onScroll={(e) => {
+            const atTop = e.nativeEvent.contentOffset.y <= 2;
+            setIsScrollAtTop((prev) => (prev === atTop ? prev : atTop));
+          }}
+          scrollEventThrottle={16}
+        >
+          {notifications.map((item, idx) => {
+            const style = getNotificationStyle(item.type);
+            const isLast = idx === notifications.length - 1;
+
+            return (
+              <Pressable
+                key={item.id}
+                style={({ pressed }) => [
+                  styles.row,
+                  !item.isRead && styles.rowUnread,
+                  !isLast && styles.rowDivider,
+                  pressed && styles.rowPressed,
+                ]}
+                onPress={() => handleNotificationPress(item)}
+              >
+                <View
+                  style={[
+                    styles.iconBox,
+                    { backgroundColor: style.bgColor },
+                  ]}
+                >
+                  <AppIcon
+                    name={style.iconName}
+                    size={15}
+                    color={style.iconColor}
+                  />
+                </View>
+
+                <View style={styles.rowContent}>
+                  <View style={styles.rowTop}>
+                    <Text
+                      style={[
+                        styles.rowTitle,
+                        !item.isRead && styles.rowTitleUnread,
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.title}
+                    </Text>
+                    <View style={styles.timeWrap}>
+                      <Text
+                        style={styles.timeText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {formatTimeAgo(item.createdAt)}
+                      </Text>
+                      {!item.isRead && <View style={styles.unreadDot} />}
+                    </View>
+                  </View>
+
+                  <Text
+                    style={styles.rowBody}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {item.body}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      )}
+    </BottomSheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.45)",
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    flex: 1,
-  },
-  sheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: "82%",
-    paddingTop: 18,
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 12,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingBottom: 14,
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingTop: 2,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#ECFEE8",
-  },
-  titleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  bellIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
+    borderBottomColor: COLORS.border,
   },
   title: {
-    fontSize: 18,
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#331E36",
-
-  },
-  badge: {
-    backgroundColor: "#ef4444",
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 12,
-  },
-  badgeText: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "700",
-
-  },
-  headerRightActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
+    color: COLORS.textPrimary,
   },
   markAllBtn: {
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
   },
   markAllText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
-  closeBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#ECFEE8",
+  bannerWarning: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    backgroundColor: COLORS.warningBg,
+    borderColor: COLORS.warningBorder,
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 8,
   },
-  closeBtnText: {
-    fontSize: 13,
+  bannerWarningText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.warningText,
+  },
+  bannerWarningBtn: {
+    backgroundColor: COLORS.warningText,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.xs,
+  },
+  bannerError: {
+    marginHorizontal: 16,
+    marginTop: 10,
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
+    borderWidth: 1,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bannerErrorText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.dangerDark,
+  },
+  bannerErrorBtn: {
+    backgroundColor: COLORS.dangerText,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.xs,
+  },
+  bannerActionText: {
+    fontSize: 11.5,
     fontWeight: "700",
-    color: "#6EA4BF",
-
+    color: COLORS.textOnPrimary,
   },
   list: {
     flexGrow: 0,
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
+    paddingBottom: 8,
   },
-  card: {
+  row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
+    paddingHorizontal: 18,
+    paddingVertical: 13,
     gap: 12,
+    backgroundColor: COLORS.card,
   },
-  cardUnread: {
-    backgroundColor: "#ECFEE8",
-    borderColor: "#6EA4BF",
+  rowUnread: {
+    backgroundColor: COLORS.primarySurface,
   },
-  cardPressed: {
-    opacity: 0.85,
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
   },
-  iconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
+  rowPressed: {
+    opacity: 0.8,
+  },
+  iconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.sm,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 2,
+    marginTop: 1,
   },
-  cardContent: {
+  rowContent: {
     flex: 1,
+    minWidth: 0,
+    gap: 3,
   },
-  cardHeaderRow: {
+  rowTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    justifyContent: "space-between",
+    gap: 8,
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#331E36",
+  rowTitle: {
     flex: 1,
-    marginRight: 6,
-
+    minWidth: 0,
+    fontSize: 13.5,
+    fontWeight: "600",
+    lineHeight: 19,
+    color: COLORS.textPrimary,
   },
-  cardTitleUnread: {
+  rowTitleUnread: {
     fontWeight: "700",
-    color: "#331E36",
-
+  },
+  timeWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
   },
   timeText: {
     fontSize: 11,
-    color: "#6EA4BF",
-
-  },
-  cardBody: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    lineHeight: 17,
-
-  },
-  cardBodyUnread: {
-    color: "#331E36",
+    fontWeight: "500",
+    color: COLORS.textMuted,
   },
   unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#331E36",
-    marginTop: 6,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.primary,
+  },
+  rowBody: {
+    fontSize: 12.5,
+    fontWeight: "400",
+    lineHeight: 18,
+    color: COLORS.textSecondary,
   },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 48,
+    paddingVertical: 38,
     paddingHorizontal: 24,
   },
   emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: "#ECFEE8",
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 16,
+    marginBottom: 10,
   },
   emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#331E36",
-    marginBottom: 6,
-
-  },
-  emptyDesc: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 18,
-
-  },
-  permWarningBanner: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    backgroundColor: "#fffbeb",
-    borderColor: "#fde68a",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  warningIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#fef3c7",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  warningTextWrap: {
-    flex: 1,
-  },
-  warningTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#92400e",
-    marginBottom: 2,
-
-  },
-  warningDesc: {
-    fontSize: 11,
-    color: "#b45309",
-    lineHeight: 15,
-
-  },
-  warningActionBtn: {
-    backgroundColor: "#d97706",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  warningActionText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#ffffff",
-
-  },
-  connectionErrorBanner: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 4,
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  connErrorIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#fee2e2",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  connErrorTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#991b1b",
-    marginBottom: 2,
-
-  },
-  connErrorDesc: {
-    fontSize: 11,
-    color: "#b91c1c",
-    lineHeight: 15,
-
-  },
-  connRetryBtn: {
-    backgroundColor: "#dc2626",
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  connRetryText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#ffffff",
-
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
   },
 });

@@ -1,85 +1,228 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AppIcon from "../components/AppIcon";
+import BrandMark from "../components/BrandMark";
 import { ROLE_LABEL } from "../constants/roles";
+import { COLORS, RADIUS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
+import type { Role } from "../types";
 
 export default function PilihPeranScreen() {
   const { user, selectRole, logout } = useAuth();
+  const [selectedRole, setSelectedRole] = useState<Role>(
+    user?.roles[0] ?? "praktikan",
+  );
 
   if (!user) return null;
 
+  const effectiveSelected: Role = user.roles.includes(selectedRole)
+    ? selectedRole
+    : (user.roles[0] ?? "praktikan");
+
+  const buttonLabel =
+    effectiveSelected === "asisten"
+      ? "Lanjutkan sebagai Asisten"
+      : "Lanjutkan sebagai Praktikan";
+
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Halo, {user.nama}</Text>
-        <Text style={styles.subtitle}>Masuk sebagai apa?</Text>
+      <StatusBar style="dark" />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.brandWrap}>
+          <BrandMark />
+        </View>
 
-        {user.roles.map((role) => (
-          <Pressable
-            key={role}
-            style={styles.card}
-            onPress={() => selectRole(role)}
-          >
-            <Text style={styles.cardTitle}>{ROLE_LABEL[role]}</Text>
-            <Text style={styles.cardDesc}>
-              {role === "asisten"
-                ? "Kelola sesi praktikum"
-                : "Lihat jadwal dan presensi praktikum"}
-            </Text>
-          </Pressable>
-        ))}
+        <Text style={styles.title}>Masuk Sebagai Apa?</Text>
+        <Text style={styles.subtitle}>
+          Pilih peran sesuai aktivitasmu{"\n"}di laboratorium.
+        </Text>
 
-        <Pressable onPress={logout} style={styles.logout}>
-          <Text style={styles.logoutText}>Bukan Anda? Keluar</Text>
+        <View style={styles.cardsList}>
+          {user.roles.map((role) => {
+            const isSelected = effectiveSelected === role;
+            return (
+              <Pressable
+                key={role}
+                style={({ pressed }) => [
+                  styles.card,
+                  isSelected && styles.cardSelected,
+                  pressed && styles.cardPressed,
+                ]}
+                onPress={() => setSelectedRole(role)}
+              >
+                <View
+                  style={[
+                    styles.roleIconBox,
+                    isSelected && styles.roleIconBoxSelected,
+                  ]}
+                >
+                  <AppIcon
+                    name={role === "asisten" ? "users" : "book"}
+                    size={22}
+                    color={COLORS.primary}
+                  />
+                </View>
+
+                <View style={styles.cardContent}>
+                  <Text
+                    style={styles.cardTitle}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {role === "asisten" ? "Asisten" : ROLE_LABEL[role]}
+                  </Text>
+                  <Text
+                    style={styles.cardDesc}
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                  >
+                    {role === "asisten"
+                      ? "Kelola kelas, pantau presensi, dan tinjau pengajuan izin."
+                      : "Ikuti sesi, catat kehadiran, dan pantau jadwal praktikum."}
+                  </Text>
+                </View>
+
+                <AppIcon
+                  name={isSelected ? "check" : "chevron-right"}
+                  size={18}
+                  color={isSelected ? COLORS.primary : COLORS.textSecondary}
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.primaryBtn,
+            pressed && styles.primaryBtnPressed,
+          ]}
+          onPress={() => selectRole(effectiveSelected)}
+        >
+          <Text style={styles.primaryBtnText}>{buttonLabel}</Text>
         </Pressable>
-      </View>
+
+        <Text style={styles.noteText}>
+          Peran dapat diganti melalui halaman Profil.
+        </Text>
+
+        <Pressable onPress={logout} style={styles.logout} hitSlop={8}>
+          <Text style={styles.logoutText}>
+            Masuk sebagai {user.nama} · Keluar
+          </Text>
+        </Pressable>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
-  container: { flex: 1, justifyContent: "center", padding: 24 },
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  container: {
+    flexGrow: 1,
+    paddingHorizontal: 24,
+    paddingTop: 32,
+    paddingBottom: 40,
+  },
+  brandWrap: {
+    marginBottom: 32,
+  },
   title: {
-    fontSize: 27,
-    fontWeight: "800",
-    color: "#331E36",
+    fontSize: 21,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 15.5,
-    color: "#41337A",
-    marginBottom: 24,
-    marginTop: 4,
+    fontSize: 13,
+    lineHeight: 20,
+    color: COLORS.textSecondary,
+    marginTop: 6,
+    marginBottom: 22,
+  },
+  cardsList: {
+    gap: 12,
   },
   card: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: 15,
+    backgroundColor: COLORS.background,
+  },
+  cardSelected: {
+    borderColor: COLORS.primary,
     borderWidth: 1.5,
-    borderColor: "#6EA4BF",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 14,
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    backgroundColor: COLORS.primarySurface,
+  },
+  cardPressed: {
+    opacity: 0.92,
+  },
+  roleIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roleIconBoxSelected: {
+    backgroundColor: COLORS.background,
+  },
+  cardContent: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#331E36",
+    fontSize: 15,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
   },
   cardDesc: {
-    fontSize: 13.5,
-    color: "#41337A",
-    marginTop: 4,
+    fontSize: 13,
+    fontWeight: "400",
+    lineHeight: 18,
+    color: COLORS.textSecondary,
   },
-  logout: { alignSelf: "center", marginTop: 18, padding: 10 },
-  logoutText: {
-    color: "#41337A",
-    fontWeight: "600",
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 24,
+  },
+  primaryBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  primaryBtnText: {
+    color: COLORS.textOnPrimary,
     fontSize: 14,
-    paddingHorizontal: 6,
+    fontWeight: "700",
+  },
+  noteText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    marginTop: 14,
+  },
+  logout: {
+    marginTop: 22,
+    alignSelf: "flex-start",
+    paddingVertical: 4,
+  },
+  logoutText: {
+    color: COLORS.primary,
+    fontSize: 12.5,
+    fontWeight: "600",
   },
 });

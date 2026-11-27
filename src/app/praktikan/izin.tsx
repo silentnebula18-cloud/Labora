@@ -1,9 +1,9 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -15,9 +15,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppIcon from "../../components/AppIcon";
+import BottomNavBar from "../../components/BottomNavBar";
+import SelectDropdown, {
+  type DropdownOption,
+} from "../../components/SelectDropdown";
+import { COLORS, RADIUS } from "../../constants/theme";
 import { useAuth } from "../../context/AuthContext";
 import { useSession } from "../../context/SessionContext";
-import { analyzeSentiment, type SentimentAnalysisResult } from "../../services/aiService";
+import {
+  analyzeSentiment,
+  normalizeConfidencePercentage,
+} from "../../services/aiService";
 import { describeFirestoreError } from "../../services/classService";
 import {
   getExistingPermission,
@@ -25,58 +33,51 @@ import {
   subscribeStudentPermissions,
 } from "../../services/permissionService";
 import type { PermissionRecord, PermissionStatus } from "../../types";
-import { formatJam, formatTanggal, formatWaktuLengkap } from "../../utils/format";
+import {
+  formatJam,
+  formatTanggal,
+  formatWaktuLengkap,
+} from "../../utils/format";
 
-// ─── Konfigurasi Status & Tema ───────────────────────────────────────────────
-
-const STATUS_PERMISSION_CONFIG: Record<
+const STATUS_PILL: Record<
   PermissionStatus,
-  { label: string; bg: string; border: string; text: string; icon: "clock" | "check" | "alert" }
+  { label: string; bg: string; text: string }
 > = {
   pending: {
-    label: "Menunggu Pemeriksaan",
-    bg: "#fef9c3",
-    border: "#fde047",
-    text: "#854d0e",
-    icon: "clock",
+    label: "Menunggu",
+    bg: COLORS.neutralBadgeBg,
+    text: COLORS.neutralBadgeText,
   },
   approved: {
-    label: "Izin Disetujui",
-    bg: "#e6f4ea",
-    border: "#b7dfc2",
-    text: "#0f5132",
-    icon: "check",
+    label: "Disetujui",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
   },
   rejected: {
-    label: "Izin Ditolak",
-    bg: "#fef2f2",
-    border: "#fecaca",
-    text: "#991b1b",
-    icon: "alert",
+    label: "Ditolak",
+    bg: COLORS.dangerBg,
+    text: COLORS.dangerText,
   },
 };
 
-const AI_SENTIMENT_CONFIG: Record<
+const SENTIMENT_LABEL: Record<
   string,
-  { label: string; bg: string; text: string; border: string }
+  { label: string; bg: string; text: string }
 > = {
   positif: {
-    label: "Sentimen Positif",
-    bg: "#dcfce7",
-    text: "#166534",
-    border: "#86efac",
+    label: "AI · Sentimen: Positif",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
   },
   netral: {
-    label: "Sentimen Netral",
-    bg: "#ECFEE8",
-    text: "#331E36",
-    border: "#6EA4BF",
+    label: "AI · Sentimen: Netral",
+    bg: COLORS.primarySoft,
+    text: COLORS.primary,
   },
   negatif: {
-    label: "Sentimen Negatif",
-    bg: "#fee2e2",
-    text: "#991b1b",
-    border: "#fca5a5",
+    label: "AI · Sentimen: Negatif",
+    bg: COLORS.dangerBg,
+    text: COLORS.dangerText,
   },
 };
 
@@ -103,7 +104,6 @@ export default function IzinPraktikanScreen() {
   }
 
   const [alasan, setAlasan] = useState("");
-  const [aiPreview, setAiPreview] = useState<SentimentAnalysisResult | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<{
     type: "success" | "error";
@@ -114,16 +114,6 @@ export default function IzinPraktikanScreen() {
   const [permissionsLoading, setPermissionsLoading] = useState(true);
   const [permissionsError, setPermissionsError] = useState<string | null>(null);
 
-  // Sesi yang dipilih
-  const selectedSession = useMemo(() => {
-    return (
-      studentSessions.find(
-        (s) => s.id === selectedSessionId || s.scheduleId === selectedSessionId,
-      ) ?? null
-    );
-  }, [studentSessions, selectedSessionId]);
-
-  // Pantau riwayat izin praktikan secara real-time (SRS 009)
   useEffect(() => {
     if (!user) return;
     const unsubscribe = subscribeStudentPermissions(
@@ -141,20 +131,41 @@ export default function IzinPraktikanScreen() {
     return unsubscribe;
   }, [user]);
 
-  // Analisis sentimen secara lokal (SRS 010) saat alasan berubah
-  function handleCekSentimen() {
-    if (!alasan.trim()) {
-      setFeedbackMessage({
-        type: "error",
-        text: "Alasan wajib diisi",
-      });
-      return;
-    }
-    const result = analyzeSentiment(alasan);
-    setAiPreview(result);
-  }
+  const availableSessions = useMemo(
+    () =>
+      studentSessions.filter(
+        (s) => !attendedSessionIds.has(s.id) && s.status !== "closed",
+      ),
+    [studentSessions, attendedSessionIds],
+  );
 
-  // Kirim pengajuan izin ke Firestore (SRS 009 & SRS 010)
+  const sessionOptions: DropdownOption[] = useMemo(
+    () =>
+      availableSessions.map((s) => ({
+        value: s.id,
+        label: `${s.practicum?.mataKuliah ?? "Praktikum"} · Kelas ${s.kelas?.namaKelas ?? "—"}`,
+        subtitle: `${formatTanggal(s.tanggal)} · ${formatJam(s.jamMulai).replace(":", ".")}–${formatJam(s.jamSelesai).replace(":", ".")}`,
+      })),
+    [availableSessions],
+  );
+
+  const effectiveSessionId =
+    selectedSessionId || availableSessions[0]?.id || "";
+
+  const selectedSession = useMemo(() => {
+    return (
+      studentSessions.find(
+        (s) =>
+          s.id === effectiveSessionId || s.scheduleId === effectiveSessionId,
+      ) ?? null
+    );
+  }, [studentSessions, effectiveSessionId]);
+
+  const liveSentiment = useMemo(() => {
+    if (!alasan.trim()) return null;
+    return analyzeSentiment(alasan);
+  }, [alasan]);
+
   async function handleSubmit() {
     if (!user) {
       setFeedbackMessage({
@@ -175,14 +186,15 @@ export default function IzinPraktikanScreen() {
     if (!alasan.trim()) {
       setFeedbackMessage({
         type: "error",
-        text: "Alasan wajib diisi",
+        text: "Alasan izin wajib diisi",
       });
       return;
     }
 
     setIsSubmitting(true);
+    setFeedbackMessage(null);
+
     try {
-      // Periksa apakah sudah pernah mengajukan untuk sesi ini
       const existing = await getExistingPermission(user.id, selectedSession.id);
       if (existing) {
         setFeedbackMessage({
@@ -211,7 +223,6 @@ export default function IzinPraktikanScreen() {
         text: "Pengajuan izin berhasil dikirim ke asisten.",
       });
       setAlasan("");
-      setAiPreview(null);
       setActiveTab("riwayat");
     } catch (err) {
       setFeedbackMessage({
@@ -223,65 +234,68 @@ export default function IzinPraktikanScreen() {
     }
   }
 
+  const sentimentCfg = liveSentiment?.label
+    ? SENTIMENT_LABEL[liveSentiment.label]
+    : null;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Top Bar */}
-      <View style={styles.topBar}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar style="dark" />
+
+      {/* Header */}
+      <View style={styles.header}>
         <Pressable
-          style={styles.backBtn}
+          style={styles.backRow}
           onPress={() => router.back()}
-          hitSlop={8}
+          hitSlop={10}
         >
-          <AppIcon name="chevron-left" size={18} color="#41337A" />
-          <Text style={styles.backText}>Kembali</Text>
+          <AppIcon name="chevron-left" size={20} color={COLORS.textPrimary} />
+          <Text style={styles.headerTitle}>Pengajuan Izin</Text>
         </Pressable>
-        <Text style={styles.topBarTitle}>Pengajuan Izin</Text>
-        <View style={{ width: 68 }} />
       </View>
 
-      {/* Tab Segment Selector */}
-      <View style={styles.tabContainer}>
-        <Pressable
-          style={[styles.tabButton, activeTab === "form" && styles.tabButtonActive]}
-          onPress={() => setActiveTab("form")}
-        >
-          <Text
+      {/* Segmented Tab: Ajukan Izin | Riwayat */}
+      <View style={styles.segmentWrap}>
+        <View style={styles.segmentedTrack}>
+          <Pressable
             style={[
-              styles.tabText,
-              activeTab === "form" && styles.tabTextActive,
+              styles.segmentBtn,
+              activeTab === "form" && styles.segmentBtnActive,
             ]}
+            onPress={() => setActiveTab("form")}
           >
-            Form Pengajuan
-          </Text>
-        </Pressable>
+            <Text
+              style={[
+                styles.segmentText,
+                activeTab === "form" && styles.segmentTextActive,
+              ]}
+            >
+              Ajukan Izin
+            </Text>
+          </Pressable>
 
-        <Pressable
-          style={[
-            styles.tabButton,
-            activeTab === "riwayat" && styles.tabButtonActive,
-          ]}
-          onPress={() => setActiveTab("riwayat")}
-        >
-          <Text
+          <Pressable
             style={[
-              styles.tabText,
-              activeTab === "riwayat" && styles.tabTextActive,
+              styles.segmentBtn,
+              activeTab === "riwayat" && styles.segmentBtnActive,
             ]}
+            onPress={() => setActiveTab("riwayat")}
           >
-            Riwayat Izin
-          </Text>
-          {permissions.length > 0 && (
-            <View style={styles.badgeCount}>
-              <Text style={styles.badgeCountText}>{permissions.length}</Text>
-            </View>
-          )}
-        </Pressable>
+            <Text
+              style={[
+                styles.segmentText,
+                activeTab === "riwayat" && styles.segmentTextActive,
+              ]}
+            >
+              Riwayat
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         {activeTab === "form" ? (
           <ScrollView
@@ -289,916 +303,551 @@ export default function IzinPraktikanScreen() {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
           >
-            {/* 1. Pilih Sesi Praktikum */}
-            <View style={styles.card}>
-              <Text style={styles.sectionHeader}>
-                1. Pilih Sesi Praktikum{" "}
-                <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <Text style={styles.sectionSub}>
-                Pilih pertemuan praktikum yang berhalangan Anda ikuti.
-              </Text>
-
-              {studentSessions.length === 0 ? (
-                <View style={styles.emptySessionBox}>
-                  <Text style={styles.emptySessionText}>
-                    Belum ada jadwal sesi praktikum yang tersedia.
-                  </Text>
-                </View>
-              ) : (
-                <View style={styles.sessionList}>
-                  {studentSessions.map((s) => {
-                    const isSelected =
-                      s.id === selectedSessionId ||
-                      s.scheduleId === selectedSessionId;
-                    return (
-                      <Pressable
-                        key={s.id}
-                        style={[
-                          styles.sessionItem,
-                          isSelected && styles.sessionItemActive,
-                        ]}
-                        onPress={() => {
-                          setSelectedSessionId(s.id);
-                          setAiPreview(null);
-                        }}
-                      >
-                        <View style={styles.sessionItemHeader}>
-                          <Text
-                            style={[
-                              styles.sessionItemTitle,
-                              isSelected && styles.sessionItemTitleActive,
-                            ]}
-                            numberOfLines={1}
-                          >
-                            {s.practicum?.mataKuliah ?? "Mata Kuliah"}
-                          </Text>
-                          <View
-                            style={[
-                              styles.radioCircle,
-                              isSelected && styles.radioCircleActive,
-                            ]}
-                          >
-                            {isSelected && <View style={styles.radioDot} />}
-                          </View>
-                        </View>
-                        <Text style={styles.sessionItemSub}>
-                          Pertemuan {s.practicum?.nomorPraktikum ?? 1} · Kelas{" "}
-                          {s.kelas?.namaKelas ?? "—"}
-                        </Text>
-                        <Text style={styles.sessionItemTime}>
-                          {formatTanggal(s.tanggal)} ({formatJam(s.jamMulai)} -{" "}
-                          {formatJam(s.jamSelesai)} WIB)
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-
-            {/* 2. Alasan Ketidakhadiran */}
-            <View style={styles.card}>
-              <Text style={styles.sectionHeader}>
-                2. Alasan Ketidakhadiran{" "}
-                <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <Text style={styles.sectionSub}>
-                Jelaskan alasan izin Anda. Model AI akan menganalisis sentimen
-                alasan ini sebagai informasi pendukung bagi asisten.
-              </Text>
-
-              <TextInput
-                style={styles.textArea}
-                placeholder="Contoh: Saya sedang sakit demam dan tidak bisa hadir di laboratorium hari ini."
-                placeholderTextColor="#6EA4BF"
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                value={alasan}
-                onChangeText={(val) => {
-                  setAlasan(val);
-                  if (aiPreview) setAiPreview(null);
-                }}
-              />
-
-              <Pressable
-                style={styles.aiButton}
-                onPress={handleCekSentimen}
+            {feedbackMessage && (
+              <View
+                style={[
+                  styles.feedbackBanner,
+                  feedbackMessage.type === "success"
+                    ? styles.feedbackSuccess
+                    : styles.feedbackError,
+                ]}
               >
-                <AppIcon name="info" size={16} color="#41337A" />
-                <Text style={styles.aiButtonText}>
-                  Uji Sentimen AI Terlebih Dahulu
-                </Text>
-              </Pressable>
-
-              {/* Preview Hasil AI jika sudah ditekan */}
-              {aiPreview && (
-                <View
+                <AppIcon
+                  name={feedbackMessage.type === "success" ? "check" : "alert"}
+                  size={16}
+                  color={
+                    feedbackMessage.type === "success"
+                      ? COLORS.successText
+                      : COLORS.dangerText
+                  }
+                />
+                <Text
                   style={[
-                    styles.aiPreviewBox,
-                    aiPreview.status === "success" && aiPreview.label
-                      ? {
-                          backgroundColor:
-                            AI_SENTIMENT_CONFIG[aiPreview.label]?.bg ??
-                            "#ECFEE8",
-                          borderColor:
-                            AI_SENTIMENT_CONFIG[aiPreview.label]?.border ??
-                            "#6EA4BF",
-                        }
-                      : styles.aiPreviewFailed,
+                    styles.feedbackText,
+                    {
+                      color:
+                        feedbackMessage.type === "success"
+                          ? COLORS.successText
+                          : COLORS.dangerDark,
+                    },
                   ]}
                 >
-                  <View style={styles.aiPreviewHeader}>
-                    <AppIcon
-                      name="info"
-                      size={16}
-                      color={
-                        aiPreview.status === "success" && aiPreview.label
-                          ? AI_SENTIMENT_CONFIG[aiPreview.label]?.text ??
-                            "#331E36"
-                          : "#991b1b"
-                      }
-                    />
+                  {feedbackMessage.text}
+                </Text>
+              </View>
+            )}
+
+            {/* 1. Dropdown Sesi Praktikum */}
+            <Text style={styles.fieldLabel}>
+              Sesi praktikum <Text style={styles.requiredMark}>*</Text>
+            </Text>
+            <SelectDropdown
+              value={effectiveSessionId}
+              options={sessionOptions}
+              onChange={(val) => {
+                setSelectedSessionId(val);
+                setFeedbackMessage(null);
+              }}
+              placeholder="Pilih sesi praktikum"
+              emptyText="Tidak ada sesi aktif/mendatang untuk diajukan izin"
+              disabled={isSubmitting}
+            />
+
+            {/* 2. Alasan Izin */}
+            <Text style={[styles.fieldLabel, { marginTop: 20 }]}>
+              Alasan izin <Text style={styles.requiredMark}>*</Text>
+            </Text>
+            <View style={styles.textAreaCard}>
+              <TextInput
+                style={styles.textAreaInput}
+                value={alasan}
+                onChangeText={(t) => {
+                  setAlasan(t);
+                  setFeedbackMessage(null);
+                }}
+                placeholder="Tuliskan alasan ketidakhadiran secara jelas dan sopan..."
+                placeholderTextColor={COLORS.textMuted}
+                selectionColor={COLORS.primary}
+                multiline
+                maxLength={500}
+                textAlignVertical="top"
+                editable={!isSubmitting}
+              />
+              <Text style={styles.charCounter}>{alasan.length}/500</Text>
+            </View>
+
+            {/* 3. Kartu Pratinjau Sentimen AI (Sesuai `ajukan-izin.png`) */}
+            <View style={styles.aiCard}>
+              <AppIcon name="sparkles" size={18} color={COLORS.primary} />
+              {sentimentCfg && liveSentiment ? (
+                <View style={styles.aiResultRow}>
+                  <View
+                    style={[
+                      styles.aiPill,
+                      { backgroundColor: sentimentCfg.bg },
+                    ]}
+                  >
                     <Text
-                      style={[
-                        styles.aiPreviewTitle,
-                        aiPreview.status === "success" && aiPreview.label
-                          ? {
-                              color:
-                                AI_SENTIMENT_CONFIG[aiPreview.label]?.text ??
-                                "#331E36",
-                            }
-                          : { color: "#991b1b" },
-                      ]}
+                      style={[styles.aiPillText, { color: sentimentCfg.text }]}
                     >
-                      {aiPreview.status === "success" && aiPreview.label
-                        ? `Prediksi AI: ${aiPreview.label.toUpperCase()}`
-                        : "AI: Tidak dapat mengenali pola teks"}
+                      {sentimentCfg.label}
                     </Text>
                   </View>
-                  <Text style={styles.aiPreviewNote}>
-                    *Hasil analisis sentimen berasal dari AI dan bersifat eksperimental.*
-                  </Text>
-                  {aiPreview.confidence !== null && (
+                  {normalizeConfidencePercentage(liveSentiment.confidence) !==
+                    null && (
                     <Text style={styles.aiConfidenceText}>
-                      Skor keyakinan model: {aiPreview.confidence}
+                      {normalizeConfidencePercentage(liveSentiment.confidence)}%
                     </Text>
                   )}
                 </View>
+              ) : alasan.trim().length > 0 ? (
+                <Text style={styles.aiPlaceholderText}>
+                  AI · Tuliskan alasan yang lebih lengkap agar dapat dianalisis
+                </Text>
+              ) : (
+                <Text style={styles.aiPlaceholderText}>
+                  AI · Sentimen alasan dianalisis otomatis
+                </Text>
               )}
             </View>
 
-            {/* Tombol Kirim */}
             <Pressable
               style={({ pressed }) => [
                 styles.submitBtn,
-                pressed && styles.submitBtnPressed,
-                (!selectedSession || !alasan.trim() || isSubmitting) &&
-                  styles.submitBtnDisabled,
+                pressed && !isSubmitting && styles.submitBtnPressed,
+                isSubmitting && styles.submitBtnDisabled,
               ]}
               onPress={handleSubmit}
-              disabled={!selectedSession || !alasan.trim() || isSubmitting}
+              disabled={isSubmitting}
             >
               {isSubmitting ? (
-                <ActivityIndicator color="#ffffff" />
+                <ActivityIndicator color={COLORS.textOnPrimary} />
               ) : (
-                <>
-                  <AppIcon name="check" size={16} color="#ffffff" />
-                  <Text style={styles.submitBtnText}>
-                    Kirimkan Pengajuan Izin
-                  </Text>
-                </>
+                <Text style={styles.submitBtnText}>Kirim Pengajuan Izin</Text>
               )}
             </Pressable>
-
-            <View style={{ height: 120 }} />
           </ScrollView>
         ) : (
-          /* TAB RIWAYAT */
+          /* Tab Riwayat Izin (Sesuai `riwayat-izin.png`) */
           <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            {permissionsLoading ? (
+            <Text style={styles.historyCountLabel}>
+              {permissions.length} pengajuan tercatat
+            </Text>
+
+            {permissionsLoading && (
               <View style={styles.loadingBox}>
-                <ActivityIndicator color="#41337A" />
+                <ActivityIndicator color={COLORS.primary} />
                 <Text style={styles.loadingText}>Memuat riwayat izin…</Text>
               </View>
-            ) : permissionsError ? (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{permissionsError}</Text>
-              </View>
-            ) : permissions.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <View style={styles.emptyIconCircle}>
-                  <AppIcon name="clipboard" size={26} color="#6EA4BF" />
-                </View>
-                <Text style={styles.emptyTitle}>Belum Ada Pengajuan Izin</Text>
-                <Text style={styles.emptySubtitle}>
-                  Pengajuan izin ketidakhadiran yang Anda kirim akan tercatat di
-                  sini beserta status persetujuan asisten.
+            )}
+
+            {permissionsError && (
+              <View style={[styles.feedbackBanner, styles.feedbackError]}>
+                <Text style={[styles.feedbackText, { color: COLORS.dangerDark }]}>
+                  {permissionsError}
                 </Text>
-                <Pressable
-                  style={styles.emptyActionBtn}
-                  onPress={() => setActiveTab("form")}
-                >
-                  <Text style={styles.emptyActionBtnText}>
-                    Buat Pengajuan Baru
-                  </Text>
-                </Pressable>
               </View>
-            ) : (
-              <View style={styles.historyList}>
-                {permissions.map((item) => {
-                  const statusCfg =
-                    STATUS_PERMISSION_CONFIG[item.status] ??
-                    STATUS_PERMISSION_CONFIG.pending;
-                  const aiCfg = item.aiCategory
-                    ? AI_SENTIMENT_CONFIG[item.aiCategory]
-                    : null;
+            )}
 
-                  const isAttended = attendedSessionIds.has(item.sessionId);
+            {!permissionsLoading &&
+              !permissionsError &&
+              permissions.length === 0 && (
+                <View style={styles.emptyBox}>
+                  <View style={styles.emptyIconCircle}>
+                    <AppIcon
+                      name="file-text"
+                      size={24}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                  <Text style={styles.emptyTitle}>Belum ada pengajuan</Text>
+                  <Text style={styles.emptySubtitle}>
+                    Riwayat pengajuan izin praktikum kamu akan tampil di sini.
+                  </Text>
+                </View>
+              )}
 
-                  return (
-                    <View key={item.id} style={styles.historyCard}>
-                      <View style={styles.historyCardHeader}>
+            {!permissionsLoading &&
+              permissions.map((item) => {
+                const pill =
+                  STATUS_PILL[item.status] ?? STATUS_PILL.pending;
+                const matchedSess = studentSessions.find(
+                  (s) =>
+                    s.id === item.sessionId || s.scheduleId === item.sessionId,
+                );
+                const topDateText = matchedSess
+                  ? `${formatTanggal(matchedSess.tanggal)} · ${formatJam(matchedSess.jamMulai).replace(":", ".")}`
+                  : `Pertemuan ${item.nomorPraktikum}`;
+
+                return (
+                  <View key={item.id} style={styles.historyCard}>
+                    <View style={styles.historyTopRow}>
+                      <Text
+                        style={styles.historyDateText}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {topDateText}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statusPill,
+                          { backgroundColor: pill.bg },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.statusPillText, { color: pill.text }]}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {pill.label}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <Text
+                      style={styles.historyCourse}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.mataKuliah}
+                    </Text>
+                    <Text
+                      style={styles.historyReason}
+                      numberOfLines={2}
+                      ellipsizeMode="tail"
+                    >
+                      {item.alasan}
+                    </Text>
+
+                    {item.aiCategory && SENTIMENT_LABEL[item.aiCategory] && (
+                      <View style={styles.historyAiRow}>
                         <View
                           style={[
-                            styles.statusBadge,
+                            styles.aiPill,
                             {
-                              backgroundColor: statusCfg.bg,
-                              borderColor: statusCfg.border,
+                              backgroundColor:
+                                SENTIMENT_LABEL[item.aiCategory].bg,
                             },
                           ]}
                         >
-                          <AppIcon
-                            name={statusCfg.icon}
-                            size={12}
-                            color={statusCfg.text}
-                          />
                           <Text
                             style={[
-                              styles.statusBadgeText,
-                              { color: statusCfg.text },
-                            ]}
-                          >
-                            {statusCfg.label}
-                          </Text>
-                        </View>
-
-                        {isAttended && (
-                          <View style={styles.attendedBadge}>
-                            <AppIcon name="check" size={11} color="#166534" />
-                            <Text style={styles.attendedBadgeText}>
-                              Hadir di Sesi
-                            </Text>
-                          </View>
-                        )}
-
-                        {aiCfg && (
-                          <View
-                            style={[
-                              styles.aiBadge,
+                              styles.aiPillText,
                               {
-                                backgroundColor: aiCfg.bg,
-                                borderColor: aiCfg.border,
+                                color: SENTIMENT_LABEL[item.aiCategory].text,
                               },
                             ]}
                           >
-                            <AppIcon
-                              name="info"
-                              size={11}
-                              color={aiCfg.text}
-                            />
-                            <Text
-                              style={[
-                                styles.aiBadgeText,
-                                { color: aiCfg.text },
-                              ]}
-                            >
-                              {aiCfg.label}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-
-                      <Text style={styles.historyMataKuliah}>
-                        {item.mataKuliah || "Sesi Praktikum"}
-                      </Text>
-                      <Text style={styles.historyPertemuan}>
-                        {item.namaPraktikum
-                          ? `Pertemuan ${item.nomorPraktikum ?? 1} · ${
-                              item.namaPraktikum
-                            }`
-                          : "Pertemuan Praktikum"}
-                      </Text>
-
-                      <View style={styles.alasanBox}>
-                        <Text style={styles.alasanLabel}>Alasan Izin:</Text>
-                        <Text style={styles.alasanText}>{item.alasan}</Text>
-                      </View>
-
-                      {isAttended && item.status === "pending" && (
-                        <Text style={styles.attendedReplaceNote}>
-                          *Pengajuan izin ini digantikan oleh kehadiran fisik Anda pada sesi ini.*
-                        </Text>
-                      )}
-
-                      {item.aiCategory && (
-                        <Text style={styles.aiNoteHistoryText}>
-                          *Hasil analisis sentimen berasal dari AI dan bersifat eksperimental.*
-                        </Text>
-                      )}
-
-                      <View style={styles.historyFooter}>
-                        <Text style={styles.historyTime}>
-                          Diajukan:{" "}
-                          {item.createdAt
-                            ? formatWaktuLengkap(item.createdAt.toISOString())
-                            : "—"}
-                        </Text>
-                        {item.status !== "pending" && item.decidedAt && (
-                          <Text style={styles.historyTime}>
-                            Diputuskan:{" "}
-                            {formatWaktuLengkap(item.decidedAt.toISOString())}
+                            {SENTIMENT_LABEL[item.aiCategory].label}
                           </Text>
-                        )}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-            <View style={{ height: 120 }} />
+                    )}
+
+                    <Text
+                      style={[
+                        styles.historyFooterNote,
+                        item.status === "rejected" && {
+                          color: COLORS.dangerText,
+                        },
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.status === "approved"
+                        ? `Disetujui asisten${
+                            item.decidedAt
+                              ? ` · ${formatWaktuLengkap(item.decidedAt.toISOString())} WIB`
+                              : ""
+                          }`
+                        : item.status === "rejected"
+                          ? `Ditolak asisten${
+                              item.decidedAt
+                                ? ` · ${formatWaktuLengkap(item.decidedAt.toISOString())} WIB`
+                                : ""
+                            }`
+                          : item.createdAt
+                            ? `Diajukan ${formatTanggal(item.createdAt)}, ${formatWaktuLengkap(item.createdAt.toISOString())} WIB`
+                            : "Menunggu tinjauan asisten"}
+                    </Text>
+                  </View>
+                );
+              })}
           </ScrollView>
         )}
       </KeyboardAvoidingView>
 
-      {/* Modal Feedback Pop-up */}
-      <Modal
-        visible={!!feedbackMessage}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setFeedbackMessage(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.feedbackModalCard}>
-            <View
-              style={[
-                styles.feedbackIconWrap,
-                feedbackMessage?.type === "success"
-                  ? styles.feedbackIconSuccess
-                  : styles.feedbackIconError,
-              ]}
-            >
-              <AppIcon
-                name={
-                  feedbackMessage?.type === "success"
-                    ? "check"
-                    : "alert"
-                }
-                size={24}
-                color={
-                  feedbackMessage?.type === "success" ? "#16a34a" : "#dc2626"
-                }
-              />
-            </View>
-
-            <Text style={styles.feedbackModalTitle}>
-              {feedbackMessage?.type === "success" ? "Berhasil" : "Perhatian"}
-            </Text>
-
-            <Text style={styles.feedbackModalMessage}>
-              {feedbackMessage?.text}
-            </Text>
-
-            <Pressable
-              style={styles.feedbackModalBtn}
-              onPress={() => setFeedbackMessage(null)}
-            >
-              <Text style={styles.feedbackModalBtnText}>Tutup</Text>
-            </Pressable>
-          </View>
-        </View>
-      </Modal>
+      <BottomNavBar role="praktikan" activeTab="beranda" />
     </SafeAreaView>
   );
 }
 
-// ─── Stylesheet ───────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.background,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  header: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderColor: "#C2EFEB",
-    backgroundColor: "#ffffff",
+    paddingTop: 10,
+    paddingBottom: 12,
   },
-  backBtn: {
+  backRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    gap: 8,
   },
-  backText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#41337A",
-
-  },
-  topBarTitle: {
-    fontSize: 16,
+  headerTitle: {
+    fontSize: 19,
     fontWeight: "700",
-    color: "#331E36",
-
+    lineHeight: 24,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
-  tabContainer: {
-    flexDirection: "row",
-    backgroundColor: "#ffffff",
-    borderBottomWidth: 1,
-    borderColor: "#C2EFEB",
+  segmentWrap: {
     paddingHorizontal: 16,
-    paddingTop: 4,
+    marginBottom: 12,
   },
-  tabButton: {
+  segmentedTrack: {
     flexDirection: "row",
+    backgroundColor: COLORS.segmentedTrack,
+    borderRadius: RADIUS.md,
+    padding: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: RADIUS.sm + 2,
     alignItems: "center",
-    gap: 6,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 2,
-    borderColor: "transparent",
+    justifyContent: "center",
   },
-  tabButtonActive: {
-    borderColor: "#41337A",
+  segmentBtnActive: {
+    backgroundColor: COLORS.background,
   },
-  tabText: {
-    fontSize: 14,
+  segmentText: {
+    fontSize: 13,
     fontWeight: "600",
-    color: "#6EA4BF",
-
+    color: COLORS.textSecondary,
   },
-  tabTextActive: {
-    color: "#41337A",
-  },
-  badgeCount: {
-    backgroundColor: "#C2EFEB",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  badgeCountText: {
-    fontSize: 11,
+  segmentTextActive: {
+    color: COLORS.primary,
     fontWeight: "700",
-    color: "#331E36",
-
   },
   scrollContent: {
-    padding: 16,
-    gap: 16,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  sectionHeader: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#331E36",
-    marginBottom: 4,
-
-  },
-  sectionSub: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    lineHeight: 18,
-    marginBottom: 12,
-
-  },
-  emptySessionBox: {
-    padding: 16,
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  emptySessionText: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-
-  },
-  sessionList: {
-    gap: 10,
-  },
-  sessionItem: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    backgroundColor: "#ECFEE8",
-  },
-  sessionItemActive: {
-    borderColor: "#41337A",
-    backgroundColor: "#C2EFEB",
-  },
-  sessionItemHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  sessionItemTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#331E36",
-    flex: 1,
-    marginRight: 8,
-
-  },
-  sessionItemTitleActive: {
-    color: "#41337A",
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: "#6EA4BF",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  radioCircleActive: {
-    borderColor: "#41337A",
-  },
-  radioDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#41337A",
-  },
-  sessionItemSub: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#41337A",
-    marginBottom: 2,
-
-  },
-  sessionItemTime: {
-    fontSize: 11,
-    color: "#6EA4BF",
-
-  },
-  textArea: {
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
-    color: "#331E36",
-    minHeight: 100,
-    backgroundColor: "#ffffff",
-    lineHeight: 20,
-
-  },
-  aiButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#C2EFEB",
-  },
-  aiButtonText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#41337A",
-
-  },
-  aiPreviewBox: {
-    marginTop: 12,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  aiPreviewFailed: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-  },
-  aiPreviewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
-  },
-  aiPreviewTitle: {
-    fontSize: 13,
-    fontWeight: "700",
-
-  },
-  aiPreviewNote: {
-    fontSize: 12,
-    color: "#331E36",
-    lineHeight: 16,
-
-  },
-  aiConfidenceText: {
-    fontSize: 11,
-    color: "#6EA4BF",
-    marginTop: 4,
-    fontStyle: "italic",
-
-  },
-  submitBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: "#41337A",
-    paddingVertical: 14,
-    borderRadius: 14,
-    shadowColor: "#41337A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  submitBtnPressed: {
-    opacity: 0.85,
-  },
-  submitBtnDisabled: {
-    backgroundColor: "#6EA4BF",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitBtnText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#ffffff",
-
-  },
-  loadingBox: {
-    padding: 32,
-    alignItems: "center",
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: "#6EA4BF",
-
-  },
-  errorBox: {
-    padding: 16,
-    backgroundColor: "#fef2f2",
-    borderRadius: 12,
-    borderColor: "#fecaca",
-    borderWidth: 1,
-  },
-  errorText: {
-    fontSize: 13,
-    color: "#991b1b",
-
-  },
-  emptyBox: {
-    padding: 32,
-    alignItems: "center",
-    gap: 8,
-  },
-  emptyIconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#ECFEE8",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 18,
-
-  },
-  emptyActionBtn: {
-    marginTop: 12,
-    paddingVertical: 8,
     paddingHorizontal: 16,
-    backgroundColor: "#41337A",
-    borderRadius: 8,
+    paddingBottom: 24,
   },
-  emptyActionBtnText: {
-    fontSize: 13,
+  fieldLabel: {
+    fontSize: 12.5,
     fontWeight: "600",
-    color: "#ffffff",
-
-  },
-  historyList: {
-    gap: 12,
-  },
-  historyCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  historyCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 8,
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-
-  },
-  aiBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  aiBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-
-  },
-  historyMataKuliah: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-  historyPertemuan: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    marginBottom: 10,
-
-  },
-  alasanBox: {
-    backgroundColor: "#ECFEE8",
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ECFEE8",
-    marginBottom: 8,
-  },
-  alasanLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#41337A",
-    marginBottom: 2,
-
-  },
-  alasanText: {
-    fontSize: 13,
-    color: "#331E36",
-    lineHeight: 18,
-
-  },
-  attendedBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    backgroundColor: "#dcfce7",
-    borderColor: "#86efac",
-    borderWidth: 1,
-  },
-  attendedBadgeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#166534",
-
-  },
-  attendedReplaceNote: {
-    fontSize: 11,
-    fontStyle: "italic",
-    color: "#166534",
-    marginBottom: 8,
-    lineHeight: 15,
-
-  },
-  aiNoteHistoryText: {
-    fontSize: 11,
-    fontStyle: "italic",
-    color: "#6EA4BF",
-    marginBottom: 8,
-
-  },
-  historyFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  historyTime: {
-    fontSize: 11,
-    color: "#6EA4BF",
-
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.45)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
-  },
-  feedbackModalCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    padding: 24,
-    width: "100%",
-    maxWidth: 340,
-    alignItems: "center",
-  },
-  feedbackIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  feedbackIconSuccess: {
-    backgroundColor: "#dcfce7",
-  },
-  feedbackIconError: {
-    backgroundColor: "#fee2e2",
-  },
-  feedbackModalTitle: {
-    fontSize: 17,
-    fontWeight: "700",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     marginBottom: 6,
-
-  },
-  feedbackModalMessage: {
-    fontSize: 13,
-    color: "#41337A",
-    textAlign: "center",
-    lineHeight: 18,
-    marginBottom: 20,
-
-  },
-  feedbackModalBtn: {
-    width: "100%",
-    paddingVertical: 12,
-    backgroundColor: "#41337A",
-    borderRadius: 10,
-    alignItems: "center",
-  },
-  feedbackModalBtnText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ffffff",
-
   },
   requiredMark: {
-    color: "#dc2626",
+    color: COLORS.dangerText,
     fontWeight: "700",
+  },
+  textAreaCard: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.card,
+    padding: 14,
+  },
+  textAreaInput: {
+    minHeight: 96,
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: COLORS.textPrimary,
+  },
+  charCounter: {
+    alignSelf: "flex-end",
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
+    marginTop: 5,
+  },
+  aiCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  aiPill: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  aiPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  aiResultRow: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  aiConfidenceText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  historyAiRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  aiPlaceholderText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  submitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  submitBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  submitBtnDisabled: {
+    opacity: 0.7,
+  },
+  submitBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  feedbackBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    padding: 11,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  feedbackSuccess: {
+    backgroundColor: COLORS.successBg,
+    borderColor: COLORS.successBorder,
+  },
+  feedbackError: {
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: "600",
+  },
 
+  // Riwayat Tab
+  historyCountLabel: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    marginBottom: 12,
+  },
+  historyCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+  },
+  historyTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 6,
+  },
+  historyDateText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 11.5,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  statusPill: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  historyCourse: {
+    fontSize: 14.5,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  historyReason: {
+    fontSize: 13,
+    fontWeight: "400",
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+    marginBottom: 8,
+  },
+  historyFooterNote: {
+    fontSize: 11.5,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  loadingBox: {
+    alignItems: "center",
+    paddingVertical: 32,
+    gap: 10,
+  },
+  loadingText: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+  },
+  emptyBox: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.lg,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
   },
 });

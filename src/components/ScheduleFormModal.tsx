@@ -2,7 +2,7 @@ import {
   DateTimePicker,
   type DateTimePickerEvent,
 } from "@expo/ui/community/datetime-picker";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,17 +15,21 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+import { COLORS, RADIUS } from "../constants/theme";
+import { subscribeLaboratories } from "../services/laboratoryService";
 import type { ScheduleInput } from "../services/sessionService";
-import type { ClassRecord } from "../types";
+import type { ClassRecord, Laboratory } from "../types";
 import { formatJam, formatTanggal } from "../utils/format";
 import AppIcon from "./AppIcon";
+import SelectDropdown, { type DropdownOption } from "./SelectDropdown";
 
 interface ScheduleFormModalProps {
   visible: boolean;
   mode: "create" | "edit";
   classes: ClassRecord[];
-  initialValues?: ScheduleInput;
+  initialValues?: Partial<ScheduleInput>;
   submitting?: boolean;
   error?: string | null;
   onSubmit: (values: ScheduleInput) => void;
@@ -42,11 +46,11 @@ interface FieldErrors {
   ruang?: string;
 }
 
-const MIN_START_MINUTES = 7 * 60 + 40; // 07:40 (460)
-const MAX_START_MINUTES = 18 * 60 + 10; // 18:10 (1090)
-const MIN_END_MINUTES = 9 * 60 + 40; // 09:40 (580)
-const MAX_END_MINUTES = 20 * 60 + 10; // 20:10 (1210)
-const REQUIRED_DURATION_MINUTES = 120; // Tepat 2 jam (120 menit)
+const MIN_START_MINUTES = 7 * 60 + 40; // 07:40
+const MAX_START_MINUTES = 18 * 60 + 10; // 18:10
+const MIN_END_MINUTES = 9 * 60 + 40; // 09:40
+const MAX_END_MINUTES = 20 * 60 + 10; // 20:10
+const REQUIRED_DURATION_MINUTES = 120; // Tepat 2 jam
 
 function buildDateWithTime(
   baseDate: Date,
@@ -60,12 +64,6 @@ function buildDateWithTime(
 
 function getTodayDate(): Date {
   return buildDateWithTime(new Date(), 0, 0);
-}
-
-function getTomorrowDate(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
-  return buildDateWithTime(d, 0, 0);
 }
 
 export default function ScheduleFormModal({
@@ -86,7 +84,9 @@ export default function ScheduleFormModal({
     initialValues?.classId || classes[0]?.id || "",
   );
   const [nomorPraktikum, setNomorPraktikum] = useState(
-    initialValues?.nomorPraktikum ? String(initialValues.nomorPraktikum) : "1",
+    mode === "edit" && initialValues?.nomorPraktikum != null
+      ? String(initialValues.nomorPraktikum)
+      : "",
   );
   const [namaPraktikum, setNamaPraktikum] = useState(
     initialValues?.namaPraktikum ?? "",
@@ -111,13 +111,61 @@ export default function ScheduleFormModal({
       : buildDateWithTime(defaultDate, 9, 40),
   );
   const [ruang, setRuang] = useState(initialValues?.ruang ?? "");
+  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
   const [errors, setErrors] = useState<FieldErrors>({});
 
   const [activePicker, setActivePicker] = useState<
     "tanggal" | "jamMulai" | "jamSelesai" | null
   >(null);
 
+  useEffect(() => {
+    const unsubscribe = subscribeLaboratories((items) => {
+      const active = items.filter((lab) => lab.aktif !== false);
+      setLaboratories(active);
+    });
+    return unsubscribe;
+  }, []);
+
   const effectiveClassId = classId || classes[0]?.id || "";
+
+  const classOptions: DropdownOption[] = useMemo(
+    () =>
+      classes.map((c) => ({
+        value: c.id,
+        label: `${c.mataKuliah} · ${c.kodeKelas}`,
+        badge: c.kodeKelas,
+      })),
+    [classes],
+  );
+
+  const labOptions: DropdownOption[] = useMemo(() => {
+    const baseOptions: DropdownOption[] = laboratories.map((lab) => ({
+      value: lab.nama,
+      label: lab.nama,
+      subtitle: `Radius ${lab.radius} meter · ${lab.alamat}`,
+    }));
+    const trimmedRuang = ruang.trim();
+    if (
+      trimmedRuang &&
+      !baseOptions.some(
+        (opt) => opt.value.trim().toLowerCase() === trimmedRuang.toLowerCase(),
+      )
+    ) {
+      baseOptions.unshift({
+        value: trimmedRuang,
+        label: trimmedRuang,
+      });
+    }
+    return baseOptions;
+  }, [laboratories, ruang]);
+
+  const selectedLabRecord = useMemo(() => {
+    const clean = ruang.trim().toLowerCase();
+    if (!clean) return null;
+    return (
+      laboratories.find((l) => l.nama.trim().toLowerCase() === clean) ?? null
+    );
+  }, [laboratories, ruang]);
 
   function applySelectedDate(nextDate: Date) {
     const cleanDate = buildDateWithTime(nextDate, 0, 0);
@@ -149,19 +197,20 @@ export default function ScheduleFormModal({
         selectedDate.getHours() * 60 + selectedDate.getMinutes();
       const endTotalMinutes = startTotalMinutes + REQUIRED_DURATION_MINUTES;
 
-      const nextJamMulai = buildDateWithTime(
-        tanggal,
-        selectedDate.getHours(),
-        selectedDate.getMinutes(),
+      setJamMulai(
+        buildDateWithTime(
+          tanggal,
+          selectedDate.getHours(),
+          selectedDate.getMinutes(),
+        ),
       );
-      const nextJamSelesai = buildDateWithTime(
-        tanggal,
-        Math.floor(endTotalMinutes / 60),
-        endTotalMinutes % 60,
+      setJamSelesai(
+        buildDateWithTime(
+          tanggal,
+          Math.floor(endTotalMinutes / 60),
+          endTotalMinutes % 60,
+        ),
       );
-
-      setJamMulai(nextJamMulai);
-      setJamSelesai(nextJamSelesai);
       setErrors((curr) => ({
         ...curr,
         jamMulai: undefined,
@@ -170,21 +219,25 @@ export default function ScheduleFormModal({
     } else if (currentPicker === "jamSelesai") {
       const endTotalMinutes =
         selectedDate.getHours() * 60 + selectedDate.getMinutes();
-      const startTotalMinutes = endTotalMinutes - REQUIRED_DURATION_MINUTES;
-
-      const nextJamSelesai = buildDateWithTime(
-        tanggal,
-        selectedDate.getHours(),
-        selectedDate.getMinutes(),
-      );
-      const nextJamMulai = buildDateWithTime(
-        tanggal,
-        Math.floor(Math.max(0, startTotalMinutes) / 60),
-        Math.max(0, startTotalMinutes) % 60,
+      const startTotalMinutes = Math.max(
+        0,
+        endTotalMinutes - REQUIRED_DURATION_MINUTES,
       );
 
-      setJamSelesai(nextJamSelesai);
-      setJamMulai(nextJamMulai);
+      setJamSelesai(
+        buildDateWithTime(
+          tanggal,
+          selectedDate.getHours(),
+          selectedDate.getMinutes(),
+        ),
+      );
+      setJamMulai(
+        buildDateWithTime(
+          tanggal,
+          Math.floor(startTotalMinutes / 60),
+          startTotalMinutes % 60,
+        ),
+      );
       setErrors((curr) => ({
         ...curr,
         jamMulai: undefined,
@@ -207,10 +260,10 @@ export default function ScheduleFormModal({
       !Number.isInteger(parsedNomor) ||
       parsedNomor < 1
     ) {
-      nextErrors.nomorPraktikum = "Nomor pertemuan tidak valid";
+      nextErrors.nomorPraktikum = "Pertemuan tidak valid";
     }
     if (!namaPraktikum.trim()) {
-      nextErrors.namaPraktikum = "Topik praktikum wajib diisi";
+      nextErrors.namaPraktikum = "Topik pertemuan wajib diisi";
     }
     if (!(tanggal instanceof Date) || Number.isNaN(tanggal.getTime())) {
       nextErrors.tanggal = "Tanggal tidak valid";
@@ -229,11 +282,11 @@ export default function ScheduleFormModal({
       durationMinutes !== REQUIRED_DURATION_MINUTES
     ) {
       nextErrors.jamSelesai =
-        "Jam tidak valid, periksa kembali aturan yang berlaku";
+        "Durasi wajib 2 jam pada rentang 07.40–20.10 WIB";
     }
 
     if (!ruang.trim()) {
-      nextErrors.ruang = "Ruang wajib diisi";
+      nextErrors.ruang = "Laboratorium wajib dipilih";
     }
 
     setErrors(nextErrors);
@@ -252,7 +305,7 @@ export default function ScheduleFormModal({
     );
 
     onSubmit({
-      classId: effectiveClassId.trim(),
+      classId: effectiveClassId,
       nomorPraktikum: parsedNomor,
       namaPraktikum: namaPraktikum.trim(),
       tanggal: normalizedTanggal,
@@ -265,176 +318,83 @@ export default function ScheduleFormModal({
   return (
     <Modal
       visible={visible}
-      transparent
       animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}
+      presentationStyle="pageSheet"
+      onRequestClose={() => {
+        if (!submitting) onClose();
+      }}
     >
-      <KeyboardAvoidingView
-        style={styles.backdrop}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-      >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={submitting ? undefined : onClose}
-          accessibilityLabel="Tutup form jadwal"
-        />
-
-        <View style={styles.sheet} accessibilityViewIsModal>
-          <View style={styles.handleWrap}>
-            <View style={styles.handleBar} />
-          </View>
-
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.title}>
-                {mode === "create"
-                  ? "Tambah Jadwal Praktikum"
-                  : "Ubah Jadwal Praktikum"}
+      <SafeAreaView style={styles.safe}>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          {/* Header Sesuai Layar `Buat sesi baru` */}
+          <View style={styles.header}>
+            <Pressable
+              style={styles.backRow}
+              onPress={submitting ? undefined : onClose}
+              hitSlop={10}
+            >
+              <AppIcon
+                name="chevron-left"
+                size={20}
+                color={COLORS.textPrimary}
+              />
+              <Text style={styles.headerTitle}>
+                {mode === "create" ? "Buat Sesi Baru" : "Ubah Sesi Praktikum"}
               </Text>
-              <Text style={styles.subtitle}>
-                {mode === "create"
-                  ? "Jadwal baru otomatis membuat sesi berstatus Terjadwal."
-                  : "Perbarui informasi jadwal dan sesi praktikum."}
-              </Text>
-            </View>
+            </Pressable>
+            <Text style={styles.headerSub}>Atur waktu dan lokasi presensi.</Text>
           </View>
-
-          {error && (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorBoxText}>{error}</Text>
-            </View>
-          )}
 
           <ScrollView
-            style={styles.formScroll}
-            contentContainerStyle={styles.formScrollContent}
-            showsVerticalScrollIndicator={false}
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
-            automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
+            showsVerticalScrollIndicator={false}
           >
-            {/* Pilih Kelas */}
-            <Text style={styles.label}>
-              Kelas Praktikum <Text style={styles.requiredMark}>*</Text>
-            </Text>
-            {classes.length === 0 ? (
-              <View style={styles.emptyClassBox}>
-                <Text style={styles.emptyClassText}>
-                  Anda belum memiliki kelas. Buat kelas terlebih dahulu di menu
-                  Kelola Kelas.
-                </Text>
-              </View>
-            ) : (
-              <View style={styles.classSelectorWrap}>
-                {classes.map((item) => {
-                  const isSelected = item.id === effectiveClassId;
-                  return (
-                    <Pressable
-                      key={item.id}
-                      style={[
-                        styles.classChip,
-                        isSelected && styles.classChipSelected,
-                      ]}
-                      onPress={() => {
-                        setClassId(item.id);
-                        setErrors((curr) => ({ ...curr, classId: undefined }));
-                      }}
-                      disabled={submitting}
-                    >
-                      <Text
-                        style={[
-                          styles.classChipCode,
-                          isSelected && styles.classChipCodeSelected,
-                        ]}
-                      >
-                        Kelas {item.kodeKelas}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.classChipCourse,
-                          isSelected && styles.classChipCourseSelected,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {item.mataKuliah}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
+            {error && (
+              <View style={styles.errorBox}>
+                <AppIcon name="alert" size={16} color={COLORS.dangerText} />
+                <Text style={styles.errorBoxText}>{error}</Text>
               </View>
             )}
+
+            {/* 1. Kelas Praktikum (Dropdown) */}
+            <Text style={styles.label}>
+              Kelas praktikum <Text style={styles.req}>*</Text>
+            </Text>
+            <SelectDropdown
+              value={effectiveClassId}
+              options={classOptions}
+              onChange={(val) => {
+                setClassId(val);
+                setErrors((c) => ({ ...c, classId: undefined }));
+              }}
+              placeholder="Pilih kelas praktikum"
+              emptyText="Buat kelas terlebih dahulu di menu Kelas"
+              disabled={submitting}
+              hasError={!!errors.classId}
+            />
             {errors.classId && (
               <Text style={styles.errorText}>{errors.classId}</Text>
             )}
 
-            {/* Praktikum Ke-berapa & Ruang */}
-            <View style={styles.row}>
-              <View style={styles.colSmall}>
-                <Text style={styles.label}>
-                  Pertemuan Ke- <Text style={styles.requiredMark}>*</Text>
-                </Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    errors.nomorPraktikum && styles.inputError,
-                  ]}
-                  value={nomorPraktikum}
-                  onChangeText={(text) => {
-                    setNomorPraktikum(text.replace(/[^0-9]/g, ""));
-                    setErrors((curr) => ({
-                      ...curr,
-                      nomorPraktikum: undefined,
-                    }));
-                  }}
-                  placeholder="1"
-                  placeholderTextColor="#6EA4BF"
-                  selectionColor="#41337A"
-                  keyboardType="number-pad"
-                  maxLength={3}
-                  editable={!submitting}
-                />
-              </View>
-
-              <View style={styles.colLarge}>
-                <Text style={styles.label}>
-                  Ruang Laboratorium <Text style={styles.requiredMark}>*</Text>
-                </Text>
-                <TextInput
-                  style={[styles.input, errors.ruang && styles.inputError]}
-                  value={ruang}
-                  onChangeText={(text) => {
-                    setRuang(text);
-                    setErrors((curr) => ({ ...curr, ruang: undefined }));
-                  }}
-                  placeholder="Contoh: Lab Terpadu A301"
-                  placeholderTextColor="#6EA4BF"
-                  selectionColor="#41337A"
-                  maxLength={60}
-                  editable={!submitting}
-                />
-              </View>
-            </View>
-            {errors.nomorPraktikum && (
-              <Text style={styles.errorText}>{errors.nomorPraktikum}</Text>
-            )}
-            {errors.ruang && (
-              <Text style={styles.errorText}>{errors.ruang}</Text>
-            )}
-
-            {/* Nama Praktikum */}
+            {/* 2. Topik Pertemuan */}
             <Text style={styles.label}>
-              Topik / Judul Praktikum <Text style={styles.requiredMark}>*</Text>
+              Topik pertemuan <Text style={styles.req}>*</Text>
             </Text>
             <TextInput
               style={[styles.input, errors.namaPraktikum && styles.inputError]}
               value={namaPraktikum}
-              onChangeText={(text) => {
-                setNamaPraktikum(text);
-                setErrors((curr) => ({ ...curr, namaPraktikum: undefined }));
+              onChangeText={(t) => {
+                setNamaPraktikum(t);
+                setErrors((c) => ({ ...c, namaPraktikum: undefined }));
               }}
-              placeholder="Contoh: Modul 1 — Arsitektur Komponen"
-              placeholderTextColor="#6EA4BF"
-              selectionColor="#41337A"
+              placeholder="Contoh: Array & Fungsi"
+              placeholderTextColor={COLORS.textMuted}
+              selectionColor={COLORS.primary}
               maxLength={120}
               editable={!submitting}
             />
@@ -442,377 +402,346 @@ export default function ScheduleFormModal({
               <Text style={styles.errorText}>{errors.namaPraktikum}</Text>
             )}
 
-            {/* Tanggal (DateTimePicker) */}
-            <View style={styles.dateHeaderRow}>
-              <Text style={[styles.label, { marginTop: 0, marginBottom: 0 }]}>
-                Tanggal Praktikum <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <View style={styles.quickDateRow}>
+            {/* 3. Tanggal & Pertemuan (2 Kolom) */}
+            <View style={styles.twoColRow}>
+              <View style={{ flex: 1.4 }}>
+                <Text style={styles.label}>
+                  Tanggal <Text style={styles.req}>*</Text>
+                </Text>
                 <Pressable
-                  style={styles.quickDateChip}
-                  onPress={() => applySelectedDate(getTodayDate())}
-                  disabled={submitting}
+                  style={[
+                    styles.pickerField,
+                    errors.tanggal && styles.inputError,
+                  ]}
+                  onPress={() => {
+                    if (!submitting) setActivePicker("tanggal");
+                  }}
                 >
-                  <Text style={styles.quickDateText}>Hari Ini</Text>
+                  <Text style={styles.pickerText}>
+                    {formatTanggal(tanggal)}
+                  </Text>
+                  <AppIcon
+                    name="calendar"
+                    size={18}
+                    color={COLORS.textSecondary}
+                  />
                 </Pressable>
-                <Pressable
-                  style={styles.quickDateChip}
-                  onPress={() => applySelectedDate(getTomorrowDate())}
-                  disabled={submitting}
-                >
-                  <Text style={styles.quickDateText}>Besok</Text>
-                </Pressable>
+                {errors.tanggal && (
+                  <Text style={styles.errorText}>{errors.tanggal}</Text>
+                )}
+              </View>
+
+              <View style={{ flex: 0.9 }}>
+                <Text style={styles.label}>
+                  Pertemuan <Text style={styles.req}>*</Text>
+                </Text>
+                <TextInput
+                  style={[
+                    styles.input,
+                    errors.nomorPraktikum && styles.inputError,
+                  ]}
+                  value={nomorPraktikum}
+                  onChangeText={(t) => {
+                    setNomorPraktikum(t.replace(/[^\d]/g, "").slice(0, 2));
+                    setErrors((c) => ({ ...c, nomorPraktikum: undefined }));
+                  }}
+                  placeholder="Contoh: 4"
+                  placeholderTextColor={COLORS.textMuted}
+                  selectionColor={COLORS.primary}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  editable={!submitting}
+                />
+                {errors.nomorPraktikum && (
+                  <Text style={styles.errorText}>{errors.nomorPraktikum}</Text>
+                )}
               </View>
             </View>
-            <Pressable
-              style={[
-                styles.pickerButton,
-                errors.tanggal && styles.inputError,
-              ]}
-              onPress={() => setActivePicker("tanggal")}
-              disabled={submitting}
-            >
-              <AppIcon name="calendar" size={16} color="#41337A" />
-              <Text style={styles.pickerButtonText}>
-                {formatTanggal(tanggal)}
-              </Text>
-            </Pressable>
-            {errors.tanggal && (
-              <Text style={styles.errorText}>{errors.tanggal}</Text>
-            )}
 
-            {/* Jam Mulai & Jam Selesai (DateTimePicker) */}
-            <View style={styles.row}>
-              <View style={styles.colHalf}>
+            {/* 4. Mulai & Selesai (Input Manual) */}
+            <View style={styles.twoColRow}>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.label}>
-                  Jam Mulai <Text style={styles.requiredMark}>*</Text>
+                  Mulai <Text style={styles.req}>*</Text>
                 </Text>
                 <Pressable
                   style={[
-                    styles.pickerButton,
-                    errors.jamMulai && styles.inputError,
-                  ]}
-                  onPress={() => setActivePicker("jamMulai")}
-                  disabled={submitting}
-                >
-                  <AppIcon name="clock" size={16} color="#41337A" />
-                  <Text style={styles.pickerButtonText}>
-                    {formatJam(jamMulai)} WIB
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.colHalf}>
-                <Text style={styles.label}>
-                  Jam Selesai <Text style={styles.requiredMark}>*</Text>
-                </Text>
-                <Pressable
-                  style={[
-                    styles.pickerButton,
+                    styles.pickerField,
                     errors.jamSelesai && styles.inputError,
                   ]}
-                  onPress={() => setActivePicker("jamSelesai")}
-                  disabled={submitting}
+                  onPress={() => {
+                    if (!submitting) setActivePicker("jamMulai");
+                  }}
                 >
-                  <AppIcon name="clock" size={16} color="#41337A" />
-                  <Text style={styles.pickerButtonText}>
-                    {formatJam(jamSelesai)} WIB
+                  <Text style={styles.pickerText}>
+                    {formatJam(jamMulai).replace(":", ".")}
                   </Text>
+                  <AppIcon
+                    name="clock"
+                    size={18}
+                    color={COLORS.textSecondary}
+                  />
+                </Pressable>
+              </View>
+
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>
+                  Selesai <Text style={styles.req}>*</Text>
+                </Text>
+                <Pressable
+                  style={[
+                    styles.pickerField,
+                    errors.jamSelesai && styles.inputError,
+                  ]}
+                  onPress={() => {
+                    if (!submitting) setActivePicker("jamSelesai");
+                  }}
+                >
+                  <Text style={styles.pickerText}>
+                    {formatJam(jamSelesai).replace(":", ".")}
+                  </Text>
+                  <AppIcon
+                    name="clock"
+                    size={18}
+                    color={COLORS.textSecondary}
+                  />
                 </Pressable>
               </View>
             </View>
-            <Text style={styles.timeHintText}>
-              Ketentuan: Rentang waktu 07:40 – 20:10 WIB dengan durasi wajib
-              tepat 2 jam (120 menit).
-            </Text>
-            {errors.jamMulai && (
-              <Text style={styles.errorText}>{errors.jamMulai}</Text>
-            )}
+
             {errors.jamSelesai && (
               <Text style={styles.errorText}>{errors.jamSelesai}</Text>
             )}
 
-            {activePicker && (
-              <DateTimePicker
-                value={
-                  activePicker === "tanggal"
-                    ? tanggal
-                    : activePicker === "jamMulai"
-                      ? jamMulai
-                      : jamSelesai
-                }
-                mode={activePicker === "tanggal" ? "date" : "time"}
-                is24Hour
-                onChange={handleDatePickerChange}
-              />
-            )}
-          </ScrollView>
-
-          <View style={styles.actions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.button,
-                styles.cancelButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={onClose}
+            {/* 5. Laboratorium (Dropdown dari Koleksi Laboratories) */}
+            <Text style={styles.label}>
+              Laboratorium <Text style={styles.req}>*</Text>
+            </Text>
+            <SelectDropdown
+              value={ruang}
+              options={labOptions}
+              onChange={(val) => {
+                setRuang(val);
+                setErrors((c) => ({ ...c, ruang: undefined }));
+              }}
+              placeholder="Pilih laboratorium"
+              emptyText="Belum ada laboratorium aktif di menu Kelola Lab"
               disabled={submitting}
-            >
-              <Text style={styles.cancelText}>Batal</Text>
-            </Pressable>
+              hasError={!!errors.ruang}
+            />
+            {errors.ruang && (
+              <Text style={styles.errorText}>{errors.ruang}</Text>
+            )}
 
+            {/* Info Radius Presensi dari Lab Terpilih (Sesuai Desain) */}
+            <Text style={styles.label}>Radius presensi</Text>
+            <View style={styles.readonlyBox}>
+              <Text style={styles.readonlyText}>
+                {selectedLabRecord
+                  ? `${selectedLabRecord.radius} meter`
+                  : "Mengikuti radius lokasi laboratorium"}
+              </Text>
+              <AppIcon name="location" size={17} color={COLORS.primary} />
+            </View>
+
+            {/* Catatan Kode Otomatis */}
+            <View style={styles.noteRow}>
+              <AppIcon
+                name="file-text"
+                size={16}
+                color={COLORS.textSecondary}
+              />
+              <Text style={styles.noteText}>
+                Kode sesi dibuat otomatis setelah sesi disimpan.
+              </Text>
+            </View>
+
+            {/* Tombol Utama */}
             <Pressable
               style={({ pressed }) => [
-                styles.button,
-                styles.saveButton,
-                pressed && styles.buttonPressed,
-                (submitting || classes.length === 0) && styles.buttonDisabled,
+                styles.submitBtn,
+                pressed && !submitting && styles.submitBtnPressed,
+                submitting && styles.submitBtnDisabled,
               ]}
               onPress={handleSubmit}
-              disabled={submitting || classes.length === 0}
+              disabled={submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={COLORS.textOnPrimary} />
               ) : (
-                <Text style={styles.saveText}>
-                  {mode === "create" ? "Simpan Jadwal" : "Simpan Perubahan"}
+                <Text style={styles.submitBtnText}>
+                  {mode === "create"
+                    ? "Buat Sesi Praktikum"
+                    : "Simpan Perubahan"}
                 </Text>
               )}
             </Pressable>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
+          </ScrollView>
+
+          {activePicker && (
+            <DateTimePicker
+              value={
+                activePicker === "tanggal"
+                  ? tanggal
+                  : activePicker === "jamMulai"
+                    ? jamMulai
+                    : jamSelesai
+              }
+              mode={activePicker === "tanggal" ? "date" : "time"}
+              is24Hour
+              display="default"
+              onChange={handleDatePickerChange}
+            />
+          )}
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  safe: {
     flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.55)",
-    justifyContent: "flex-end",
+    backgroundColor: COLORS.background,
   },
-  sheet: {
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingBottom: 24,
-    maxHeight: "90%",
-    flexShrink: 1,
+  header: {
+    paddingHorizontal: 22,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
-  handleWrap: {
+  backRow: {
+    flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 10,
+    gap: 8,
   },
-  handleBar: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#6EA4BF",
+  headerTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
-  headerRow: {
-    marginBottom: 8,
+  headerSub: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    marginTop: 3,
+    marginLeft: 28,
   },
-  formScroll: {
-    flexShrink: 1,
-  },
-  formScrollContent: {
-    paddingBottom: 28,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-  subtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    marginTop: 2,
-
+  scrollContent: {
+    paddingHorizontal: 22,
+    paddingBottom: 36,
   },
   errorBox: {
-    backgroundColor: "#fef2f2",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: COLORS.dangerBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 10,
-    padding: 12,
-    marginVertical: 8,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 11,
+    marginBottom: 8,
   },
-  errorBoxText: { color: "#991b1b", fontSize: 13, },
-
+  errorBoxText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: COLORS.dangerDark,
+    fontWeight: "500",
+  },
   label: {
     fontSize: 12.5,
-    fontWeight: "700",
-    color: "#331E36",
+    fontWeight: "600",
+    color: COLORS.textPrimary,
     marginTop: 14,
     marginBottom: 6,
-
-
   },
-  requiredMark: {
-    color: "#dc2626",
-    fontWeight: "800",
-
+  req: {
+    color: COLORS.dangerText,
+    fontWeight: "700",
   },
-  dateHeaderRow: {
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 13.5,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+    minHeight: 46,
+  },
+  pickerField: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 14,
-    marginBottom: 6,
-  },
-  quickDateRow: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  quickDateChip: {
-    backgroundColor: "#C2EFEB",
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  quickDateText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#41337A",
-
-  },
-
-  classSelectorWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    minHeight: 46,
+    backgroundColor: COLORS.background,
     gap: 8,
   },
-  classChip: {
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    minWidth: "46%",
-    flexGrow: 1,
+  pickerText: {
+    fontSize: 13.5,
+    fontWeight: "500",
+    color: COLORS.textPrimary,
   },
-  classChipSelected: {
-    borderColor: "#41337A",
-    backgroundColor: "#C2EFEB",
-  },
-  classChipCode: {
-    fontSize: 12.5,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-  classChipCodeSelected: {
-    color: "#41337A",
-  },
-  classChipCourse: {
-    fontSize: 11.5,
-    color: "#6EA4BF",
-    marginTop: 2,
-
-  },
-  classChipCourseSelected: {
-    color: "#41337A",
-    fontWeight: "600",
-
-  },
-  emptyClassBox: {
-    backgroundColor: "#ECFEE8",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 10,
-    padding: 12,
-  },
-  emptyClassText: {
-    fontSize: 12.5,
-    color: "#41337A",
-    lineHeight: 18,
-
-  },
-
-  row: {
+  twoColRow: {
     flexDirection: "row",
     gap: 10,
   },
-  colSmall: {
-    flex: 0.85,
-  },
-  colLarge: {
-    flex: 1.85,
-  },
-  colHalf: {
-    flex: 1,
-  },
-
-  input: {
+  readonlyBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14.5,
-    color: "#331E36",
-    backgroundColor: "#ECFEE8",
-
-
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    minHeight: 46,
+    backgroundColor: COLORS.surfaceSubtle,
   },
-  pickerButton: {
+  readonlyText: {
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: "500",
+  },
+  noteRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    backgroundColor: "#ECFEE8",
+    marginTop: 14,
+    marginBottom: 16,
   },
-  pickerButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#331E36",
-    flexShrink: 1,
-
-  },
-  timeHintText: {
-    fontSize: 11.5,
-    color: "#6EA4BF",
-    marginTop: 6,
-    lineHeight: 16,
-
-  },
-  inputError: { borderColor: "#b91c1c" },
-  errorText: {
-    color: "#b91c1c",
+  noteText: {
+    flex: 1,
     fontSize: 12,
-    marginTop: 4,
-
+    color: COLORS.textSecondary,
   },
-
-  actions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  button: {
-    paddingVertical: 13,
-    borderRadius: 12,
+  inputError: {
+    borderColor: COLORS.dangerText,
+  },
+  errorText: {
+    color: COLORS.dangerText,
+    fontSize: 11.5,
+    marginTop: 4,
+  },
+  submitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
   },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: "#ECFEE8",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
+  submitBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
   },
-  cancelText: { fontSize: 14, fontWeight: "700", color: "#331E36", },
-  saveButton: {
-    flex: 1.5,
-    backgroundColor: "#41337A",
+  submitBtnDisabled: {
+    opacity: 0.7,
   },
-  saveText: { fontSize: 14, fontWeight: "700", color: "#fff", },
-  buttonPressed: { opacity: 0.85 },
-  buttonDisabled: { opacity: 0.55 },
+  submitBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
 });

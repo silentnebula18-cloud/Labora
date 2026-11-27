@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { StatusBar } from "expo-status-bar";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -15,8 +16,12 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppIcon from "../../../components/AppIcon";
+import BottomNavBar from "../../../components/BottomNavBar";
 import ClassFormModal from "../../../components/ClassFormModal";
+import ScheduleFormModal from "../../../components/ScheduleFormModal";
+import { COLORS, RADIUS } from "../../../constants/theme";
 import { useAuth } from "../../../context/AuthContext";
+import { useSession } from "../../../context/SessionContext";
 import {
   addClassMember,
   deleteClass,
@@ -28,23 +33,51 @@ import {
   updateClassInfo,
   type ClassInput,
 } from "../../../services/classService";
-import type { ClassMember, ClassRecord } from "../../../types";
+import type { ScheduleInput } from "../../../services/sessionService";
+import type { ClassMember, ClassRecord, SessionStatus } from "../../../types";
+import { formatJam, formatTanggal } from "../../../utils/format";
 
 const NIM_PATTERN = /^\d{14}$/;
 
-function formatTanggal(date: Date | null): string {
-  if (!date) return "—";
-  return date.toLocaleDateString("id-ID", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+const SESSION_BADGE: Record<
+  SessionStatus,
+  { label: string; bg: string; text: string }
+> = {
+  open: {
+    label: "Berlangsung",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
+  },
+  scheduled: {
+    label: "Terjadwal",
+    bg: COLORS.neutralBadgeBg,
+    text: COLORS.neutralBadgeText,
+  },
+  closed: {
+    label: "Selesai",
+    bg: COLORS.neutralBadgeBg,
+    text: COLORS.neutralBadgeText,
+  },
+};
+
+function formatDibuat(date: Date | null): string {
+  return formatTanggal(date);
+}
+
+function getInitials(nama: string): string {
+  const parts = nama.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "P";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
 }
 
 export default function KelasDetailScreen() {
   const params = useLocalSearchParams<{ id: string }>();
   const classId = typeof params.id === "string" ? params.id : "";
   const { user } = useAuth();
+  const { sessions, createSchedule } = useSession();
+
+  const [activeTab, setActiveTab] = useState<"sesi" | "praktikan">("sesi");
 
   const [classData, setClassData] = useState<ClassRecord | null>(null);
   const [classLoading, setClassLoading] = useState(true);
@@ -62,6 +95,10 @@ export default function KelasDetailScreen() {
   const [deleteVisible, setDeleteVisible] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
+  const [creatingSchedule, setCreatingSchedule] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
 
   const [addVisible, setAddVisible] = useState(false);
   const [addNim, setAddNim] = useState("");
@@ -115,6 +152,16 @@ export default function KelasDetailScreen() {
     return unsubscribe;
   }, [classId]);
 
+  const classSessions = useMemo(() => {
+    return sessions
+      .filter((s) => s.classId === classId)
+      .sort(
+        (a, b) =>
+          (b.practicum?.nomorPraktikum ?? 0) -
+          (a.practicum?.nomorPraktikum ?? 0),
+      );
+  }, [sessions, classId]);
+
   function openEdit() {
     if (!classData) return;
     setEditValues({
@@ -158,6 +205,20 @@ export default function KelasDetailScreen() {
     }
   }
 
+  async function handleCreateSchedule(values: ScheduleInput) {
+    if (!classData) return;
+    setCreatingSchedule(true);
+    setScheduleError(null);
+    try {
+      await createSchedule(classData, values);
+      setScheduleModalVisible(false);
+    } catch (error) {
+      setScheduleError(describeFirestoreError(error));
+    } finally {
+      setCreatingSchedule(false);
+    }
+  }
+
   function openAddMember() {
     setAddNim("");
     setAddError(null);
@@ -174,7 +235,7 @@ export default function KelasDetailScreen() {
       return;
     }
     if (!NIM_PATTERN.test(nim)) {
-      setAddError("NIM tidak valid");
+      setAddError("NIM harus terdiri dari 14 digit angka");
       return;
     }
     if (user?.nim && nim === user.nim.trim()) {
@@ -237,8 +298,9 @@ export default function KelasDetailScreen() {
   if (classLoading && classId) {
     return (
       <SafeAreaView style={styles.safe}>
+        <StatusBar style="dark" />
         <View style={styles.centerBox}>
-          <ActivityIndicator color="#41337A" />
+          <ActivityIndicator color={COLORS.primary} />
           <Text style={styles.centerText}>Memuat kelas…</Text>
         </View>
       </SafeAreaView>
@@ -248,62 +310,128 @@ export default function KelasDetailScreen() {
   if (!classData) {
     return (
       <SafeAreaView style={styles.safe}>
+        <StatusBar style="dark" />
         <View style={styles.centerBox}>
-          <AppIcon name="search" size={32} color="#41337A" />
+          <AppIcon name="search" size={30} color={COLORS.primary} />
           <Text style={styles.notFoundTitle}>Kelas tidak ditemukan</Text>
           {classError && <Text style={styles.centerText}>{classError}</Text>}
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>Kembali</Text>
+          <Pressable style={styles.primaryBtn} onPress={() => router.back()}>
+            <Text style={styles.primaryBtnText}>Kembali</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
+  const nextSess =
+    classSessions.find((s) => s.status !== "closed") ?? classSessions[0];
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar style="dark" />
+
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Pressable style={styles.backBtn} onPress={() => router.back()}>
-          <Text style={styles.backText}>‹ Kembali</Text>
-        </Pressable>
+        {/* Top Navbar: Judul 'Detail kelas' */}
+        <View style={styles.headerBlock}>
+          <Pressable
+            style={styles.backRow}
+            onPress={() => router.back()}
+            hitSlop={10}
+          >
+            <AppIcon
+              name="chevron-left"
+              size={20}
+              color={COLORS.textPrimary}
+            />
+            <Text style={styles.headerTitle}>Detail Kelas</Text>
+          </Pressable>
+        </View>
 
-        <View style={styles.classCard}>
-          <View style={styles.classCardTop}>
+        {/* Kartu Ringkasan Kelas (Nama Kelas & Kode Kelas di dalam Card) */}
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryTopRow}>
             <View style={styles.kodePill}>
-              <Text style={styles.kodePillText}>
+              <Text
+                style={styles.kodePillText}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 Kelas {classData.kodeKelas}
               </Text>
             </View>
-            <Text style={styles.createdText}>
-              Dibuat {formatTanggal(classData.createdAt)}
+            <Text
+              style={styles.summaryCountText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {members.length} praktikan
             </Text>
           </View>
 
-          <Text style={styles.course}>{classData.mataKuliah}</Text>
-          <Text style={styles.meta}>
-            {classData.assistants.length} asisten bertanggung jawab
+          <Text
+            style={styles.classNameInCard}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {classData.mataKuliah}
+          </Text>
+          <Text
+            style={styles.createdMetaText}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            Dibuat {formatDibuat(classData.createdAt)}
           </Text>
 
-          {isClassAssistant ? (
-            <View style={styles.classActions}>
+          <View style={styles.summaryDivider} />
+
+          <View style={styles.metaRow}>
+            <AppIcon name="clock" size={14} color={COLORS.textSecondary} />
+            <Text
+              style={styles.metaText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {nextSess
+                ? `${formatTanggal(nextSess.tanggal)} · ${formatJam(nextSess.jamMulai)}–${formatJam(nextSess.jamSelesai)}`
+                : "Belum ada sesi terjadwal"}
+            </Text>
+          </View>
+
+          <View style={styles.metaRow}>
+            <AppIcon name="location" size={14} color={COLORS.textSecondary} />
+            <Text
+              style={styles.metaText}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {nextSess
+                ? nextSess.ruang
+                : `${classData.assistants.length} asisten pengampu`}
+            </Text>
+          </View>
+
+          {isClassAssistant && (
+            <View style={styles.classActionRow}>
               <Pressable
                 style={({ pressed }) => [
-                  styles.outlineButton,
-                  styles.editButton,
+                  styles.smallActionBtn,
                   pressed && styles.pressed,
                 ]}
                 onPress={openEdit}
               >
-                <Text style={styles.editButtonText}>Ubah</Text>
+                <AppIcon name="edit" size={14} color={COLORS.primary} />
+                <Text style={styles.smallActionText}>Ubah kelas</Text>
               </Pressable>
 
               <Pressable
                 style={({ pressed }) => [
-                  styles.outlineButton,
-                  styles.deleteButton,
+                  styles.smallActionBtn,
+                  styles.smallActionDanger,
                   pressed && styles.pressed,
                 ]}
                 onPress={() => {
@@ -311,87 +439,301 @@ export default function KelasDetailScreen() {
                   setDeleteVisible(true);
                 }}
               >
-                <Text style={styles.deleteButtonText}>Hapus</Text>
+                <AppIcon name="trash" size={14} color={COLORS.dangerText} />
+                <Text style={styles.smallActionDangerText}>Hapus</Text>
               </Pressable>
             </View>
-          ) : (
-            <View style={styles.readOnlyNotice}>
-              <Text style={styles.readOnlyText}>
-                Anda hanya dapat melihat data kelas ini.
-              </Text>
-            </View>
           )}
         </View>
 
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Peserta ({members.length})</Text>
-          {isClassAssistant && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.addMemberButton,
-                pressed && styles.pressed,
+        {/* Segmented Control: Sesi Praktikum | Praktikan */}
+        <View style={styles.segmentedTrack}>
+          <Pressable
+            style={[
+              styles.segmentBtn,
+              activeTab === "sesi" && styles.segmentBtnActive,
+            ]}
+            onPress={() => setActiveTab("sesi")}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                activeTab === "sesi" && styles.segmentTextActive,
               ]}
-              onPress={openAddMember}
             >
-              <Text style={styles.addMemberText}>＋ Tambah</Text>
-            </Pressable>
-          )}
+              Sesi Praktikum
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={[
+              styles.segmentBtn,
+              activeTab === "praktikan" && styles.segmentBtnActive,
+            ]}
+            onPress={() => setActiveTab("praktikan")}
+          >
+            <Text
+              style={[
+                styles.segmentText,
+                activeTab === "praktikan" && styles.segmentTextActive,
+              ]}
+            >
+              Praktikan ({members.length})
+            </Text>
+          </Pressable>
         </View>
 
-        {membersError && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorBoxText}>{membersError}</Text>
-          </View>
-        )}
-
-        {membersLoading && (
-          <View style={styles.loadingMembers}>
-            <ActivityIndicator color="#41337A" />
-          </View>
-        )}
-
-        {!membersLoading && members.length === 0 && (
-          <View style={styles.emptyMembers}>
-            <View style={{ marginBottom: 10 }}>
-              <AppIcon name="users" size={28} color="#6EA4BF" />
-            </View>
-            <Text style={styles.emptyMembersTitle}>Belum ada peserta</Text>
-            <Text style={styles.emptyMembersText}>
-              Tambahkan peserta dengan NIM akun Labora yang sudah terdaftar.
-            </Text>
-          </View>
-        )}
-
-        {members.map((member, index) => (
-          <View key={member.uid} style={styles.memberRow}>
-            <View style={styles.memberIndex}>
-              <Text style={styles.memberIndexText}>{index + 1}</Text>
-            </View>
-
-            <View style={styles.memberInfo}>
-              <Text style={styles.memberName} numberOfLines={1}>
-                {member.nama || "Tanpa nama"}
-              </Text>
-              <Text style={styles.memberMeta} numberOfLines={1}>
-                NIM {member.nim || "—"} · {member.email || "—"}
-              </Text>
-            </View>
-
+        {activeTab === "sesi" ? (
+          <>
             {isClassAssistant && (
               <Pressable
-                hitSlop={8}
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  styles.createSessionBtn,
+                  pressed && styles.primaryBtnPressed,
+                ]}
                 onPress={() => {
-                  setRemoveError(null);
-                  setMemberToRemove(member);
+                  setScheduleError(null);
+                  setScheduleModalVisible(true);
                 }}
               >
-                <Text style={styles.removeText}>Hapus</Text>
+                <AppIcon name="plus" size={17} color={COLORS.textOnPrimary} />
+                <Text style={styles.primaryBtnText}>Buat sesi baru</Text>
               </Pressable>
             )}
-          </View>
-        ))}
+
+            {classSessions.length === 0 ? (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIconCircle}>
+                  <AppIcon name="calendar" size={24} color={COLORS.primary} />
+                </View>
+                <Text style={styles.emptyTitle}>Belum ada sesi praktikum</Text>
+                <Text style={styles.emptySub}>
+                  Tekan tombol Buat sesi baru di atas untuk menjadwalkan
+                  pertemuan kelas ini.
+                </Text>
+              </View>
+            ) : (
+              classSessions.map((sess) => {
+                const badge =
+                  SESSION_BADGE[sess.status] ?? SESSION_BADGE.scheduled;
+                const noStr = String(
+                  sess.practicum?.nomorPraktikum ?? 1,
+                ).padStart(2, "0");
+
+                const openSessDetail = () =>
+                  router.push({
+                    pathname: "/asisten/session/[id]",
+                    params: { id: sess.id },
+                  } as any);
+
+                return (
+                  <Pressable
+                    key={sess.id}
+                    style={({ pressed }) => [
+                      styles.sessionCard,
+                      pressed && styles.pressed,
+                    ]}
+                    onPress={openSessDetail}
+                  >
+                    <View style={styles.sessionCardTop}>
+                      <View style={styles.sessionHeaderLeft}>
+                        <View style={styles.sessionIconBox}>
+                          <AppIcon
+                            name="calendar"
+                            size={15}
+                            color={COLORS.primary}
+                          />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text
+                            style={styles.sessionOverline}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            Pertemuan {noStr}
+                          </Text>
+                          <Text
+                            style={styles.sessionDateSub}
+                            numberOfLines={1}
+                            ellipsizeMode="tail"
+                          >
+                            {formatTanggal(sess.tanggal)}
+                          </Text>
+                        </View>
+                      </View>
+                      <View
+                        style={[
+                          styles.statusPill,
+                          {
+                            backgroundColor: badge.bg,
+                            borderColor:
+                              sess.status === "open"
+                                ? COLORS.primaryBorder
+                                : COLORS.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[styles.statusPillText, { color: badge.text }]}
+                        >
+                          {badge.label}
+                        </Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.cardDivider} />
+
+                    <Text
+                      style={styles.sessionTopic}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {sess.practicum?.namaPraktikum ?? "Sesi Praktikum"}
+                    </Text>
+
+                    <Text
+                      style={styles.sessionTimeMeta}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {formatJam(sess.jamMulai)}–{formatJam(sess.jamSelesai)}{" "}
+                      WIB
+                    </Text>
+
+                    <View style={styles.sessionFooterRow}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={styles.sessionFooterLabel}>
+                          Laboratorium
+                        </Text>
+                        <Text
+                          style={styles.sessionFooterValue}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {sess.ruang}
+                        </Text>
+                      </View>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.detailCtaBtn,
+                          pressed && styles.primaryBtnPressed,
+                        ]}
+                        onPress={openSessDetail}
+                      >
+                        <Text style={styles.detailCtaBtnText}>
+                          Lihat detail
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </Pressable>
+                );
+              })
+            )}
+          </>
+        ) : (
+          /* Tab Praktikan (Daftar Peserta Kelas) */
+          <>
+            {isClassAssistant && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.primaryBtn,
+                  styles.createSessionBtn,
+                  pressed && styles.primaryBtnPressed,
+                ]}
+                onPress={openAddMember}
+              >
+                <AppIcon name="plus" size={17} color={COLORS.textOnPrimary} />
+                <Text style={styles.primaryBtnText}>Tambah praktikan</Text>
+              </Pressable>
+            )}
+
+            {membersLoading && (
+              <View style={styles.centerInline}>
+                <ActivityIndicator color={COLORS.primary} />
+                <Text style={styles.centerText}>Memuat peserta…</Text>
+              </View>
+            )}
+
+            {membersError && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorBoxText}>{membersError}</Text>
+              </View>
+            )}
+
+            {!membersLoading && !membersError && members.length === 0 && (
+              <View style={styles.emptyCard}>
+                <View style={styles.emptyIconCircle}>
+                  <AppIcon name="users" size={24} color={COLORS.primary} />
+                </View>
+                <Text style={styles.emptyTitle}>Belum ada praktikan</Text>
+                <Text style={styles.emptySub}>
+                  Tambahkan mahasiswa ke kelas ini menggunakan 14 digit NIM.
+                </Text>
+              </View>
+            )}
+
+            {!membersLoading && members.length > 0 && (
+              <View style={styles.memberListCard}>
+                {members.map((m, idx) => {
+                  const isLast = idx === members.length - 1;
+                  return (
+                    <View
+                      key={m.uid}
+                      style={[
+                        styles.memberRow,
+                        !isLast && styles.memberDivider,
+                      ]}
+                    >
+                      <View style={styles.avatarCircle}>
+                        <Text style={styles.avatarText}>
+                          {getInitials(m.nama)}
+                        </Text>
+                      </View>
+                      <View style={styles.memberInfo}>
+                        <Text
+                          style={styles.memberName}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {m.nama}
+                        </Text>
+                        <Text
+                          style={styles.memberNim}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {m.nim}
+                        </Text>
+                      </View>
+                      {isClassAssistant && (
+                        <Pressable
+                          style={styles.removeMemberBtn}
+                          onPress={() => {
+                            setRemoveError(null);
+                            setMemberToRemove(m);
+                          }}
+                          hitSlop={8}
+                        >
+                          <AppIcon
+                            name="trash"
+                            size={16}
+                            color={COLORS.dangerText}
+                          />
+                        </Pressable>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
+        )}
       </ScrollView>
 
+      <BottomNavBar role="asisten" activeTab="kelas" />
+
+      {/* Modal Ubah Kelas */}
       {editVisible && (
         <ClassFormModal
           visible
@@ -406,72 +748,38 @@ export default function KelasDetailScreen() {
         />
       )}
 
-      <Modal
-        visible={deleteVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          if (!deleting) setDeleteVisible(false);
-        }}
-      >
-        <View style={styles.modalBackdrop}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => {
-              if (!deleting) setDeleteVisible(false);
-            }}
-            accessibilityLabel="Tutup konfirmasi hapus kelas"
-          />
+      {/* Modal Buat Sesi Baru */}
+      {scheduleModalVisible && (
+        <ScheduleFormModal
+          visible
+          mode="create"
+          classes={[classData]}
+          initialValues={{
+            classId: classData.id,
+            namaPraktikum: "",
+            tanggal: new Date(),
+            jamMulai: (() => {
+              const d = new Date();
+              d.setHours(7, 40, 0, 0);
+              return d;
+            })(),
+            jamSelesai: (() => {
+              const d = new Date();
+              d.setHours(9, 40, 0, 0);
+              return d;
+            })(),
+            ruang: nextSess?.ruang ?? "",
+          }}
+          submitting={creatingSchedule}
+          error={scheduleError}
+          onSubmit={handleCreateSchedule}
+          onClose={() => {
+            if (!creatingSchedule) setScheduleModalVisible(false);
+          }}
+        />
+      )}
 
-          <View style={styles.modalCard} accessibilityViewIsModal>
-            <View style={[styles.modalIconWrap, styles.modalIconDanger]}>
-              <Text style={styles.modalIconDangerText}>!</Text>
-            </View>
-
-            <Text style={styles.modalTitle}>Hapus Kelas?</Text>
-            <Text style={styles.modalDescription}>
-              Kelas {classData.kodeKelas} beserta seluruh data pesertanya akan
-              dihapus. Akun pengguna tidak akan terhapus.
-            </Text>
-
-            {deleteError && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorBoxText}>{deleteError}</Text>
-              </View>
-            )}
-
-            <View style={styles.modalActions}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalCancelButton,
-                  pressed && styles.pressed,
-                ]}
-                onPress={() => setDeleteVisible(false)}
-                disabled={deleting}
-              >
-                <Text style={styles.modalCancelText}>Batal</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.modalDangerButton,
-                  pressed && styles.pressed,
-                  deleting && styles.buttonDisabled,
-                ]}
-                onPress={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalDangerText}>Hapus Kelas</Text>
-                )}
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
+      {/* Modal Tambah Praktikan (NIM) */}
       <Modal
         visible={addVisible}
         transparent
@@ -486,83 +794,65 @@ export default function KelasDetailScreen() {
         >
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => {
-              if (!adding) setAddVisible(false);
-            }}
-            accessibilityLabel="Tutup form tambah peserta"
+            onPress={adding ? undefined : () => setAddVisible(false)}
           />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Tambah Praktikan</Text>
+            <Text style={styles.modalSubtitle}>
+              Masukkan 14 digit NIM mahasiswa yang sudah memiliki akun Labora.
+            </Text>
 
-          <View style={styles.modalCard} accessibilityViewIsModal>
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <Text style={styles.modalTitle}>Tambah Peserta</Text>
-              <Text style={styles.modalDescription}>
-                Masukkan 14 digit NIM akun praktikan yang sudah terdaftar di Labora.
-              </Text>
-
-              {addError && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorBoxText}>{addError}</Text>
-                </View>
-              )}
-
-              <Text style={styles.inputLabel}>
-                NIM peserta <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <TextInput
-                style={styles.input}
-                value={addNim}
-                onChangeText={(text) => {
-                  setAddNim(text);
-                  setAddError(null);
-                }}
-                placeholder="Masukkan 14 digit NIM"
-                placeholderTextColor="#6EA4BF"
-                selectionColor="#41337A"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="number-pad"
-                maxLength={14}
-                editable={!adding}
-              />
-
-              <View style={styles.modalActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.modalCancelButton,
-                    pressed && styles.pressed,
-                  ]}
-                  onPress={() => setAddVisible(false)}
-                  disabled={adding}
-                >
-                  <Text style={styles.modalCancelText}>Batal</Text>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.modalPrimaryButton,
-                    pressed && styles.pressed,
-                    adding && styles.buttonDisabled,
-                  ]}
-                  onPress={handleAddMember}
-                  disabled={adding}
-                >
-                  {adding ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.modalPrimaryText}>Tambah Peserta</Text>
-                  )}
-                </Pressable>
+            {addError && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorBoxText}>{addError}</Text>
               </View>
-            </ScrollView>
+            )}
+
+            <Text style={styles.fieldLabel}>
+              NIM mahasiswa <Text style={styles.requiredMark}>*</Text>
+            </Text>
+            <TextInput
+              style={[styles.input, addError && styles.inputError]}
+              value={addNim}
+              onChangeText={(t) => {
+                setAddNim(t.replace(/[^\d]/g, "").slice(0, 14));
+                setAddError(null);
+              }}
+              placeholder="Contoh: 24060122140001"
+              placeholderTextColor={COLORS.textMuted}
+              selectionColor={COLORS.primary}
+              keyboardType="number-pad"
+              maxLength={14}
+              editable={!adding}
+            />
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => setAddVisible(false)}
+                disabled={adding}
+              >
+                <Text style={styles.cancelBtnText}>Batal</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmBtn, adding && { opacity: 0.7 }]}
+                onPress={handleAddMember}
+                disabled={adding}
+              >
+                {adding ? (
+                  <ActivityIndicator color={COLORS.textOnPrimary} />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Tambah</Text>
+                )}
+              </Pressable>
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Modal Konfirmasi Hapus Peserta */}
       <Modal
-        visible={memberToRemove !== null}
+        visible={!!memberToRemove}
         transparent
         animationType="fade"
         onRequestClose={() => {
@@ -572,21 +862,13 @@ export default function KelasDetailScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => {
-              if (!removing) setMemberToRemove(null);
-            }}
-            accessibilityLabel="Tutup konfirmasi hapus peserta"
+            onPress={removing ? undefined : () => setMemberToRemove(null)}
           />
-
-          <View style={styles.modalCard} accessibilityViewIsModal>
-            <View style={[styles.modalIconWrap, styles.modalIconDanger]}>
-              <Text style={styles.modalIconDangerText}>!</Text>
-            </View>
-
-            <Text style={styles.modalTitle}>Hapus Peserta?</Text>
-            <Text style={styles.modalDescription}>
-              {memberToRemove?.nama || "Peserta"} akan dikeluarkan dari kelas
-              ini. Akun Firebase pengguna tidak akan terhapus.
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Keluarkan Praktikan?</Text>
+            <Text style={styles.modalSubtitle}>
+              {memberToRemove?.nama} ({memberToRemove?.nim}) akan dihapus dari
+              daftar peserta Kelas {classData.kodeKelas}.
             </Text>
 
             {removeError && (
@@ -597,29 +879,72 @@ export default function KelasDetailScreen() {
 
             <View style={styles.modalActions}>
               <Pressable
-                style={({ pressed }) => [
-                  styles.modalCancelButton,
-                  pressed && styles.pressed,
-                ]}
+                style={styles.cancelBtn}
                 onPress={() => setMemberToRemove(null)}
                 disabled={removing}
               >
-                <Text style={styles.modalCancelText}>Batal</Text>
+                <Text style={styles.cancelBtnText}>Batal</Text>
               </Pressable>
-
               <Pressable
-                style={({ pressed }) => [
-                  styles.modalDangerButton,
-                  pressed && styles.pressed,
-                  removing && styles.buttonDisabled,
-                ]}
+                style={[styles.dangerConfirmBtn, removing && { opacity: 0.7 }]}
                 onPress={handleRemoveMember}
                 disabled={removing}
               >
                 {removing ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={COLORS.textOnPrimary} />
                 ) : (
-                  <Text style={styles.modalDangerText}>Hapus Peserta</Text>
+                  <Text style={styles.confirmBtnText}>Keluarkan</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Konfirmasi Hapus Kelas */}
+      <Modal
+        visible={deleteVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!deleting) setDeleteVisible(false);
+        }}
+      >
+        <View style={styles.modalBackdrop}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={deleting ? undefined : () => setDeleteVisible(false)}
+          />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Hapus Kelas Praktikum?</Text>
+            <Text style={styles.modalSubtitle}>
+              Kelas {classData.kodeKelas} ({classData.mataKuliah}) beserta data
+              pesertanya akan dihapus secara permanen.
+            </Text>
+
+            {deleteError && (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorBoxText}>{deleteError}</Text>
+              </View>
+            )}
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => setDeleteVisible(false)}
+                disabled={deleting}
+              >
+                <Text style={styles.cancelBtnText}>Batal</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.dangerConfirmBtn, deleting && { opacity: 0.7 }]}
+                onPress={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color={COLORS.textOnPrimary} />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Hapus Kelas</Text>
                 )}
               </Pressable>
             </View>
@@ -631,267 +956,463 @@ export default function KelasDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
-  content: { padding: 16, paddingBottom: 32 },
-
-  backBtn: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  backText: { fontSize: 16, color: "#41337A", fontWeight: "600", },
+  safe: { flex: 1, backgroundColor: COLORS.surfaceSubtle },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingTop: 10, paddingBottom: 24 },
+  pressed: { opacity: 0.88 },
 
   centerBox: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 32,
+    padding: 24,
     gap: 10,
   },
-  centerText: { fontSize: 13, color: "#6EA4BF", textAlign: "center", },
-  notFoundIcon: { fontSize: 48, },
-  notFoundTitle: { fontSize: 18, fontWeight: "700", color: "#331E36", },
-  backButton: {
-    backgroundColor: "#41337A",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  backButtonText: { color: "#fff", fontWeight: "700", },
-
-  classCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: "#331E36",
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 3,
-  },
-  classCardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 14,
-  },
-  kodePill: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  kodePillText: { fontSize: 12, fontWeight: "700", color: "#41337A", },
-  createdText: { fontSize: 11, color: "#6EA4BF", },
-  course: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#331E36",
-    marginBottom: 4,
-
-  },
-  meta: { fontSize: 13, color: "#6EA4BF", },
-
-  classActions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  outlineButton: {
-    flex: 1,
-    borderRadius: 12,
-    paddingVertical: 11,
-    alignItems: "center",
-    borderWidth: 1,
-    backgroundColor: "#fff",
-  },
-  editButton: { borderColor: "#6EA4BF", backgroundColor: "#C2EFEB" },
-  editButtonText: { fontSize: 13, fontWeight: "700", color: "#41337A", },
-  deleteButton: { borderColor: "#fecaca", backgroundColor: "#fef2f2" },
-  deleteButtonText: { fontSize: 13, fontWeight: "700", color: "#dc2626", },
-  pressed: { opacity: 0.82 },
-  buttonDisabled: { opacity: 0.6 },
-
-  readOnlyNotice: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    padding: 12,
-    marginTop: 16,
-  },
-  readOnlyText: { fontSize: 12, color: "#6EA4BF", textAlign: "center", },
-
-  sectionHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  sectionTitle: { fontSize: 15, fontWeight: "700", color: "#331E36", },
-  addMemberButton: {
-    backgroundColor: "#41337A",
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  addMemberText: { fontSize: 12, fontWeight: "700", color: "#fff", },
-
-  errorBox: {
-    backgroundColor: "#fee2e2",
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-  },
-  errorBoxText: { color: "#b91c1c", fontSize: 13, },
-
-  loadingMembers: { paddingVertical: 28, alignItems: "center" },
-
-  emptyMembers: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+  centerInline: {
     alignItems: "center",
     paddingVertical: 28,
-    paddingHorizontal: 24,
+    gap: 8,
   },
-  emptyMembersIcon: { fontSize: 36, marginBottom: 10, },
-  emptyMembersTitle: {
-    fontSize: 15,
+  centerText: { fontSize: 12.5, color: COLORS.textSecondary },
+  notFoundTitle: {
+    fontSize: 15.5,
     fontWeight: "700",
-    color: "#331E36",
-    marginBottom: 6,
-
+    color: COLORS.textPrimary,
   },
-  emptyMembersText: {
+
+  headerBlock: {
+    marginBottom: 12,
+  },
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
+  },
+
+  summaryCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    gap: 6,
+    marginBottom: 14,
+  },
+  summaryTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  kodePill: {
+    backgroundColor: COLORS.primarySoft,
+    borderWidth: 1,
+    borderColor: COLORS.primaryBorder,
+    borderRadius: RADIUS.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  kodePillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  summaryCountText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  classNameInCard: {
+    fontSize: 15.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  createdMetaText: {
+    fontSize: 11.5,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 6,
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 7,
+  },
+  metaText: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    flex: 1,
+    minWidth: 0,
+  },
+  classActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    marginTop: 2,
+  },
+  smallActionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  smallActionText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  smallActionDanger: {
+    borderColor: COLORS.dangerBorder,
+    backgroundColor: COLORS.dangerBg,
+  },
+  smallActionDangerText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.dangerText,
+  },
+
+  segmentedTrack: {
+    flexDirection: "row",
+    backgroundColor: COLORS.segmentedTrack,
+    borderRadius: RADIUS.md,
+    padding: 4,
+    marginBottom: 14,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: RADIUS.sm + 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  segmentBtnActive: {
+    backgroundColor: COLORS.background,
+  },
+  segmentText: {
     fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 19,
-
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  segmentTextActive: {
+    color: COLORS.primary,
+    fontWeight: "700",
   },
 
+  primaryBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 13,
+    paddingHorizontal: 18,
+  },
+  createSessionBtn: {
+    marginBottom: 14,
+  },
+  primaryBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  primaryBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  sessionCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginBottom: 10,
+  },
+  sessionCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  sessionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  sessionIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sessionOverline: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  sessionDateSub: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  statusPill: {
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 10,
+  },
+  sessionTopic: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  sessionTimeMeta: {
+    fontSize: 12,
+    fontWeight: "400",
+    color: COLORS.textSecondary,
+  },
+  sessionFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 12,
+  },
+  sessionFooterLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  sessionFooterValue: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginTop: 1,
+  },
+  detailCtaBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailCtaBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
+
+  memberListCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    paddingHorizontal: 14,
+  },
   memberRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 8,
-    shadowColor: "#331E36",
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    paddingVertical: 11,
+    gap: 10,
   },
-  memberIndex: {
-    width: 32,
-    height: 32,
-    borderRadius: 99,
-    backgroundColor: "#C2EFEB",
+  memberDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+  },
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
   },
-  memberIndexText: { fontSize: 13, fontWeight: "700", color: "#41337A", },
-  memberInfo: { flex: 1, marginRight: 10 },
-  memberName: { fontSize: 14, fontWeight: "600", color: "#331E36", },
-  memberMeta: { fontSize: 12, color: "#6EA4BF", marginTop: 2, },
-  removeText: { fontSize: 12, fontWeight: "700", color: "#dc2626", },
+  avatarText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
+  memberInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  memberName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+  },
+  memberNim: {
+    fontSize: 11.5,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  removeMemberBtn: {
+    padding: 7,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.dangerBg,
+  },
+
+  emptyCard: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.lg,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  emptySub: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  errorBox: {
+    backgroundColor: COLORS.dangerBg,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 11,
+    marginBottom: 10,
+  },
+  errorBoxText: {
+    fontSize: 12,
+    color: COLORS.dangerDark,
+  },
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.5)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "center",
-    padding: 20,
+    padding: 22,
   },
   modalCard: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
     padding: 20,
-    shadowColor: "#331E36",
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  modalIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 99,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  modalIconDanger: { backgroundColor: "#fee2e2" },
-  modalIconDangerText: {
-    fontSize: 24,
-    color: "#b91c1c",
-    fontWeight: "800",
-
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#331E36",
-    textAlign: "center",
-    marginBottom: 6,
-
+    fontSize: 17,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
-  modalDescription: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 19,
-    marginBottom: 8,
-
+  modalSubtitle: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+    marginTop: 5,
+    marginBottom: 14,
   },
-  inputLabel: {
-    fontSize: 14,
+  fieldLabel: {
+    fontSize: 12.5,
     fontWeight: "600",
-    color: "#331E36",
-    marginTop: 10,
+    color: COLORS.textPrimary,
     marginBottom: 6,
-
   },
   requiredMark: {
-    color: "#dc2626",
+    color: COLORS.dangerText,
     fontWeight: "700",
-
   },
   input: {
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#331E36",
-    backgroundColor: "#fff",
-
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 13.5,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
   },
-  modalActions: { flexDirection: "row", gap: 10, marginTop: 18 },
-  modalCancelButton: {
+  inputError: {
+    borderColor: COLORS.dangerText,
+  },
+  modalActions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  cancelBtn: {
     flex: 1,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    paddingVertical: 14,
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
   },
-  modalCancelText: { fontSize: 14, fontWeight: "700", color: "#331E36", },
-  modalPrimaryButton: {
-    flex: 1.4,
-    borderRadius: 12,
-    paddingVertical: 14,
+  cancelBtnText: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  confirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#41337A",
   },
-  modalPrimaryText: { fontSize: 14, fontWeight: "700", color: "#fff", },
-  modalDangerButton: {
-    flex: 1.4,
-    borderRadius: 12,
-    paddingVertical: 14,
+  dangerConfirmBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.dangerText,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#dc2626",
   },
-  modalDangerText: { fontSize: 14, fontWeight: "700", color: "#fff", },
+  confirmBtnText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
 });

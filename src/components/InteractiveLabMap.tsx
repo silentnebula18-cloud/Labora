@@ -1,5 +1,4 @@
-import React, { useEffect, useRef } from "react";
-import Constants from "expo-constants";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Platform,
@@ -7,203 +6,636 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  UIManager,
   View,
 } from "react-native";
-import MapView, { Circle, Marker } from "react-native-maps";
+import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
-import AppIcon from "./AppIcon";
-import { calculateHaversineDistanceMeters, type Coordinates } from "../services/locationService";
+import { COLORS, RADIUS } from "../constants/theme";
+import {
+  calculateHaversineDistanceMeters,
+  type Coordinates,
+} from "../services/locationService";
+import { fetchWalkingRoute, type RouteResult } from "../services/routeService";
 import type { Laboratory } from "../types";
+import AppIcon from "./AppIcon";
+
+const SafeWebView = WebView as unknown as React.ComponentType<any>;
 
 interface InteractiveLabMapProps {
   laboratories: Laboratory[];
   selectedLab: Laboratory | null;
   onSelectLab: (lab: Laboratory) => void;
+  onMapPress?: () => void;
   userCoords: Coordinates | null;
   onRefreshLocation: () => void;
   refreshingLocation?: boolean;
+}
+
+function buildLeafletHtml(
+  labs: Laboratory[],
+  selectedId: string | null,
+  userCoords: Coordinates | null,
+): string {
+  const defaultLat =
+    selectedId && labs.find((l) => l.id === selectedId)
+      ? labs.find((l) => l.id === selectedId)!.latitude
+      : userCoords
+        ? userCoords.latitude
+        : labs[0]?.latitude ?? -7.0512;
+  const defaultLng =
+    selectedId && labs.find((l) => l.id === selectedId)
+      ? labs.find((l) => l.id === selectedId)!.longitude
+      : userCoords
+        ? userCoords.longitude
+        : labs[0]?.longitude ?? 110.4401;
+
+  const serializedLabs = JSON.stringify(
+    labs.map((l) => ({
+      id: l.id,
+      nama: l.nama,
+      alamat: l.alamat,
+      latitude: l.latitude,
+      longitude: l.longitude,
+      radius: l.radius,
+    })),
+  );
+  const serializedUser = JSON.stringify(userCoords);
+  const serializedSelected = JSON.stringify(selectedId);
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';"
+  />
+  <style>
+    html, body, #map {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #E8EEF2;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .lab-pin {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #FFFFFF;
+      color: #111827;
+      border: 1.5px solid #0E6F5C;
+      border-radius: 999px;
+      padding: 5px 11px;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+      box-shadow: 0 3px 10px rgba(15, 23, 42, 0.16);
+      transform: translate(-50%, -50%);
+    }
+    .lab-pin.active {
+      background: #0E6F5C;
+      color: #FFFFFF;
+      border-color: #0E6F5C;
+    }
+    .lab-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #0E6F5C;
+    }
+    .lab-pin.active .lab-dot {
+      background: #FFFFFF;
+    }
+    .user-dot {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #2563EB;
+      border: 3px solid #FFFFFF;
+      box-shadow: 0 0 0 7px rgba(37, 99, 235, 0.24);
+    }
+    .leaflet-container {
+      background: #E8EEF2;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    function loadLeafletScript(url, fallbackUrl, onReady) {
+      var script = document.createElement('script');
+      script.src = url;
+      script.onload = onReady;
+      script.onerror = function() {
+        if (fallbackUrl) {
+          loadLeafletScript(fallbackUrl, null, onReady);
+        }
+      };
+      document.body.appendChild(script);
+    }
+
+    function initMap() {
+      if (typeof L === 'undefined') return;
+
+      var map = L.map('map', {
+        zoomControl: false,
+        attributionControl: false
+      }).setView([${defaultLat}, ${defaultLng}], 17);
+
+      // Provider waterfall 100% tanpa API Key & tanpa watermark:
+      // OpenStreetMap Standard -> Esri World Street Map -> OSM DE Mirror
+      // (CARTO dihapus karena kini mewajibkan API key dan menampilkan watermark "API KEY REQUIRED")
+      var TILE_PROVIDERS = [
+        {
+          url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          options: {
+            maxZoom: 19,
+            referrerPolicy: 'strict-origin-when-cross-origin'
+          }
+        },
+        {
+          url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+          options: { maxZoom: 19 }
+        },
+        {
+          url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+          options: { maxZoom: 18 }
+        }
+      ];
+
+      var tileIdx = 0;
+      var activeTileLayer = null;
+      var tileErrorCount = 0;
+
+      function mountTileProvider(idx) {
+        if (idx >= TILE_PROVIDERS.length) return;
+        if (activeTileLayer) {
+          map.removeLayer(activeTileLayer);
+          activeTileLayer = null;
+        }
+        tileErrorCount = 0;
+        var cfg = TILE_PROVIDERS[idx];
+        var layer = L.tileLayer(cfg.url, cfg.options).addTo(map);
+        layer.on('tileerror', function() {
+          tileErrorCount += 1;
+          if (tileErrorCount >= 3 && tileIdx === idx && idx + 1 < TILE_PROVIDERS.length) {
+            tileIdx = idx + 1;
+            mountTileProvider(tileIdx);
+          }
+        });
+        activeTileLayer = layer;
+      }
+
+      mountTileProvider(0);
+
+      var labLayers = [];
+      var userLayer = null;
+      var lastUserPos = null;
+      var userAnimFrame = null;
+      var routeLayer = null;
+
+      function escapeHtml(str) {
+        return String(str || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function animateUserMarker(fromPos, toPos) {
+        if (!userLayer) return;
+        if (userAnimFrame) {
+          cancelAnimationFrame(userAnimFrame);
+          userAnimFrame = null;
+        }
+        var startTime = performance.now();
+        var duration = 650;
+
+        function step(now) {
+          var t = Math.min(1, (now - startTime) / duration);
+          var eased = 1 - Math.pow(1 - t, 3);
+          var lat = fromPos.latitude + (toPos.latitude - fromPos.latitude) * eased;
+          var lng = fromPos.longitude + (toPos.longitude - fromPos.longitude) * eased;
+          userLayer.setLatLng([lat, lng]);
+          if (t < 1) {
+            userAnimFrame = requestAnimationFrame(step);
+          } else {
+            userAnimFrame = null;
+          }
+        }
+
+        userAnimFrame = requestAnimationFrame(step);
+      }
+
+      window.renderMapState = function(labs, selectedId, userPos) {
+        labLayers.forEach(function(layer) { map.removeLayer(layer); });
+        labLayers = [];
+
+        (labs || []).forEach(function(lab) {
+          var isSel = lab.id === selectedId;
+          var circle = L.circle([lab.latitude, lab.longitude], {
+            radius: lab.radius || 50,
+            color: '#0E6F5C',
+            weight: isSel ? 2 : 1.2,
+            fillColor: '#0E6F5C',
+            fillOpacity: isSel ? 0.18 : 0.08
+          }).addTo(map);
+
+          var icon = L.divIcon({
+            className: '',
+            html: '<div class="lab-pin ' + (isSel ? 'active' : '') + '"><span class="lab-dot"></span><span>' + escapeHtml(lab.nama) + '</span></div>',
+            iconSize: [0, 0]
+          });
+
+          var marker = L.marker([lab.latitude, lab.longitude], { icon: icon }).addTo(map);
+          marker.on('click', function(e) {
+            L.DomEvent.stopPropagation(e);
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'SELECT_LAB', id: lab.id }));
+            }
+          });
+
+          labLayers.push(circle, marker);
+        });
+
+        if (userPos && typeof userPos.latitude === 'number' && typeof userPos.longitude === 'number') {
+          if (!userLayer) {
+            var uIcon = L.divIcon({
+              className: '',
+              html: '<div class="user-dot"></div>',
+              iconSize: [16, 16],
+              iconAnchor: [8, 8]
+            });
+            userLayer = L.marker([userPos.latitude, userPos.longitude], { icon: uIcon, zIndexOffset: 500 }).addTo(map);
+          } else if (lastUserPos) {
+            animateUserMarker(lastUserPos, userPos);
+          } else {
+            userLayer.setLatLng([userPos.latitude, userPos.longitude]);
+          }
+          lastUserPos = { latitude: userPos.latitude, longitude: userPos.longitude };
+        } else if (userLayer) {
+          map.removeLayer(userLayer);
+          userLayer = null;
+          lastUserPos = null;
+        }
+      };
+
+      window.renderRoute = function(coords, isFallback) {
+        if (routeLayer) {
+          map.removeLayer(routeLayer);
+          routeLayer = null;
+        }
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        var latLngs = coords.map(function(c) { return [c.latitude, c.longitude]; });
+        routeLayer = L.polyline(latLngs, {
+          color: '#0E6F5C',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: isFallback ? '7 7' : undefined,
+          lineCap: 'round',
+          lineJoin: 'round'
+        }).addTo(map);
+      };
+
+      window.fitRouteBounds = function(coords) {
+        if (!Array.isArray(coords) || coords.length < 2) return;
+        var latLngs = coords.map(function(c) { return [c.latitude, c.longitude]; });
+        var bounds = L.latLngBounds(latLngs);
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [46, 46], maxZoom: 18, animate: true });
+        }
+      };
+
+      window.flyToCoord = function(lat, lng, zoom) {
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          map.flyTo([lat, lng], zoom || 17, { duration: 0.45 });
+        }
+      };
+
+      window.resizeMap = function() {
+        map.invalidateSize({ animate: false });
+      };
+
+      map.on('click', function() {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_CLICK' }));
+        }
+      });
+
+      window.renderMapState(${serializedLabs}, ${serializedSelected}, ${serializedUser});
+
+      // Fix Android WebView layout measurement lag
+      setTimeout(function() { map.invalidateSize(false); }, 120);
+      setTimeout(function() { map.invalidateSize(false); }, 400);
+      window.addEventListener('resize', function() { map.invalidateSize(false); });
+
+      if (window.ReactNativeWebView) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+      }
+    }
+
+    loadLeafletScript(
+      'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+      'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+      initMap
+    );
+  </script>
+</body>
+</html>`;
 }
 
 export default function InteractiveLabMap({
   laboratories,
   selectedLab,
   onSelectLab,
+  onMapPress,
   userCoords,
   onRefreshLocation,
   refreshingLocation = false,
 }: InteractiveLabMapProps) {
-  const mapRef = useRef<any>(null);
+  const webViewRef = useRef<any>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [routeResult, setRouteResult] = useState<RouteResult | null>(null);
 
-  // Default coordinate (Surabaya / ITS / UNESA area jika belum ada data)
-  const defaultCenter = {
-    latitude: -7.2575,
-    longitude: 112.7521,
-    latitudeDelta: 0.015,
-    longitudeDelta: 0.015,
-  };
-
-  const initialRegion = selectedLab
-    ? {
-        latitude: selectedLab.latitude,
-        longitude: selectedLab.longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      }
-    : userCoords
-      ? {
-          latitude: userCoords.latitude,
-          longitude: userCoords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        }
-      : laboratories.length > 0 && Number.isFinite(laboratories[0].latitude)
-        ? {
-            latitude: laboratories[0].latitude,
-            longitude: laboratories[0].longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }
-        : defaultCenter;
-
-  useEffect(() => {
-    if (selectedLab && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: selectedLab.latitude,
-          longitude: selectedLab.longitude,
-          latitudeDelta: 0.006,
-          longitudeDelta: 0.006,
-        },
-        500,
-      );
+  const hasNativeWebView = useMemo(() => {
+    if (Platform.OS === "web") return false;
+    try {
+      return Boolean(UIManager.getViewManagerConfig?.("RNCWebView"));
+    } catch {
+      return false;
     }
-  }, [selectedLab]);
+  }, []);
+
+  // Gunakan useState lazy initializer agar React Compiler tidak pernah me-regenerate
+  // source HTML WebView saat userCoords / selectedLab / laboratories berubah.
+  const [webViewSource] = useState(() => ({
+    html: buildLeafletHtml(laboratories, selectedLab?.id ?? null, userCoords),
+    baseUrl: "https://labora.app/",
+  }));
+
+  const userLat = userCoords?.latitude ?? null;
+  const userLng = userCoords?.longitude ?? null;
+  const selectedLabId = selectedLab?.id ?? null;
+  const selectedLabLat = selectedLab?.latitude ?? null;
+  const selectedLabLng = selectedLab?.longitude ?? null;
+
+  // Ambil rute jalan kaki gratis (OSRM + fallback garis langsung) saat posisi user & lab terpilih tersedia
+  useEffect(() => {
+    if (
+      userLat === null ||
+      userLng === null ||
+      selectedLabId === null ||
+      selectedLabLat === null ||
+      selectedLabLng === null
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    void fetchWalkingRoute(
+      { latitude: userLat, longitude: userLng },
+      { latitude: selectedLabLat, longitude: selectedLabLng },
+    ).then((res) => {
+      if (!cancelled) {
+        setRouteResult(res);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userLat, userLng, selectedLabId, selectedLabLat, selectedLabLng]);
+
+  const activeRoute = useMemo(() => {
+    if (userLat === null || userLng === null || selectedLabId === null) {
+      return null;
+    }
+    return routeResult;
+  }, [userLat, userLng, selectedLabId, routeResult]);
+
+  const syncMapState = useCallback(() => {
+    if (!hasNativeWebView || !webViewRef.current) return;
+    const payloadLabs = JSON.stringify(
+      laboratories.map((l) => ({
+        id: l.id,
+        nama: l.nama,
+        alamat: l.alamat,
+        latitude: l.latitude,
+        longitude: l.longitude,
+        radius: l.radius,
+      })),
+    );
+    const payloadSelected = JSON.stringify(selectedLab?.id ?? null);
+    const payloadUser = JSON.stringify(userCoords);
+
+    webViewRef.current.injectJavaScript(
+      `if (window.renderMapState) { window.renderMapState(${payloadLabs}, ${payloadSelected}, ${payloadUser}); } true;`,
+    );
+  }, [hasNativeWebView, laboratories, selectedLab?.id, userCoords]);
+
+  const syncRouteState = useCallback(() => {
+    if (!hasNativeWebView || !webViewRef.current) return;
+    const coords = activeRoute?.coordinates ?? [];
+    const isFallback = activeRoute?.isFallback ?? true;
+    webViewRef.current.injectJavaScript(
+      `if (window.renderRoute) { window.renderRoute(${JSON.stringify(coords)}, ${JSON.stringify(isFallback)}); } true;`,
+    );
+  }, [hasNativeWebView, activeRoute]);
+
+  // Sinkronkan marker, lingkaran radius, dan titik GPS ke Leaflet tanpa me-reload halaman
+  useEffect(() => {
+    if (!mapReady) return;
+    syncMapState();
+  }, [mapReady, syncMapState]);
+
+  // Sinkronkan garis rute Polyline ke Leaflet
+  useEffect(() => {
+    if (!mapReady) return;
+    syncRouteState();
+  }, [mapReady, syncRouteState]);
+
+  // Geser kamera hanya ketika ID laboratorium yang dipilih berubah
+  useEffect(() => {
+    if (
+      !mapReady ||
+      !hasNativeWebView ||
+      !webViewRef.current ||
+      selectedLabId === null ||
+      selectedLabLat === null ||
+      selectedLabLng === null
+    ) {
+      return;
+    }
+    webViewRef.current.injectJavaScript(
+      `if (window.flyToCoord) { window.flyToCoord(${selectedLabLat}, ${selectedLabLng}, 17); } true;`,
+    );
+  }, [mapReady, hasNativeWebView, selectedLabId, selectedLabLat, selectedLabLng]);
 
   function centerOnUser() {
-    if (userCoords && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: userCoords.latitude,
-          longitude: userCoords.longitude,
-          latitudeDelta: 0.006,
-          longitudeDelta: 0.006,
-        },
-        500,
+    if (userCoords && hasNativeWebView && webViewRef.current) {
+      webViewRef.current.injectJavaScript(
+        `if (window.flyToCoord) { window.flyToCoord(${userCoords.latitude}, ${userCoords.longitude}, 17); } true;`,
       );
-    } else {
-      onRefreshLocation();
+    }
+    onRefreshLocation();
+  }
+
+  function focusRoute() {
+    if (!hasNativeWebView || !webViewRef.current) return;
+    const coords =
+      activeRoute?.coordinates && activeRoute.coordinates.length >= 2
+        ? activeRoute.coordinates
+        : userCoords && selectedLab
+          ? [
+              userCoords,
+              {
+                latitude: selectedLab.latitude,
+                longitude: selectedLab.longitude,
+              },
+            ]
+          : [];
+    if (coords.length >= 2) {
+      webViewRef.current.injectJavaScript(
+        `if (window.fitRouteBounds) { window.fitRouteBounds(${JSON.stringify(coords)}); } true;`,
+      );
     }
   }
 
-  // ─── Cek Dukungan Native Map & API Key ─────────────────────────────────────────
-  // Pada Android, react-native-maps membutuhkan Google Maps API Key.
-  // Jika belum dikonfigurasi, kita otomatis beralih ke Mode Radar Spatial agar
-  // aplikasi TIDAK CRASH dan pengguna TIDAK PERLU upgrade ke Google Cloud berbayar.
-  const hasAndroidGoogleMapsKey = Boolean(
-    Constants.expoConfig?.android?.config?.googleMaps?.apiKey ||
-    (Constants as any).manifest2?.extra?.expoClient?.android?.config?.googleMaps?.apiKey ||
-    (Constants as any).manifest?.android?.config?.googleMaps?.apiKey
-  );
+  function handleWebViewMessage(event: WebViewMessageEvent) {
+    try {
+      const parsed = JSON.parse(event.nativeEvent.data) as {
+        type?: string;
+        id?: string;
+      };
+      if (parsed.type === "MAP_READY") {
+        setMapReady(true);
+      } else if (parsed.type === "SELECT_LAB" && parsed.id) {
+        const target = laboratories.find((l) => l.id === parsed.id);
+        if (target) onSelectLab(target);
+      } else if (parsed.type === "MAP_CLICK") {
+        onMapPress?.();
+      }
+    } catch {
+      // Abaikan pesan non-JSON
+    }
+  }
 
-  const canMountNativeMap =
-    Platform.OS === "ios" || (Platform.OS === "android" && hasAndroidGoogleMapsKey);
-
-  if (!canMountNativeMap) {
+  // Fallback bersih pada Web atau apabila APK lama belum di-rebuild dengan react-native-webview
+  if (!hasNativeWebView) {
     return (
-      <View style={styles.webContainer}>
-        <View style={styles.webNoticeBox}>
-          <AppIcon name="location" size={20} color="#41337A" />
+      <View style={styles.fallbackContainer}>
+        <View style={styles.fallbackNotice}>
+          <AppIcon name="location" size={20} color={COLORS.primary} />
           <View style={{ flex: 1 }}>
-            <Text style={styles.webNoticeTitle}>
-              Radar Lokasi Laboratorium (Bebas Biaya)
-            </Text>
-            <Text style={styles.webNoticeDesc}>
-              {Platform.OS === "android"
-                ? "Berjalan dalam mode mandiri tanpa perlu Google Maps API Key atau upgrade akun berbayar. Kalkulasi jarak GPS, radius presensi, dan aktivitas lab berfungsi 100%."
-                : "Mode peta interaktif berjalan dalam tampilan spatial list pada web."}
+            <Text style={styles.fallbackTitle}>Daftar lokasi laboratorium</Text>
+            <Text style={styles.fallbackDesc}>
+              {Platform.OS === "web"
+                ? "Tampilan peta berjalan dalam mode daftar spasial pada browser web."
+                : "Bangun ulang development APK 1x untuk menampilkan peta jalan interaktif."}
             </Text>
           </View>
         </View>
 
         {userCoords && (
-          <View style={styles.webUserLocationCard}>
+          <View style={styles.userPosCard}>
             <View style={styles.userPulseDot} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.webUserLabel}>Posisi Anda Saat Ini</Text>
-              <Text style={styles.webUserCoords}>
-                {userCoords.latitude.toFixed(6)}, {userCoords.longitude.toFixed(6)}
-              </Text>
+              <Text style={styles.userPosLabel}>Lokasi perangkat aktif</Text>
             </View>
             <Pressable
-              style={styles.webRefreshBtn}
+              style={styles.refreshBtn}
               onPress={onRefreshLocation}
               disabled={refreshingLocation}
             >
               {refreshingLocation ? (
-                <ActivityIndicator size="small" color="#41337A" />
+                <ActivityIndicator size="small" color={COLORS.primary} />
               ) : (
-                <Text style={styles.webRefreshBtnText}>Perbarui</Text>
+                <Text style={styles.refreshBtnText}>Perbarui</Text>
               )}
             </Pressable>
           </View>
         )}
 
         <ScrollView
-          style={styles.webList}
-          contentContainerStyle={styles.webListContent}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.fallbackList}
+          showsVerticalScrollIndicator={false}
         >
           {laboratories.map((lab) => {
             const isSelected = selectedLab?.id === lab.id;
-            let dist: number | null = null;
-            if (userCoords) {
-              dist = calculateHaversineDistanceMeters(
-                userCoords.latitude,
-                userCoords.longitude,
-                lab.latitude,
-                lab.longitude,
-              );
-            }
+            const dist = userCoords
+              ? calculateHaversineDistanceMeters(
+                  userCoords.latitude,
+                  userCoords.longitude,
+                  lab.latitude,
+                  lab.longitude,
+                )
+              : null;
 
             return (
               <Pressable
                 key={lab.id}
                 style={[
-                  styles.webLabItem,
-                  isSelected && styles.webLabItemSelected,
+                  styles.fallbackCard,
+                  isSelected && styles.fallbackCardSelected,
                 ]}
                 onPress={() => onSelectLab(lab)}
               >
-                <View style={styles.webLabHeader}>
-                  <Text style={styles.webLabName}>{lab.nama}</Text>
-                  {dist !== null && (
-                    <View
+                <View style={styles.fallbackCardTop}>
+                  <Text
+                    style={styles.fallbackLabName}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {lab.nama}
+                  </Text>
+                  <View
+                    style={[
+                      styles.distPill,
+                      {
+                        backgroundColor:
+                          dist === null
+                            ? COLORS.neutralBadgeBg
+                            : dist <= lab.radius
+                              ? COLORS.successBg
+                              : COLORS.warningBg,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.webDistBadge,
-                        dist <= lab.radius
-                          ? styles.webDistInside
-                          : styles.webDistOutside,
+                        styles.distPillText,
+                        {
+                          color:
+                            dist === null
+                              ? COLORS.neutralBadgeText
+                              : dist <= lab.radius
+                                ? COLORS.successText
+                                : COLORS.warningText,
+                        },
                       ]}
                     >
-                      <Text
-                        style={[
-                          styles.webDistText,
-                          { color: dist <= lab.radius ? "#15803d" : "#b45309" },
-                        ]}
-                      >
-                        {dist} m • {dist <= lab.radius ? "Dalam Radius" : "Di Luar"}
-                      </Text>
-                    </View>
-                  )}
+                      {dist === null
+                        ? "Lokasi belum terdeteksi"
+                        : dist <= lab.radius
+                          ? "Berada dalam radius"
+                          : "Di luar radius"}
+                    </Text>
+                  </View>
                 </View>
-                <Text style={styles.webLabAlamat}>{lab.alamat}</Text>
-                <View style={styles.webLabFooter}>
-                  <Text style={styles.webLabRadius}>
-                    Radius Presensi: {lab.radius} m
-                  </Text>
-                  <Text style={styles.webLabCoords}>
-                    {lab.latitude.toFixed(4)}, {lab.longitude.toFixed(4)}
-                  </Text>
-                </View>
+                <Text
+                  style={styles.fallbackAlamat}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {lab.alamat}
+                </Text>
               </Pressable>
             );
           })}
@@ -212,108 +644,34 @@ export default function InteractiveLabMap({
     );
   }
 
-  // ─── Tampilan Map Native (Android / iOS) ──────────────────────────────────────
   return (
-    <View style={styles.container}>
-      <MapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        initialRegion={initialRegion}
-        showsUserLocation={false}
-        showsCompass={true}
-        showsMyLocationButton={false}
-      >
-        {/* Lingkaran Visualisasi Radius Presensi Tiap Lab (SRS-015 & SRS-016) */}
-        {laboratories.map((lab) => {
-          const isSelected = selectedLab?.id === lab.id;
-          return (
-            <Circle
-              key={`circle-${lab.id}`}
-              center={{ latitude: lab.latitude, longitude: lab.longitude }}
-              radius={lab.radius}
-              fillColor={
-                isSelected
-                  ? "rgba(65, 51, 122, 0.22)"
-                  : "rgba(65, 51, 122, 0.10)"
-              }
-              strokeColor={isSelected ? "#41337A" : "rgba(65, 51, 122, 0.45)"}
-              strokeWidth={isSelected ? 2 : 1}
-            />
+    <View
+      style={styles.container}
+      onLayout={() => {
+        if (mapReady && webViewRef.current) {
+          webViewRef.current.injectJavaScript(
+            "if (window.resizeMap) { window.resizeMap(); } true;",
           );
-        })}
+        }
+      }}
+    >
+      <SafeWebView
+        ref={webViewRef}
+        originWhitelist={["*"]}
+        source={webViewSource}
+        style={styles.webview}
+        onMessage={handleWebViewMessage}
+        javaScriptEnabled
+        domStorageEnabled
+        mixedContentMode="always"
+        allowFileAccess
+        cacheEnabled
+        applicationNameForUserAgent="LaboraApp/1.0"
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+      />
 
-        {/* Marker Laboratorium */}
-        {laboratories.map((lab) => {
-          const isSelected = selectedLab?.id === lab.id;
-          return (
-            <Marker
-              key={`marker-${lab.id}`}
-              coordinate={{
-                latitude: lab.latitude,
-                longitude: lab.longitude,
-              }}
-              title={lab.nama}
-              description={`${lab.alamat} (Radius ${lab.radius}m)`}
-              onPress={() => onSelectLab(lab)}
-            >
-              <View
-                style={[
-                  styles.markerContainer,
-                  isSelected && styles.markerContainerSelected,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.markerIconBox,
-                    isSelected && styles.markerIconBoxSelected,
-                  ]}
-                >
-                  <AppIcon
-                    name="location"
-                    size={16}
-                    color={isSelected ? "#ffffff" : "#41337A"}
-                  />
-                </View>
-                <View
-                  style={[
-                    styles.markerCalloutPill,
-                    isSelected && styles.markerCalloutPillSelected,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.markerTitle,
-                      isSelected && styles.markerTitleSelected,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {lab.nama}
-                  </Text>
-                </View>
-              </View>
-            </Marker>
-          );
-        })}
-
-        {/* Marker Posisi Pengguna (SRS-016) */}
-        {userCoords && (
-          <Marker
-            coordinate={{
-              latitude: userCoords.latitude,
-              longitude: userCoords.longitude,
-            }}
-            title="Lokasi Anda"
-            description="Posisi perangkat saat ini"
-            anchor={{ x: 0.5, y: 0.5 }}
-          >
-            <View style={styles.userMarkerPulseOuter}>
-              <View style={styles.userMarkerPulseInner} />
-            </View>
-          </Marker>
-        )}
-      </MapView>
-
-      {/* Kontrol Floating Tombol Peta */}
+      {/* Tombol Mengambang: Pusatkan Lokasi & Fokus Rute */}
       <View style={styles.mapControls}>
         <Pressable
           style={({ pressed }) => [
@@ -324,31 +682,22 @@ export default function InteractiveLabMap({
           accessibilityLabel="Pusatkan ke lokasi saya"
         >
           {refreshingLocation ? (
-            <ActivityIndicator size="small" color="#41337A" />
+            <ActivityIndicator size="small" color={COLORS.primary} />
           ) : (
-            <AppIcon name="location" size={20} color="#41337A" />
+            <AppIcon name="location" size={19} color={COLORS.primary} />
           )}
         </Pressable>
 
-        {selectedLab && (
+        {userCoords && selectedLab && (
           <Pressable
             style={({ pressed }) => [
               styles.controlBtn,
               pressed && styles.controlBtnPressed,
             ]}
-            onPress={() => {
-              if (selectedLab && mapRef.current) {
-                mapRef.current.animateToRegion({
-                  latitude: selectedLab.latitude,
-                  longitude: selectedLab.longitude,
-                  latitudeDelta: 0.005,
-                  longitudeDelta: 0.005,
-                });
-              }
-            }}
-            accessibilityLabel="Pusatkan ke laboratorium terpilih"
+            onPress={focusRoute}
+            accessibilityLabel="Tampilkan rute ke laboratorium"
           >
-            <AppIcon name="search" size={18} color="#41337A" />
+            <AppIcon name="route" size={18} color={COLORS.primary} />
           </Pressable>
         )}
       </View>
@@ -359,234 +708,133 @@ export default function InteractiveLabMap({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#C2EFEB",
+    backgroundColor: "#E8EEF2",
   },
-  markerContainer: {
-    alignItems: "center",
-  },
-  markerContainerSelected: {
-    transform: [{ scale: 1.12 }],
-  },
-  markerIconBox: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    borderWidth: 2,
-    borderColor: "#41337A",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
-  },
-  markerIconBoxSelected: {
-    backgroundColor: "#41337A",
-    borderColor: "#ffffff",
-  },
-  markerCalloutPill: {
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 2,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    maxWidth: 120,
-  },
-  markerCalloutPillSelected: {
-    backgroundColor: "#41337A",
-    borderColor: "#41337A",
-  },
-  markerTitle: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-  markerTitleSelected: {
-    color: "#ffffff",
-  },
-  userMarkerPulseOuter: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "rgba(65, 51, 122, 0.25)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  userMarkerPulseInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: "#41337A",
-    borderWidth: 2,
-    borderColor: "#ffffff",
+  webview: {
+    flex: 1,
+    backgroundColor: "#E8EEF2",
   },
   mapControls: {
     position: "absolute",
-    right: 16,
-    top: 16,
+    top: 14,
+    right: 14,
     gap: 10,
   },
   controlBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#ffffff",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 5,
   },
   controlBtnPressed: {
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.primarySoft,
   },
 
-  // Web Styles
-  webContainer: {
+  fallbackContainer: {
     flex: 1,
-    backgroundColor: "#ECFEE8",
-    padding: 16,
+    backgroundColor: COLORS.background,
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
-  webNoticeBox: {
+  fallbackNotice: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#C2EFEB",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    gap: 10,
-    marginBottom: 14,
+    gap: 12,
+    backgroundColor: COLORS.primarySoft,
+    borderRadius: RADIUS.lg,
+    padding: 14,
+    marginBottom: 12,
   },
-  webNoticeTitle: {
-    fontSize: 13,
+  fallbackTitle: {
+    fontSize: 13.5,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
-  webNoticeDesc: {
-    fontSize: 11.5,
-    color: "#41337A",
+  fallbackDesc: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
     marginTop: 2,
-    lineHeight: 16,
-
   },
-  webUserLocationCard: {
+  userPosCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
+    gap: 10,
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.md,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 14,
-    gap: 10,
+    borderColor: COLORS.border,
+    marginBottom: 10,
   },
   userPulseDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: "#41337A",
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
   },
-  webUserLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#6EA4BF",
-
-  },
-  webUserCoords: {
-    fontSize: 13,
+  userPosLabel: {
+    fontSize: 12,
     fontWeight: "600",
-    color: "#331E36",
-
+    color: COLORS.textPrimary,
   },
-  webRefreshBtn: {
+  refreshBtn: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: "#C2EFEB",
-    borderRadius: 8,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.background,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  webRefreshBtnText: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#41337A",
-
+  refreshBtnText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: COLORS.primary,
   },
-  webList: {
-    flex: 1,
-  },
-  webListContent: {
+  fallbackList: {
+    paddingBottom: 24,
     gap: 10,
   },
-  webLabItem: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
+  fallbackCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
+    gap: 3,
   },
-  webLabItemSelected: {
-    borderColor: "#41337A",
-    backgroundColor: "#ECFEE8",
+  fallbackCardSelected: {
+    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    backgroundColor: COLORS.primarySurface,
   },
-  webLabHeader: {
+  fallbackCardTop: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
-  },
-  webLabName: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-  webDistBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  webDistInside: {
-    backgroundColor: "#f0fdf4",
-  },
-  webDistOutside: {
-    backgroundColor: "#fffbeb",
-  },
-  webDistText: {
-    fontSize: 10,
-    fontWeight: "700",
-
-  },
-  webLabAlamat: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    marginBottom: 8,
-
-  },
-  webLabFooter: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: "#ECFEE8",
+    gap: 8,
   },
-  webLabRadius: {
+  fallbackLabName: {
+    flex: 1,
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+  },
+  distPill: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 2.5,
+  },
+  distPillText: {
     fontSize: 11,
-    fontWeight: "600",
-    color: "#41337A",
-
+    fontWeight: "700",
   },
-  webLabCoords: {
-    fontSize: 10.5,
-    color: "#6EA4BF",
-
+  fallbackAlamat: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
   },
 });

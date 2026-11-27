@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -12,8 +13,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AppIcon from "../../../components/AppIcon";
+import BottomNavBar from "../../../components/BottomNavBar";
+import { COLORS, RADIUS } from "../../../constants/theme";
 import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../context/SessionContext";
+import { normalizeConfidencePercentage } from "../../../services/aiService";
 import {
   describeFirestoreError,
   subscribeAssistantClasses,
@@ -33,62 +37,45 @@ import {
   formatWaktuLengkap,
 } from "../../../utils/format";
 
-// ─── Konfigurasi Status & Sentimen AI ────────────────────────────────────────
-
-const STATUS_PERMISSION_CONFIG: Record<
+const STATUS_PILL: Record<
   PermissionStatus,
-  {
-    label: string;
-    bg: string;
-    border: string;
-    text: string;
-    icon: "clock" | "check" | "alert";
-  }
+  { label: string; bg: string; text: string }
 > = {
   pending: {
-    label: "Menunggu Pemeriksaan",
-    bg: "#fef9c3",
-    border: "#fde047",
-    text: "#854d0e",
-    icon: "clock",
+    label: "Menunggu tinjauan",
+    bg: COLORS.neutralBadgeBg,
+    text: COLORS.neutralBadgeText,
   },
   approved: {
-    label: "Izin Disetujui",
-    bg: "#e6f4ea",
-    border: "#b7dfc2",
-    text: "#0f5132",
-    icon: "check",
+    label: "Izin disetujui",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
   },
   rejected: {
-    label: "Izin Ditolak",
-    bg: "#fef2f2",
-    border: "#fecaca",
-    text: "#991b1b",
-    icon: "alert",
+    label: "Izin ditolak",
+    bg: COLORS.dangerBg,
+    text: COLORS.dangerText,
   },
 };
 
-const AI_SENTIMENT_CONFIG: Record<
+const AI_SENTIMENT_PILL: Record<
   string,
-  { label: string; bg: string; text: string; border: string }
+  { label: string; bg: string; text: string }
 > = {
   positif: {
-    label: "Sentimen Positif",
-    bg: "#dcfce7",
-    text: "#166534",
-    border: "#86efac",
+    label: "AI · Sentimen: Positif",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
   },
   netral: {
-    label: "Sentimen Netral",
-    bg: "#ECFEE8",
-    text: "#331E36",
-    border: "#6EA4BF",
+    label: "AI · Sentimen: Netral",
+    bg: COLORS.primarySoft,
+    text: COLORS.primary,
   },
   negatif: {
-    label: "Sentimen Negatif",
-    bg: "#fee2e2",
-    text: "#991b1b",
-    border: "#fca5a5",
+    label: "AI · Sentimen: Negatif",
+    bg: COLORS.dangerBg,
+    text: COLORS.dangerText,
   },
 };
 
@@ -161,8 +148,7 @@ export default function IzinAsistenDetailScreen() {
 
     try {
       await decidePermissionRequest(record.id, user.id, confirmDecision);
-      const label =
-        confirmDecision === "approved" ? "disetujui" : "ditolak";
+      const label = confirmDecision === "approved" ? "disetujui" : "ditolak";
       setFeedbackBanner({
         type: "success",
         text: `Pengajuan izin ${record.nama} berhasil ${label}.`,
@@ -182,21 +168,10 @@ export default function IzinAsistenDetailScreen() {
   if (loading && permissionId) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            hitSlop={8}
-          >
-            <AppIcon name="chevron-left" size={18} color="#41337A" />
-            <Text style={styles.backText}>Kembali</Text>
-          </Pressable>
-          <Text style={styles.topBarTitle}>Detail Pengajuan Izin</Text>
-          <View style={{ width: 68 }} />
-        </View>
+        <StatusBar style="dark" />
         <View style={styles.centerBox}>
-          <ActivityIndicator color="#41337A" />
-          <Text style={styles.centerText}>Memuat detail pengajuan izin…</Text>
+          <ActivityIndicator color={COLORS.primary} />
+          <Text style={styles.centerText}>Memuat detail izin…</Text>
         </View>
       </SafeAreaView>
     );
@@ -205,37 +180,22 @@ export default function IzinAsistenDetailScreen() {
   if (!record) {
     return (
       <SafeAreaView style={styles.safe}>
-        <View style={styles.topBar}>
-          <Pressable
-            style={styles.backBtn}
-            onPress={() => router.back()}
-            hitSlop={8}
-          >
-            <AppIcon name="chevron-left" size={18} color="#41337A" />
-            <Text style={styles.backText}>Kembali</Text>
-          </Pressable>
-          <Text style={styles.topBarTitle}>Detail Pengajuan Izin</Text>
-          <View style={{ width: 68 }} />
-        </View>
+        <StatusBar style="dark" />
         <View style={styles.centerBox}>
           <Text style={styles.centerTitle}>
             {loadError || "Data pengajuan izin tidak ditemukan."}
           </Text>
-          <Pressable
-            style={styles.backFallbackBtn}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.backFallbackText}>Kembali ke Daftar</Text>
+          <Pressable style={styles.primaryBtn} onPress={() => router.back()}>
+            <Text style={styles.primaryBtnText}>Kembali</Text>
           </Pressable>
         </View>
       </SafeAreaView>
     );
   }
 
-  const statusCfg =
-    STATUS_PERMISSION_CONFIG[record.status] ?? STATUS_PERMISSION_CONFIG.pending;
+  const statusCfg = STATUS_PILL[record.status] ?? STATUS_PILL.pending;
   const aiCfg = record.aiCategory
-    ? AI_SENTIMENT_CONFIG[record.aiCategory]
+    ? AI_SENTIMENT_PILL[record.aiCategory]
     : null;
   const kodeKelas =
     classInfo?.kodeKelas || sessionInfo?.kelas.namaKelas || "—";
@@ -250,28 +210,29 @@ export default function IzinAsistenDetailScreen() {
     record.namaPraktikum ||
     sessionInfo?.practicum.namaPraktikum ||
     "Sesi Praktikum";
+  const confidencePct = normalizeConfidencePercentage(record.aiConfidence);
 
   return (
-    <SafeAreaView style={styles.safe}>
-      {/* Top Bar */}
-      <View style={styles.topBar}>
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar style="dark" />
+
+      {/* Header */}
+      <View style={styles.header}>
         <Pressable
-          style={styles.backBtn}
+          style={styles.backRow}
           onPress={() => router.back()}
-          hitSlop={8}
+          hitSlop={10}
         >
-          <AppIcon name="chevron-left" size={18} color="#41337A" />
-          <Text style={styles.backText}>Kembali</Text>
+          <AppIcon name="chevron-left" size={20} color={COLORS.textPrimary} />
+          <Text style={styles.headerTitle}>Tinjau Izin</Text>
         </Pressable>
-        <Text style={styles.topBarTitle}>Detail Pengajuan Izin</Text>
-        <View style={{ width: 68 }} />
       </View>
 
       <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Banner Umpan Balik */}
         {feedbackBanner && (
           <Pressable
             style={[
@@ -284,15 +245,21 @@ export default function IzinAsistenDetailScreen() {
           >
             <AppIcon
               name={feedbackBanner.type === "success" ? "check" : "alert"}
-              size={15}
-              color={feedbackBanner.type === "success" ? "#0f5132" : "#991b1b"}
+              size={16}
+              color={
+                feedbackBanner.type === "success"
+                  ? COLORS.successText
+                  : COLORS.dangerText
+              }
             />
             <Text
               style={[
-                styles.feedbackBannerText,
+                styles.feedbackText,
                 {
                   color:
-                    feedbackBanner.type === "success" ? "#0f5132" : "#991b1b",
+                    feedbackBanner.type === "success"
+                      ? COLORS.successText
+                      : COLORS.dangerDark,
                 },
               ]}
             >
@@ -301,198 +268,188 @@ export default function IzinAsistenDetailScreen() {
           </Pressable>
         )}
 
-        {/* Kartu Utama Detail Pengajuan */}
+        {/* Kartu Identitas Praktikan & Sesi */}
         <View style={styles.card}>
-          {/* Header Status & Kelas */}
-          <View style={styles.cardHeaderRow}>
+          <View style={styles.cardTopRow}>
             <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: statusCfg.bg,
-                  borderColor: statusCfg.border,
-                },
-              ]}
+              style={[styles.statusPill, { backgroundColor: statusCfg.bg }]}
             >
-              <AppIcon name={statusCfg.icon} size={13} color={statusCfg.text} />
-              <Text style={[styles.statusBadgeText, { color: statusCfg.text }]}>
+              <Text style={[styles.statusPillText, { color: statusCfg.text }]}>
                 {statusCfg.label}
               </Text>
             </View>
-
-            <View style={styles.classBadge}>
-              <Text style={styles.classBadgeText}>Kelas {kodeKelas}</Text>
-            </View>
+            {record.createdAt && (
+              <Text style={styles.timestampText}>
+                {formatWaktuLengkap(record.createdAt.toISOString())} WIB
+              </Text>
+            )}
           </View>
 
-          {/* Bagian 1: Identitas Praktikan */}
-          <Text style={styles.sectionHeader}>Identitas Praktikan</Text>
-          <View style={styles.studentIdentityBox}>
-            <View style={styles.studentAvatar}>
-              <AppIcon name="user" size={20} color="#41337A" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.studentName}>
-                {record.nama || "Praktikan"}
-              </Text>
-              <Text style={styles.studentNim}>NIM {record.nim || "—"}</Text>
-            </View>
-          </View>
+          <Text
+            style={styles.studentName}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {record.nama}
+          </Text>
+          <Text
+            style={styles.studentNim}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {record.nim}
+          </Text>
 
-          {/* Bagian 2: Kelas, Jadwal, dan Sesi */}
-          <Text style={styles.sectionHeader}>Informasi Kelas & Sesi</Text>
-          <View style={styles.infoGridBox}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Nama Mata Kuliah</Text>
-              <Text style={styles.infoValue}>{mataKuliah}</Text>
-            </View>
-            <View style={styles.infoDivider} />
+          <View style={styles.divider} />
 
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Kelas</Text>
-              <Text style={styles.infoValue}>Kelas {kodeKelas}</Text>
-            </View>
-            <View style={styles.infoDivider} />
-
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Sesi Praktikum</Text>
-              <Text style={styles.infoValue}>
-                Pertemuan {nomorPraktikum} · {namaPraktikum}
+          <View style={styles.detailRows}>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Mata kuliah</Text>
+              <Text
+                style={styles.detailValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {mataKuliah}
               </Text>
             </View>
-
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Kelas</Text>
+              <Text
+                style={styles.detailValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                Kelas {kodeKelas}
+              </Text>
+            </View>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Pertemuan</Text>
+              <Text
+                style={styles.detailValue}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {String(nomorPraktikum).padStart(2, "0")} · {namaPraktikum}
+              </Text>
+            </View>
             {sessionInfo && (
               <>
-                <View style={styles.infoDivider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Jadwal Pelaksanaan</Text>
-                  <Text style={styles.infoValue}>
-                    {formatTanggal(sessionInfo.tanggal)} (
-                    {formatJam(sessionInfo.jamMulai)} –{" "}
-                    {formatJam(sessionInfo.jamSelesai)} WIB)
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Jadwal</Text>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {formatTanggal(sessionInfo.tanggal)} ·{" "}
+                    {formatJam(sessionInfo.jamMulai)}–
+                    {formatJam(sessionInfo.jamSelesai)}
                   </Text>
                 </View>
-                <View style={styles.infoDivider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Ruang Laboratorium</Text>
-                  <Text style={styles.infoValue}>{sessionInfo.ruang}</Text>
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Laboratorium</Text>
+                  <Text
+                    style={styles.detailValue}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {sessionInfo.ruang}
+                  </Text>
                 </View>
               </>
             )}
           </View>
+        </View>
 
-          {/* Bagian 3: Alasan Ketidakhadiran */}
-          <Text style={styles.sectionHeader}>Alasan Ketidakhadiran</Text>
-          <View style={styles.alasanBox}>
-            <Text style={styles.alasanText}>{record.alasan}</Text>
-          </View>
+        {/* Kartu Alasan Izin */}
+        <View style={styles.card}>
+          <Text style={styles.sectionLabel}>Alasan ketidakhadiran</Text>
+          <Text style={styles.reasonBody}>{record.alasan}</Text>
+        </View>
 
-          {/* Bagian 4: Hasil Klasifikasi AI (Pendukung Keputusan) */}
-          <Text style={styles.sectionHeader}>
-            Hasil Klasifikasi AI (Pendukung Keputusan)
-          </Text>
-          <View style={styles.aiSectionBox}>
-            <View style={styles.aiHeaderRow}>
-              <Text style={styles.aiSectionTitle}>Kategori Sentimen AI</Text>
+        {/* Kartu Sentimen AI */}
+        <View style={styles.aiCard}>
+          <View style={styles.aiTopRow}>
+            <View style={styles.aiLeftRow}>
+              <AppIcon name="sparkles" size={18} color={COLORS.primary} />
               {aiCfg ? (
-                <View
-                  style={[
-                    styles.aiBadge,
-                    {
-                      backgroundColor: aiCfg.bg,
-                      borderColor: aiCfg.border,
-                    },
-                  ]}
-                >
-                  <AppIcon name="info" size={12} color={aiCfg.text} />
-                  <Text style={[styles.aiBadgeText, { color: aiCfg.text }]}>
+                <View style={[styles.aiPill, { backgroundColor: aiCfg.bg }]}>
+                  <Text style={[styles.aiPillText, { color: aiCfg.text }]}>
                     {aiCfg.label}
-                    {typeof record.aiConfidence === "number"
-                      ? ` (${Math.round(record.aiConfidence * 100)}%)`
-                      : ""}
                   </Text>
                 </View>
               ) : (
-                <View style={styles.aiFailedBadge}>
-                  <Text style={styles.aiFailedBadgeText}>
-                    AI Tidak Tersedia
-                  </Text>
-                </View>
+                <Text style={styles.aiMuted}>Analisis AI tidak tersedia</Text>
               )}
             </View>
-
-            <Text style={styles.aiDisclaimerText}>
-              {aiCfg
-                ? "Hasil klasifikasi AI hanya menjadi informasi pendukung. Keputusan persetujuan izin sepenuhnya ditentukan oleh asisten."
-                : "Hasil analisis AI tidak tersedia. Silakan tinjau alasan ketidakhadiran di atas secara manual."}
-            </Text>
-          </View>
-
-          {/* Bagian 5: Informasi Waktu */}
-          <View style={styles.timestampFooter}>
-            <Text style={styles.timestampText}>
-              Diajukan pada:{" "}
-              {record.createdAt
-                ? formatWaktuLengkap(record.createdAt.toISOString())
-                : "—"}
-            </Text>
-            {record.status !== "pending" && record.decidedAt && (
-              <Text style={styles.timestampText}>
-                Diputuskan pada:{" "}
-                {formatWaktuLengkap(record.decidedAt.toISOString())}
-              </Text>
+            {confidencePct !== null && (
+              <Text style={styles.confidenceText}>{confidencePct}%</Text>
             )}
           </View>
 
-          {/* Bagian 6: Tombol Terima / Tolak (Hanya jika status masih pending) */}
-          {record.status === "pending" ? (
-            <View style={styles.decisionActionsRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.decisionBtn,
-                  styles.rejectBtn,
-                  pressed && styles.btnPressed,
-                ]}
-                onPress={() => {
-                  setDecisionError(null);
-                  setConfirmDecision("rejected");
-                }}
-              >
-                <AppIcon name="alert" size={15} color="#991b1b" />
-                <Text style={styles.rejectBtnText}>Tolak Izin</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => [
-                  styles.decisionBtn,
-                  styles.approveBtn,
-                  pressed && styles.btnPressed,
-                ]}
-                onPress={() => {
-                  setDecisionError(null);
-                  setConfirmDecision("approved");
-                }}
-              >
-                <AppIcon name="check" size={15} color="#ffffff" />
-                <Text style={styles.approveBtnText}>Setujui Izin</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View style={styles.lockedDecisionBar}>
-              <AppIcon name="lock" size={14} color="#6EA4BF" />
-              <Text style={styles.lockedDecisionText}>
-                Keputusan telah disimpan dan dikunci
-              </Text>
+          {confidencePct !== null && (
+            <View style={styles.progressTrack}>
+              <View
+                style={[styles.progressFill, { width: `${confidencePct}%` }]}
+              />
             </View>
           )}
+
+          <Text style={styles.aiNote}>
+            Hasil sentimen AI digunakan sebagai referensi pendukung keputusan
+            asisten.
+          </Text>
         </View>
 
-        <View style={{ height: 36 }} />
+        {/* Tombol Keputusan (Hanya jika status masih pending) */}
+        {record.status === "pending" ? (
+          <View style={styles.decisionRow}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.rejectBtn,
+                pressed && { opacity: 0.85 },
+              ]}
+              onPress={() => {
+                setDecisionError(null);
+                setConfirmDecision("rejected");
+              }}
+            >
+              <Text style={styles.rejectBtnText}>Tolak Izin</Text>
+            </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.approveBtn,
+                pressed && styles.approveBtnPressed,
+              ]}
+              onPress={() => {
+                setDecisionError(null);
+                setConfirmDecision("approved");
+              }}
+            >
+              <Text style={styles.approveBtnText}>Setujui Izin</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <View style={styles.finalNoticeCard}>
+            <AppIcon name="lock" size={16} color={COLORS.textSecondary} />
+            <Text style={styles.finalNoticeText}>
+              Keputusan telah disimpan pada{" "}
+              {record.decidedAt
+                ? `${formatTanggal(record.decidedAt)} pukul ${formatWaktuLengkap(record.decidedAt.toISOString())} WIB`
+                : "sistem"}{" "}
+              dan bersifat final.
+            </Text>
+          </View>
+        )}
       </ScrollView>
+
+      <BottomNavBar role="asisten" activeTab="izin" />
 
       {/* Modal Konfirmasi Keputusan */}
       <Modal
-        visible={confirmDecision !== null}
+        visible={!!confirmDecision}
         transparent
         animationType="fade"
         onRequestClose={() => {
@@ -502,129 +459,70 @@ export default function IzinAsistenDetailScreen() {
         <View style={styles.modalBackdrop}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={() => {
-              if (!deciding) setConfirmDecision(null);
-            }}
+            onPress={deciding ? undefined : () => setConfirmDecision(null)}
           />
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {confirmDecision === "approved"
+                ? "Setujui Pengajuan Izin?"
+                : "Tolak Pengajuan Izin?"}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              Keputusan untuk {record.nama} bersifat final dan hanya dapat
+              ditentukan satu kali.
+            </Text>
 
-          {confirmDecision && (
-            <View style={styles.modalCard} accessibilityViewIsModal>
-              <View
-                style={[
-                  styles.modalIconCircle,
-                  confirmDecision === "approved"
-                    ? styles.modalIconApprove
-                    : styles.modalIconReject,
-                ]}
-              >
-                <AppIcon
-                  name={confirmDecision === "approved" ? "check" : "alert"}
-                  size={22}
-                  color={confirmDecision === "approved" ? "#0f5132" : "#991b1b"}
-                />
-              </View>
-
-              <Text style={styles.modalTitle}>
-                {confirmDecision === "approved"
-                  ? "Setujui Pengajuan Izin?"
-                  : "Tolak Pengajuan Izin?"}
-              </Text>
-
-              <Text style={styles.modalDesc}>
-                Anda akan{" "}
-                <Text style={{ fontWeight: "800" }}>
-                  {confirmDecision === "approved" ? "menyetujui" : "menolak"}
-                </Text>{" "}
-                pengajuan izin dari{" "}
-                <Text style={{ fontWeight: "700" }}>
-                  {record.nama} (NIM {record.nim})
+            {decisionError && (
+              <View style={[styles.feedbackBanner, styles.feedbackError]}>
+                <Text style={[styles.feedbackText, { color: COLORS.dangerDark }]}>
+                  {decisionError}
                 </Text>
-                . Keputusan yang sudah disimpan tidak dapat diubah kembali.
-              </Text>
-
-              {decisionError && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorText}>{decisionError}</Text>
-                </View>
-              )}
-
-              <View style={styles.modalActions}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.modalCancelBtn,
-                    pressed && styles.btnPressed,
-                  ]}
-                  onPress={() => setConfirmDecision(null)}
-                  disabled={deciding}
-                >
-                  <Text style={styles.modalCancelText}>Batal</Text>
-                </Pressable>
-
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.modalConfirmBtn,
-                    confirmDecision === "approved"
-                      ? styles.modalConfirmApprove
-                      : styles.modalConfirmReject,
-                    pressed && styles.btnPressed,
-                    deciding && styles.btnDisabled,
-                  ]}
-                  onPress={handleConfirmDecision}
-                  disabled={deciding}
-                >
-                  {deciding ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <Text style={styles.modalConfirmText}>
-                      {confirmDecision === "approved"
-                        ? "Ya, Setujui"
-                        : "Ya, Tolak"}
-                    </Text>
-                  )}
-                </Pressable>
               </View>
+            )}
+
+            <View style={styles.modalActions}>
+              <Pressable
+                style={styles.cancelModalBtn}
+                onPress={() => setConfirmDecision(null)}
+                disabled={deciding}
+              >
+                <Text style={styles.cancelModalText}>Batal</Text>
+              </Pressable>
+
+              <Pressable
+                style={[
+                  confirmDecision === "approved"
+                    ? styles.confirmApproveBtn
+                    : styles.confirmRejectBtn,
+                  deciding && { opacity: 0.7 },
+                ]}
+                onPress={handleConfirmDecision}
+                disabled={deciding}
+              >
+                {deciding ? (
+                  <ActivityIndicator color={COLORS.textOnPrimary} />
+                ) : (
+                  <Text style={styles.confirmModalText}>
+                    {confirmDecision === "approved" ? "Ya, Setujui" : "Ya, Tolak"}
+                  </Text>
+                )}
+              </Pressable>
             </View>
-          )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
-
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+  safe: { flex: 1, backgroundColor: COLORS.background },
+  scroll: { flex: 1 },
+  scrollContent: {
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#ffffff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#C2EFEB",
+    paddingBottom: 24,
+    gap: 12,
   },
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    width: 68,
-  },
-  backText: {
-    color: "#41337A",
-    fontSize: 14,
-    fontWeight: "600",
-
-  },
-  topBarTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-
   centerBox: {
     flex: 1,
     alignItems: "center",
@@ -632,406 +530,298 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
-  centerText: {
-    fontSize: 13.5,
-    color: "#6EA4BF",
-
-  },
+  centerText: { fontSize: 13, color: COLORS.textSecondary },
   centerTitle: {
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: "700",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     textAlign: "center",
-
   },
-  backFallbackBtn: {
-    backgroundColor: "#41337A",
-    borderRadius: 10,
+  header: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: 12,
   },
-  backFallbackText: {
-    color: "#ffffff",
-    fontSize: 13,
+  backRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  headerTitle: {
+    fontSize: 18,
     fontWeight: "700",
-
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
-
-  scrollContent: {
-    padding: 16,
-  },
-
   feedbackBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    padding: 12,
-    borderRadius: 12,
+    padding: 11,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    marginBottom: 14,
   },
   feedbackSuccess: {
-    backgroundColor: "#e6f4ea",
-    borderColor: "#b7dfc2",
+    backgroundColor: COLORS.successBg,
+    borderColor: COLORS.successBorder,
   },
   feedbackError: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
   },
-  feedbackBannerText: {
+  feedbackText: {
     flex: 1,
     fontSize: 12.5,
     fontWeight: "600",
-
   },
-
   card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
   },
-  cardHeaderRow: {
+  cardTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 4.5,
+  statusPill: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
   },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
-  classBadge: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  classBadgeText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#41337A",
-
-  },
-
-  sectionHeader: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#41337A",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    marginTop: 4,
-
-
-  },
-
-  studentIdentityBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 14,
-  },
-  studentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
+  timestampText: {
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
   },
   studentName: {
-    fontSize: 15.5,
-    fontWeight: "800",
-    color: "#331E36",
-
+    fontSize: 16.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
   studentNim: {
     fontSize: 12.5,
-    color: "#41337A",
+    color: COLORS.textSecondary,
     marginTop: 2,
-    fontWeight: "600",
-
   },
-
-  infoGridBox: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    padding: 13,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 14,
-  },
-  infoRow: {
-    gap: 3,
-  },
-  infoLabel: {
-    fontSize: 11.5,
-    fontWeight: "600",
-    color: "#6EA4BF",
-
-  },
-  infoValue: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-  infoDivider: {
+  divider: {
     height: 1,
-    backgroundColor: "#C2EFEB",
-    marginVertical: 9,
+    backgroundColor: COLORS.divider,
+    marginVertical: 12,
   },
-
-  alasanBox: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    padding: 13,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 14,
+  detailRows: {
+    gap: 9,
   },
-  alasanText: {
-    fontSize: 14,
-    color: "#331E36",
-    lineHeight: 20,
-
-  },
-
-  aiSectionBox: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 12,
-    padding: 13,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 14,
-  },
-  aiHeaderRow: {
+  detailRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    flexWrap: "wrap",
-    gap: 6,
+    gap: 12,
+  },
+  detailLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  detailValue: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    textAlign: "right",
+    flex: 1,
+    minWidth: 0,
+  },
+  sectionLabel: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: COLORS.textSecondary,
     marginBottom: 6,
   },
-  aiSectionTitle: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#331E36",
-
+  reasonBody: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: COLORS.textPrimary,
   },
-  aiBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 999,
+  aiCard: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.lg,
+    padding: 15,
     borderWidth: 1,
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  aiBadgeText: {
-    fontSize: 11.5,
-    fontWeight: "700",
-
-  },
-  aiFailedBadge: {
-    backgroundColor: "#ECFEE8",
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    paddingHorizontal: 9,
-    paddingVertical: 3,
-  },
-  aiFailedBadgeText: {
-    fontSize: 11.5,
-    fontWeight: "600",
-    color: "#6EA4BF",
-
-  },
-  aiDisclaimerText: {
-    fontSize: 12,
-    color: "#6EA4BF",
-    fontStyle: "italic",
-    lineHeight: 17,
-
-  },
-
-  timestampFooter: {
-    borderTopWidth: 1,
-    borderTopColor: "#ECFEE8",
-    paddingTop: 10,
-    marginBottom: 14,
-    gap: 3,
-  },
-  timestampText: {
-    fontSize: 12,
-    color: "#6EA4BF",
-
-  },
-
-  decisionActionsRow: {
-    flexDirection: "row",
+    borderColor: COLORS.border,
     gap: 10,
   },
-  decisionBtn: {
-    flex: 1,
+  aiTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  aiLeftRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 1,
+  },
+  aiPill: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  aiPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  aiMuted: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+  },
+  confidenceText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.primary,
+  },
+  progressTrack: {
+    height: 6,
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.border,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: RADIUS.pill,
+    backgroundColor: COLORS.primary,
+  },
+  aiNote: {
+    fontSize: 11.5,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
+  },
+  decisionRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 4,
   },
   rejectBtn: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    backgroundColor: COLORS.dangerBg,
+    alignItems: "center",
+    justifyContent: "center",
   },
   rejectBtnText: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#991b1b",
-
+    color: COLORS.dangerText,
   },
   approveBtn: {
-    backgroundColor: "#15803d",
-    borderColor: "#15803d",
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  approveBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
   },
   approveBtnText: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#ffffff",
-
+    color: COLORS.textOnPrimary,
   },
-  btnPressed: { opacity: 0.85 },
-  btnDisabled: { opacity: 0.6 },
-
-  lockedDecisionBar: {
+  finalNoticeCard: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#ECFEE8",
-    borderRadius: 10,
-    paddingVertical: 10,
+    gap: 10,
+    padding: 13,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
   },
-  lockedDecisionText: {
-    fontSize: 12.5,
-    color: "#6EA4BF",
-    fontWeight: "600",
-
+  finalNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    lineHeight: 17,
   },
-
-  errorBox: {
-    backgroundColor: "#fef2f2",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
   },
-  errorText: { color: "#991b1b", fontSize: 12.5, },
-
-  // Modal Konfirmasi
+  primaryBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(51, 30, 54, 0.55)",
+    backgroundColor: "rgba(15, 23, 42, 0.45)",
     justifyContent: "center",
-    padding: 20,
+    padding: 22,
   },
   modalCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 18,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.xl,
     padding: 20,
-  },
-  modalIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  modalIconApprove: {
-    backgroundColor: "#e6f4ea",
-  },
-  modalIconReject: {
-    backgroundColor: "#fef2f2",
   },
   modalTitle: {
     fontSize: 17,
-    fontWeight: "800",
-    color: "#331E36",
-    textAlign: "center",
-    marginBottom: 6,
-
+    fontWeight: "700",
+    color: COLORS.textPrimary,
   },
-  modalDesc: {
-    fontSize: 13,
-    color: "#41337A",
-    textAlign: "center",
-    lineHeight: 19,
-    marginBottom: 14,
-
+  modalSubtitle: {
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+    marginTop: 5,
+    marginBottom: 16,
   },
   modalActions: {
     flexDirection: "row",
     gap: 10,
-    marginTop: 4,
   },
-  modalCancelBtn: {
+  cancelModalBtn: {
     flex: 1,
-    borderRadius: 10,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
-    paddingVertical: 11,
+    borderColor: COLORS.border,
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ECFEE8",
   },
-  modalCancelText: {
+  cancelModalText: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  confirmApproveBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+  },
+  confirmRejectBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.dangerText,
+    alignItems: "center",
+  },
+  confirmModalText: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#331E36",
-
-  },
-  modalConfirmBtn: {
-    flex: 1.2,
-    borderRadius: 10,
-    paddingVertical: 11,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalConfirmApprove: {
-    backgroundColor: "#15803d",
-  },
-  modalConfirmReject: {
-    backgroundColor: "#991b1b",
-  },
-  modalConfirmText: {
-    fontSize: 13.5,
-    fontWeight: "700",
-    color: "#ffffff",
-
+    color: COLORS.textOnPrimary,
   },
 });
-

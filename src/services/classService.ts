@@ -63,6 +63,7 @@ function mapClass(id: string, data: Record<string, unknown>): ClassRecord {
     assistants: readStringList(data.assistants),
     createdBy: readString(data.createdBy),
     createdAt: toDate(data.createdAt),
+    memberIds: readStringList(data.memberIds),
   };
 }
 

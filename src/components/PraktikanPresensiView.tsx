@@ -10,7 +10,9 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { COLORS, RADIUS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 import { useSession } from "../context/SessionContext";
 import { describeFirestoreError } from "../services/classService";
@@ -18,8 +20,7 @@ import {
   getLocationErrorDetail,
   openLocationSettings,
   promptEnableLocationServices,
-  validateStudentLabProximity,
-  type LocationValidationResult,
+  type LocationErrorCode,
 } from "../services/locationService";
 import { subscribeStudentSessionPermission } from "../services/permissionService";
 import {
@@ -28,58 +29,93 @@ import {
   type SessionWithMeta,
 } from "../services/sessionService";
 import type { Attendance, PermissionRecord, SessionStatus } from "../types";
-import { formatJam, formatTanggal, formatWaktuLengkap } from "../utils/format";
+import { formatJam, formatTanggal } from "../utils/format";
 import AppIcon from "./AppIcon";
+import BottomSheetModal from "./BottomSheetModal";
 
-const STATUS_LABEL: Record<SessionStatus, string> = {
-  scheduled: "Terjadwal (Belum Dibuka)",
-  open: "Presensi Dibuka",
-  closed: "Selesai (Ditutup)",
-};
+interface PraktikanPresensiViewProps {
+  onBackToHome?: () => void;
+}
 
-const STATUS_STYLE: Record<
+const LOCATION_ERROR_CODES = new Set<string>([
+  "LAB_TIDAK_DITEMUKAN",
+  "IZIN_LOKASI_DITOLAK",
+  "GPS_TIDAK_AKTIF",
+  "LOKASI_GAGAL",
+  "DI_LUAR_RADIUS",
+]);
+
+interface ResultPopupState {
+  type: "success" | "error";
+  title: string;
+  message: string;
+  details?: {
+    mataKuliah: string;
+    pertemuan: string;
+    ruang: string;
+    waktuHadir: string;
+  };
+  actionType?: "open_settings" | "enable_gps" | "none";
+  actionLabel?: string;
+}
+
+const STATUS_BADGE: Record<
   SessionStatus,
-  { bg: string; border: string; text: string; dot: string }
+  { label: string; bg: string; text: string }
 > = {
   scheduled: {
-    bg: "#ECFEE8",
-    border: "#6EA4BF",
-    text: "#331E36",
-    dot: "#6EA4BF",
+    label: "Terjadwal",
+    bg: COLORS.neutralBadgeBg,
+    text: COLORS.neutralBadgeText,
   },
   open: {
-    bg: "#e6f4ea",
-    border: "#b7dfc2",
-    text: "#0f5132",
-    dot: "#15803d",
+    label: "Berlangsung",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
   },
   closed: {
-    bg: "#ECFEE8",
-    border: "#6EA4BF",
-    text: "#41337A",
-    dot: "#6EA4BF",
+    label: "Selesai",
+    bg: COLORS.neutralBadgeBg,
+    text: COLORS.neutralBadgeText,
   },
 };
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function DetailRow({
+  label,
+  value,
+  valueColor,
+}: {
+  label: string;
+  value: string;
+  valueColor?: string;
+}) {
   return (
     <View style={styles.detailRow}>
       <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+      <Text
+        style={[
+          styles.detailValue,
+          valueColor ? { color: valueColor, fontWeight: "700" } : null,
+        ]}
+        numberOfLines={1}
+        ellipsizeMode="tail"
+      >
+        {value}
+      </Text>
     </View>
   );
 }
 
-export default function PraktikanPresensiView() {
+export default function PraktikanPresensiView({
+  onBackToHome,
+}: PraktikanPresensiViewProps) {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const { studentSessions, myAttendances, markAttendance } = useSession();
 
   const [kodeInput, setKodeInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [feedback, setFeedback] = useState<{
-    type: "success" | "error";
-    message: string;
-  } | null>(null);
+  const [resultPopup, setResultPopup] = useState<ResultPopupState | null>(null);
   const submittingRef = useRef(false);
 
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -91,7 +127,6 @@ export default function PraktikanPresensiView() {
     return () => clearInterval(timer);
   }, []);
 
-  // Pemetaan O(1) kodePresensi -> SessionWithMeta (tanpa mencari satu per satu saat input diketik)
   const sessionByCodeMap = useMemo(() => {
     const map = new Map<string, SessionWithMeta>();
     studentSessions.forEach((sess) => {
@@ -172,79 +207,20 @@ export default function PraktikanPresensiView() {
     );
   }, [matchedSession, currentTime]);
 
-  const [locationState, setLocationState] = useState<{
-    sessionId: string;
-    loading: boolean;
-    result: LocationValidationResult | null;
-  } | null>(null);
-
-  const matchedSessionId = matchedSession?.id ?? null;
-  const matchedSessionRuang = matchedSession?.ruang ?? "";
-  const isOpenForAttendance = Boolean(
-    matchedSession &&
-      matchedSession.status === "open" &&
-      !isScheduleExpired &&
-      !attendance &&
-      permission?.status !== "approved",
-  );
-
-  useEffect(() => {
-    if (!isOpenForAttendance || !matchedSessionId || !matchedSessionRuang) {
-      return;
-    }
-
-    let cancelled = false;
-    void validateStudentLabProximity(matchedSessionRuang).then((res) => {
-      if (!cancelled) {
-        setLocationState({
-          sessionId: matchedSessionId,
-          loading: false,
-          result: res,
-        });
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpenForAttendance, matchedSessionId, matchedSessionRuang]);
-
-  const currentLocationCheck = useMemo(() => {
-    if (!matchedSessionId) return { loading: false, result: null };
-    if (!locationState || locationState.sessionId !== matchedSessionId) {
-      return { loading: true, result: null };
-    }
-    return {
-      loading: locationState.loading,
-      result: locationState.result,
-    };
-  }, [locationState, matchedSessionId]);
-
-  async function handleRefreshLocation() {
-    if (!matchedSessionId || !matchedSessionRuang) return;
-    setLocationState({
-      sessionId: matchedSessionId,
-      loading: true,
-      result: null,
-    });
-    const res = await validateStudentLabProximity(matchedSessionRuang);
-    setLocationState({
-      sessionId: matchedSessionId,
-      loading: false,
-      result: res,
-    });
-  }
-
-  async function handleLocationErrorAction(actionType: string) {
+  async function handlePopupAction(actionType?: string) {
     if (actionType === "open_settings") {
       await openLocationSettings();
     } else if (actionType === "enable_gps") {
-      const enabled = await promptEnableLocationServices();
-      if (enabled) {
-        await handleRefreshLocation();
-      }
-    } else if (actionType === "retry") {
-      await handleRefreshLocation();
+      await promptEnableLocationServices();
+    }
+    setResultPopup(null);
+  }
+
+  function handleClosePopup() {
+    const wasSuccess = resultPopup?.type === "success";
+    setResultPopup(null);
+    if (wasSuccess) {
+      setKodeInput("");
     }
   }
 
@@ -252,16 +228,16 @@ export default function PraktikanPresensiView() {
     if (!matchedSession || !user || submittingRef.current) return;
 
     if (permission?.status === "approved") {
-      setFeedback({
+      setResultPopup({
         type: "error",
-        message: "Izin sudah disetujui",
+        title: "Presensi tidak diperlukan",
+        message: "Pengajuan izinmu untuk sesi ini sudah disetujui asisten.",
       });
       return;
     }
 
     submittingRef.current = true;
     setIsSubmitting(true);
-    setFeedback(null);
 
     try {
       const result = await markAttendance(matchedSession.id, user.id, {
@@ -270,26 +246,47 @@ export default function PraktikanPresensiView() {
       });
 
       if (result.ok) {
-        const distanceNote =
-          typeof result.attendance.jarakMeter === "number"
-            ? ` (Jarak: ${result.attendance.jarakMeter} m)`
-            : "";
-        setFeedback({
+        const nomorFormatted = String(
+          matchedSession.practicum?.nomorPraktikum ?? 1,
+        ).padStart(2, "0");
+
+        setResultPopup({
           type: "success",
-          message: `Presensi tercatat pada ${formatWaktuLengkap(
-            result.attendance.waktuHadir,
-          )}${distanceNote}`,
+          title: "Presensi berhasil!",
+          message: "Kehadiranmu sudah tercatat. Selamat mengikuti praktikum.",
+          details: {
+            mataKuliah: matchedSession.practicum?.mataKuliah ?? "Mata Kuliah",
+            pertemuan: `Pertemuan ${nomorFormatted} · ${matchedSession.practicum?.namaPraktikum ?? "Sesi Praktikum"}`,
+            ruang: matchedSession.ruang,
+            waktuHadir: `${formatJam(result.attendance.waktuHadir)} WIB`,
+          },
         });
       } else {
-        setFeedback({
+        const isLocError = LOCATION_ERROR_CODES.has(result.code);
+        const locDetail = isLocError
+          ? getLocationErrorDetail(result.code as LocationErrorCode)
+          : null;
+
+        setResultPopup({
           type: "error",
-          message: result.message,
+          title: locDetail?.title ?? "Presensi gagal",
+          message: result.message || locDetail?.guide || "Gagal mencatat presensi.",
+          actionType:
+            locDetail?.actionType === "open_settings" ||
+            locDetail?.actionType === "enable_gps"
+              ? locDetail.actionType
+              : "none",
+          actionLabel:
+            locDetail?.actionType === "open_settings" ||
+            locDetail?.actionType === "enable_gps"
+              ? locDetail.actionLabel
+              : undefined,
         });
-        void handleRefreshLocation();
       }
     } catch (error) {
-      setFeedback({
+      setResultPopup({
         type: "error",
+        title: "Presensi gagal",
         message: describeFirestoreError(error),
       });
     } finally {
@@ -298,36 +295,32 @@ export default function PraktikanPresensiView() {
     }
   }
 
-  const statusTheme = matchedSession
-    ? (STATUS_STYLE[matchedSession.status] ?? STATUS_STYLE.scheduled)
-    : STATUS_STYLE.scheduled;
+  const paddingTop = Math.max(insets.top + 14, 24);
+  const statusBadge = matchedSession
+    ? (STATUS_BADGE[matchedSession.status] ?? STATUS_BADGE.scheduled)
+    : STATUS_BADGE.scheduled;
 
   return (
     <KeyboardAvoidingView
-      style={styles.flex}
+      style={styles.screenBg}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <ScrollView
-        style={styles.flex}
-        contentContainerStyle={styles.content}
+        style={styles.screenBg}
+        contentContainerStyle={[styles.content, { paddingTop }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        <Text style={styles.pageTitle}>Presensi</Text>
+        <Text style={styles.pageSubtitle}>
+          Masukkan kode sesi dari asisten untuk mencatat kehadiran.
+        </Text>
+
         {/* Kartu Input Kode Presensi */}
         <View style={styles.codeCard}>
-          <View style={styles.codeCardHeader}>
-            <View style={styles.codeIconCircle}>
-              <AppIcon name="check" size={20} color="#41337A" />
-            </View>
-            <View style={styles.codeHeaderTextWrap}>
-              <Text style={styles.codeTitle}>
-                Kode Presensi Sesi <Text style={styles.requiredMark}>*</Text>
-              </Text>
-              <Text style={styles.codeSubtitle}>
-                Masukkan kode sesi dari asisten (contoh: A114829)
-              </Text>
-            </View>
-          </View>
+          <Text style={styles.fieldLabel}>
+            Kode sesi <Text style={styles.requiredMark}>*</Text>
+          </Text>
 
           <View style={styles.inputRow}>
             <TextInput
@@ -339,11 +332,10 @@ export default function PraktikanPresensiView() {
                   .toUpperCase()
                   .slice(0, 8);
                 setKodeInput(cleaned);
-                setFeedback(null);
               }}
-              placeholder="A114829"
-              placeholderTextColor="#6EA4BF"
-              selectionColor="#41337A"
+              placeholder="XXXXXXX"
+              placeholderTextColor="rgba(107, 114, 128, 0.38)"
+              selectionColor={COLORS.primary}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={8}
@@ -351,10 +343,7 @@ export default function PraktikanPresensiView() {
             {kodeInput.length > 0 && (
               <Pressable
                 style={styles.resetBtn}
-                onPress={() => {
-                  setKodeInput("");
-                  setFeedback(null);
-                }}
+                onPress={() => setKodeInput("")}
               >
                 <Text style={styles.resetBtnText}>Reset</Text>
               </Pressable>
@@ -362,382 +351,309 @@ export default function PraktikanPresensiView() {
           </View>
         </View>
 
-        {/* Feedback Banner */}
-        {feedback && (
-          <View
-            style={[
-              styles.feedbackBanner,
-              feedback.type === "success"
-                ? styles.feedbackSuccess
-                : styles.feedbackError,
-            ]}
-          >
-            <AppIcon
-              name={feedback.type === "success" ? "check" : "alert"}
-              size={16}
-              color={feedback.type === "success" ? "#0f5132" : "#991b1b"}
-            />
-            <Text
-              style={[
-                styles.feedbackText,
-                {
-                  color: feedback.type === "success" ? "#0f5132" : "#991b1b",
-                },
-              ]}
-            >
-              {feedback.message}
-            </Text>
-          </View>
-        )}
-
-        {/* Kondisi Ketika Kode Belum Lengkap / Tidak Valid / Cocok */}
+        {/* Kondisi Kode Kosong / Tidak Valid / Ditemukan */}
         {normalizedCode.length === 0 ? (
-          <View style={styles.infoStateCard}>
-            <View style={styles.infoStateIcon}>
-              <AppIcon name="search" size={24} color="#6EA4BF" />
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconCircle}>
+              <AppIcon
+                name="user-round-check"
+                size={24}
+                color={COLORS.primary}
+              />
             </View>
-            <Text style={styles.infoStateTitle}>Masukkan Kode Presensi</Text>
-            <Text style={styles.infoStateSubtitle}>
-              Informasi sesi dan tombol presensi akan tampil otomatis setelah
-              Anda memasukkan kode sesi yang valid.
+            <Text style={styles.emptyTitle}>Siap melakukan presensi</Text>
+            <Text style={styles.emptySubtitle}>
+              Rincian sesi akan tampil otomatis setelah kode sesi dimasukkan.
             </Text>
           </View>
         ) : !matchedSession ? (
           <View style={styles.invalidCard}>
-            <View style={styles.invalidIcon}>
-              <AppIcon name="alert" size={24} color="#dc2626" />
+            <View style={styles.invalidIconCircle}>
+              <AppIcon name="alert" size={22} color={COLORS.dangerText} />
             </View>
             <Text style={styles.invalidTitle}>
               {normalizedCode.length < 7
-                ? "Lengkapi Kode Presensi"
-                : "Kode Presensi Tidak Valid"}
+                ? "Lengkapi kode sesi"
+                : "Kode sesi tidak ditemukan"}
             </Text>
             <Text style={styles.invalidSubtitle}>
               {normalizedCode.length < 7
-                ? "Masukkan kode sesi secara lengkap dari asisten."
-                : "Kode tidak ditemukan atau Anda tidak terdaftar di kelas sesi tersebut."}
+                ? "Masukkan kode sesi secara lengkap seperti yang ditampilkan asisten."
+                : "Pastikan kode benar dan kamu terdaftar pada kelas sesi tersebut."}
             </Text>
           </View>
         ) : (
           <>
-            {/* Kartu Informasi & Status Sesi */}
-            <View style={styles.sessionCard}>
-              <View style={styles.sessionCardTopRow}>
+            {/* Kartu Informasi Sesi */}
+            <View style={styles.summaryCard}>
+              <View style={styles.sessionTopRow}>
+                <Text
+                  style={styles.sessionMetaOverline}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  KELAS {matchedSession.kelas?.namaKelas ?? "—"} · PERTEMUAN{" "}
+                  {String(
+                    matchedSession.practicum?.nomorPraktikum ?? 1,
+                  ).padStart(2, "0")}
+                </Text>
                 <View
                   style={[
                     styles.statusPill,
-                    {
-                      backgroundColor: statusTheme.bg,
-                      borderColor: statusTheme.border,
-                    },
+                    { backgroundColor: statusBadge.bg },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: statusTheme.dot },
-                    ]}
-                  />
                   <Text
-                    style={[styles.statusLabel, { color: statusTheme.text }]}
+                    style={[
+                      styles.statusPillText,
+                      { color: statusBadge.text },
+                    ]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
                   >
-                    {STATUS_LABEL[matchedSession.status]}
-                  </Text>
-                </View>
-
-                <View style={styles.codeTag}>
-                  <Text style={styles.codeTagText}>
-                    Kode: {matchedSession.kodePresensi}
+                    {statusBadge.label}
                   </Text>
                 </View>
               </View>
 
-              <Text style={styles.mataKuliah}>
+              <Text
+                style={styles.summaryCourse}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {matchedSession.practicum?.mataKuliah ?? "Mata Kuliah"}
               </Text>
-              <Text style={styles.namaPraktikum}>
-                Pertemuan {matchedSession.practicum?.nomorPraktikum ?? 1} ·{" "}
+              <Text
+                style={styles.summarySub}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
                 {matchedSession.practicum?.namaPraktikum ?? "Sesi Praktikum"}
               </Text>
 
-              <View style={styles.detailList}>
-                <DetailRow
-                  label="Kelas"
-                  value={`Kelas ${matchedSession.kelas?.namaKelas ?? "—"}`}
-                />
-                <DetailRow label="Ruang" value={matchedSession.ruang} />
+              <View style={styles.summaryRows}>
                 <DetailRow
                   label="Tanggal"
                   value={formatTanggal(matchedSession.tanggal)}
                 />
                 <DetailRow
                   label="Waktu"
-                  value={`${formatJam(matchedSession.jamMulai)} – ${formatJam(matchedSession.jamSelesai)} WIB`}
+                  value={`${formatJam(matchedSession.jamMulai)}–${formatJam(matchedSession.jamSelesai)} WIB`}
                 />
+                <DetailRow label="Laboratorium" value={matchedSession.ruang} />
               </View>
             </View>
 
-            {/* Panel Aksi Presensi / Status Izin */}
+            {/* Panel Status / Tombol Presensi (Validasi Lokasi Otomatis Saat Klik) */}
             {attendance ? (
-              <View style={[styles.statusActionCard, styles.cardSuccess]}>
-                <View style={styles.iconCircleSuccess}>
-                  <AppIcon name="check" size={22} color="#0f5132" />
-                </View>
-                <Text style={styles.actionCardTitle}>Presensi Tercatat</Text>
-                <Text style={styles.actionCardSubSuccess}>
-                  Anda sudah tercatat hadir pada pukul{" "}
-                  {formatWaktuLengkap(attendance.waktuHadir)}.
-                  {typeof attendance.jarakMeter === "number"
-                    ? `\nJarak ke laboratorium: ${attendance.jarakMeter} m${
-                        typeof attendance.radiusMeter === "number"
-                          ? ` (Radius maks: ${attendance.radiusMeter} m)`
-                          : ""
-                      }`
-                    : ""}
+              <View style={[styles.stateCard, styles.stateCardMint]}>
+                <AppIcon name="check" size={22} color={COLORS.primary} />
+                <Text style={styles.stateCardTitle}>Kehadiran tercatat</Text>
+                <Text style={styles.stateCardDesc}>
+                  Kamu sudah tercatat hadir pada pukul{" "}
+                  {formatJam(attendance.waktuHadir)} WIB.
                 </Text>
               </View>
             ) : permission?.status === "approved" ? (
-              <View style={[styles.statusActionCard, styles.cardApproved]}>
-                <View style={styles.iconCircleSuccess}>
-                  <AppIcon name="info" size={22} color="#0f5132" />
-                </View>
-                <Text style={styles.actionCardTitle}>Izin Sudah Disetujui</Text>
-                <Text style={styles.actionCardSubSuccess}>
-                  Izin Anda untuk sesi ini sudah disetujui oleh asisten. Anda
+              <View style={[styles.stateCard, styles.stateCardMint]}>
+                <AppIcon name="check" size={22} color={COLORS.primary} />
+                <Text style={styles.stateCardTitle}>Izin sudah disetujui</Text>
+                <Text style={styles.stateCardDesc}>
+                  Pengajuan izinmu untuk sesi ini telah disetujui asisten. Kamu
                   tidak perlu melakukan presensi.
                 </Text>
               </View>
             ) : matchedSession.status === "open" && !isScheduleExpired ? (
               <View style={styles.openActionSection}>
-                {/* Kartu Status Lokasi & Jarak Laboratorium (SRS-014) */}
-                <View
-                  style={[
-                    styles.locationCard,
-                    currentLocationCheck.result?.ok
-                      ? styles.locationCardOk
-                      : currentLocationCheck.result &&
-                          !currentLocationCheck.result.ok
-                        ? styles.locationCardError
-                        : styles.locationCardNeutral,
-                  ]}
-                >
-                  <View style={styles.locationCardHeader}>
-                    <View style={styles.locationHeaderLeft}>
-                      <AppIcon
-                        name="location"
-                        size={17}
-                        color={
-                          currentLocationCheck.result?.ok
-                            ? "#0f5132"
-                            : currentLocationCheck.result
-                              ? "#991b1b"
-                              : "#41337A"
-                        }
-                      />
-                      <Text style={styles.locationCardTitle}>
-                        Validasi Lokasi Laboratorium
-                      </Text>
-                    </View>
-                    <Pressable
-                      style={styles.refreshLocBtn}
-                      onPress={() => void handleRefreshLocation()}
-                      disabled={currentLocationCheck.loading || isSubmitting}
-                    >
-                      <Text style={styles.refreshLocBtnText}>
-                        {currentLocationCheck.loading
-                          ? "Memeriksa..."
-                          : "Perbarui Lokasi"}
-                      </Text>
-                    </Pressable>
-                  </View>
-
-                  {currentLocationCheck.loading ? (
-                    <View style={styles.locationLoadingRow}>
-                      <ActivityIndicator size="small" color="#41337A" />
-                      <Text style={styles.locationStatusNeutralText}>
-                        Mengambil koordinat GPS & menghitung jarak ke{" "}
-                        {matchedSession.ruang}...
-                      </Text>
-                    </View>
-                  ) : currentLocationCheck.result?.ok ? (
-                    <View style={styles.locationResultBody}>
-                      <Text style={styles.locationStatusOkText}>
-                        Berada di dalam radius {matchedSession.ruang}
-                      </Text>
-                      <Text style={styles.locationDistanceText}>
-                        Jarak Anda: {currentLocationCheck.result.distanceMeters}{" "}
-                        m · Radius Maks:{" "}
-                        {currentLocationCheck.result.labLocation.radius} m
-                      </Text>
-                    </View>
-                  ) : currentLocationCheck.result ? (
-                    <View style={styles.locationResultBody}>
-                      {(() => {
-                        const detail = getLocationErrorDetail(
-                          currentLocationCheck.result.code,
-                        );
-                        return (
-                          <>
-                            <Text style={styles.locationStatusErrText}>
-                              {detail.title}
-                            </Text>
-                            <Text style={styles.locationErrorGuideText}>
-                              {detail.guide}
-                            </Text>
-                            {typeof currentLocationCheck.result
-                              .distanceMeters === "number" &&
-                              currentLocationCheck.result.labLocation && (
-                                <Text style={styles.locationDistanceErrText}>
-                                  Jarak Anda saat ini:{" "}
-                                  {currentLocationCheck.result.distanceMeters} m ·
-                                  Batas radius:{" "}
-                                  {
-                                    currentLocationCheck.result.labLocation
-                                      .radius
-                                  }{" "}
-                                  m
-                                </Text>
-                              )}
-                            {detail.actionType !== "none" &&
-                              detail.actionLabel && (
-                                <Pressable
-                                  style={styles.locationActionBtn}
-                                  onPress={() =>
-                                    void handleLocationErrorAction(
-                                      detail.actionType,
-                                    )
-                                  }
-                                  accessibilityRole="button"
-                                >
-                                  <AppIcon
-                                    name={
-                                      detail.actionType === "open_settings"
-                                        ? "lock"
-                                        : "play"
-                                    }
-                                    size={13}
-                                    color="#ffffff"
-                                  />
-                                  <Text style={styles.locationActionBtnText}>
-                                    {detail.actionLabel}
-                                  </Text>
-                                </Pressable>
-                              )}
-                          </>
-                        );
-                      })()}
-                    </View>
-                  ) : null}
-                </View>
-
                 {permission?.status === "pending" && (
-                  <View style={styles.pendingPermNote}>
-                    <AppIcon name="info" size={15} color="#854d0e" />
-                    <Text style={styles.pendingPermNoteText}>
-                      Pengajuan izin Anda masih menunggu pemeriksaan. Jika Anda
-                      hadir di lab, silakan lanjutkan presensi di bawah.
+                  <View style={styles.pendingNote}>
+                    <AppIcon name="info" size={15} color={COLORS.warningText} />
+                    <Text style={styles.pendingNoteText}>
+                      Izinmu masih menunggu tinjauan. Jika kamu hadir di lab,
+                      lanjutkan presensi di bawah.
                     </Text>
                   </View>
                 )}
 
                 <Pressable
                   style={({ pressed }) => [
-                    styles.presensiBtn,
-                    pressed && styles.presensiBtnPressed,
-                    isSubmitting && styles.presensiBtnDisabled,
+                    styles.primaryBtn,
+                    pressed && !isSubmitting && styles.primaryBtnPressed,
+                    isSubmitting && styles.primaryBtnDisabled,
                   ]}
                   onPress={handlePresensi}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
-                    <ActivityIndicator color="#ffffff" />
-                  ) : (
-                    <>
-                      <AppIcon name="check" size={18} color="#ffffff" />
-                      <Text style={styles.presensiBtnText}>
-                        Lakukan Presensi Sekarang
+                    <View style={styles.submittingRow}>
+                      <ActivityIndicator color={COLORS.textOnPrimary} />
+                      <Text style={styles.primaryBtnText}>
+                        Memvalidasi lokasi…
                       </Text>
-                    </>
+                    </View>
+                  ) : (
+                    <Text style={styles.primaryBtnText}>Presensi Sekarang</Text>
                   )}
                 </Pressable>
               </View>
             ) : (
-              <View style={[styles.statusActionCard, styles.cardNeutral]}>
-                <View style={styles.iconCircleNeutral}>
-                  <AppIcon
-                    name={
-                      matchedSession.status === "scheduled" ? "clock" : "lock"
-                    }
-                    size={22}
-                    color="#41337A"
-                  />
-                </View>
-                <Text style={styles.actionCardTitle}>
+              <View style={[styles.stateCard, styles.stateCardNeutral]}>
+                <AppIcon
+                  name={
+                    matchedSession.status === "scheduled" ? "clock" : "lock"
+                  }
+                  size={22}
+                  color={COLORS.textSecondary}
+                />
+                <Text style={styles.stateCardTitle}>
                   {matchedSession.status === "scheduled"
-                    ? "Sesi Belum Dibuka"
-                    : "Sesi Sudah Ditutup"}
+                    ? "Sesi belum dibuka"
+                    : "Sesi sudah ditutup"}
                 </Text>
-                <Text style={styles.actionCardSubNeutral}>
+                <Text style={styles.stateCardDesc}>
                   {matchedSession.status === "scheduled"
-                    ? "Presensi belum dapat dilakukan karena sesi belum dibuka oleh asisten."
-                    : "Waktu presensi untuk sesi ini telah ditutup."}
+                    ? "Presensi baru dapat dilakukan setelah asisten membuka sesi praktikum."
+                    : "Waktu presensi untuk sesi ini telah berakhir."}
                 </Text>
               </View>
             )}
           </>
         )}
       </ScrollView>
+
+      {/* Pop-up Hasil Presensi (Berhasil / Gagal dengan Alasan) */}
+      <BottomSheetModal
+        visible={!!resultPopup}
+        onClose={handleClosePopup}
+        contentStyle={styles.popupContent}
+      >
+        {resultPopup && (
+          <View style={styles.popupBody}>
+            <View
+              style={[
+                styles.popupIconCircle,
+                resultPopup.type === "success"
+                  ? styles.popupIconSuccess
+                  : styles.popupIconError,
+              ]}
+            >
+              <AppIcon
+                name={resultPopup.type === "success" ? "check" : "alert"}
+                size={28}
+                color={
+                  resultPopup.type === "success"
+                    ? COLORS.primary
+                    : COLORS.dangerText
+                }
+                strokeWidth={2.3}
+              />
+            </View>
+
+            <Text style={styles.popupTitle}>{resultPopup.title}</Text>
+            <Text style={styles.popupMessage}>{resultPopup.message}</Text>
+
+            {resultPopup.type === "success" && resultPopup.details && (
+              <View style={styles.popupSummaryBox}>
+                <DetailRow
+                  label="Mata kuliah"
+                  value={resultPopup.details.mataKuliah}
+                />
+                <DetailRow
+                  label="Pertemuan"
+                  value={resultPopup.details.pertemuan}
+                />
+                <DetailRow
+                  label="Laboratorium"
+                  value={resultPopup.details.ruang}
+                />
+                <DetailRow
+                  label="Waktu hadir"
+                  value={resultPopup.details.waktuHadir}
+                  valueColor={COLORS.primary}
+                />
+              </View>
+            )}
+
+            {resultPopup.type === "success" && onBackToHome && (
+              <Pressable
+                style={({ pressed }) => [
+                  styles.popupPrimaryBtn,
+                  pressed && styles.primaryBtnPressed,
+                ]}
+                onPress={() => {
+                  setResultPopup(null);
+                  setKodeInput("");
+                  onBackToHome();
+                }}
+              >
+                <Text style={styles.primaryBtnText}>Kembali ke Beranda</Text>
+              </Pressable>
+            )}
+
+            {resultPopup.type === "error" &&
+              resultPopup.actionType &&
+              resultPopup.actionType !== "none" &&
+              resultPopup.actionLabel && (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.popupPrimaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                  ]}
+                  onPress={() => void handlePopupAction(resultPopup.actionType)}
+                >
+                  <Text style={styles.primaryBtnText}>
+                    {resultPopup.actionLabel}
+                  </Text>
+                </Pressable>
+              )}
+          </View>
+        )}
+      </BottomSheetModal>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  screenBg: {
+    flex: 1,
+    backgroundColor: COLORS.surfaceSubtle,
+  },
   content: {
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 16,
+    paddingBottom: 28,
+  },
+  pageTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    lineHeight: 24,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
+  },
+  pageSubtitle: {
+    fontSize: 13,
+    fontWeight: "400",
+    color: COLORS.textSecondary,
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 14,
   },
   codeCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 18,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 14,
+    borderColor: COLORS.border,
+    marginBottom: 12,
   },
-  codeCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    marginBottom: 14,
-  },
-  codeIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  codeHeaderTextWrap: {
-    flex: 1,
-  },
-  codeTitle: {
-    fontSize: 15.5,
-    fontWeight: "800",
-    color: "#331E36",
-
+  fieldLabel: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    marginBottom: 8,
   },
   requiredMark: {
-    color: "#dc2626",
-    fontWeight: "800",
-
-  },
-  codeSubtitle: {
-    fontSize: 12.5,
-    color: "#6EA4BF",
-    marginTop: 2,
-
+    color: COLORS.dangerText,
+    fontWeight: "700",
   },
   inputRow: {
     flexDirection: "row",
@@ -746,415 +662,284 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "#6EA4BF",
-    borderRadius: 12,
-    backgroundColor: "#ECFEE8",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 20,
-    fontWeight: "800",
-    letterSpacing: 4,
-    color: "#331E36",
-    textAlign: "center",
-
-  },
-  resetBtn: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSubtle,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: "#ECFEE8",
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 2.5,
+    color: COLORS.primary,
+    textAlign: "center",
+  },
+  resetBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.surfaceSubtle,
     borderWidth: 1,
-    borderColor: "#6EA4BF",
+    borderColor: COLORS.border,
   },
   resetBtnText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#41337A",
-
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
   },
-
-  feedbackBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    marginBottom: 14,
-  },
-  feedbackSuccess: {
-    backgroundColor: "#e6f4ea",
-    borderColor: "#b7dfc2",
-  },
-  feedbackError: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-  },
-  feedbackText: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "700",
-
-  },
-
-  infoStateCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 24,
+  emptyCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 22,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
   },
-  infoStateIcon: {
+  emptyIconCircle: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#ECFEE8",
+    backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 12,
   },
-  infoStateTitle: {
-    fontSize: 15.5,
-    fontWeight: "800",
-    color: "#331E36",
+  emptyTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
     marginBottom: 4,
-
   },
-  infoStateSubtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
+  emptySubtitle: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
     textAlign: "center",
-    lineHeight: 19,
-
+    lineHeight: 18,
   },
-
   invalidCard: {
-    backgroundColor: "#fef2f2",
-    borderRadius: 16,
-    padding: 22,
+    backgroundColor: COLORS.dangerBg,
+    borderRadius: RADIUS.lg,
+    padding: 18,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: COLORS.dangerBorder,
   },
-  invalidIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#fee2e2",
+  invalidIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.background,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
   },
   invalidTitle: {
-    fontSize: 15.5,
-    fontWeight: "800",
-    color: "#991b1b",
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.dangerDark,
     marginBottom: 4,
-
   },
   invalidSubtitle: {
-    fontSize: 13,
-    color: "#b91c1c",
+    fontSize: 12.5,
+    color: COLORS.dangerDark,
     textAlign: "center",
     lineHeight: 18,
-
   },
-
-  sessionCard: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 18,
+  summaryCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
     marginBottom: 14,
   },
-  sessionCardTopRow: {
+  sessionTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 8,
     gap: 8,
   },
+  sessionMetaOverline: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 11,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    letterSpacing: 0.3,
+  },
   statusPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 11,
-    paddingVertical: 4.5,
-    gap: 6,
+    borderRadius: RADIUS.xs,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusLabel: { fontSize: 11.5, fontWeight: "700", },
-  codeTag: {
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: "600",
   },
-  codeTagText: {
-    fontSize: 11.5,
-    fontWeight: "800",
-    color: "#41337A",
-    letterSpacing: 0.5,
-
+  summaryCourse: {
+    fontSize: 15.5,
+    fontWeight: "700",
+    lineHeight: 22,
+    color: COLORS.textPrimary,
   },
-  mataKuliah: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#331E36",
-    marginBottom: 4,
-
+  summarySub: {
+    fontSize: 13,
+    fontWeight: "400",
+    lineHeight: 19,
+    color: COLORS.textSecondary,
+    marginTop: 3,
+    marginBottom: 12,
   },
-  namaPraktikum: {
-    fontSize: 13.5,
-    color: "#41337A",
-    marginBottom: 14,
-
-  },
-  detailList: {
+  summaryRows: {
     gap: 10,
-    paddingTop: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: "#ECFEE8",
+    borderTopColor: COLORS.divider,
   },
   detailRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
   },
   detailLabel: {
-    fontSize: 11.5,
-    color: "#6EA4BF",
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-
+    fontSize: 12,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
   },
   detailValue: {
-    fontSize: 13.5,
-    color: "#331E36",
+    fontSize: 13,
     fontWeight: "600",
+    color: COLORS.textPrimary,
     textAlign: "right",
-    flexShrink: 1,
-
+    flex: 1,
+    minWidth: 0,
   },
-
-  statusActionCard: {
-    borderRadius: 16,
-    padding: 20,
-    alignItems: "center",
-    borderWidth: 1,
-  },
-  cardSuccess: {
-    backgroundColor: "#e6f4ea",
-    borderColor: "#b7dfc2",
-  },
-  cardApproved: {
-    backgroundColor: "#e6f4ea",
-    borderColor: "#b7dfc2",
-  },
-  cardNeutral: {
-    backgroundColor: "#ECFEE8",
-    borderColor: "#6EA4BF",
-  },
-  iconCircleSuccess: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#d1e7dd",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  iconCircleNeutral: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: "#C2EFEB",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
-  },
-  actionCardTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#331E36",
-    marginBottom: 4,
-
-  },
-  actionCardSubSuccess: {
-    fontSize: 13,
-    color: "#0f5132",
-    textAlign: "center",
-    lineHeight: 19,
-
-  },
-  actionCardSubNeutral: {
-    fontSize: 13,
-    color: "#41337A",
-    textAlign: "center",
-    lineHeight: 19,
-
-  },
-
   openActionSection: {
     gap: 12,
   },
-  locationCard: {
-    borderRadius: 14,
-    padding: 14,
+  pendingNote: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: COLORS.warningBg,
     borderWidth: 1,
-    gap: 8,
+    borderColor: COLORS.warningBorder,
+    borderRadius: RADIUS.md,
+    padding: 11,
   },
-  locationCardNeutral: {
-    backgroundColor: "#ECFEE8",
-    borderColor: "#6EA4BF",
-  },
-  locationCardOk: {
-    backgroundColor: "#e6f4ea",
-    borderColor: "#b7dfc2",
-  },
-  locationCardError: {
-    backgroundColor: "#fef2f2",
-    borderColor: "#fecaca",
-  },
-  locationCardHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-  },
-  locationHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
+  pendingNoteText: {
     flex: 1,
+    fontSize: 12,
+    color: COLORS.warningText,
+    lineHeight: 17,
   },
-  locationCardTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-  refreshLocBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 8,
-    backgroundColor: "#ffffff",
+  stateCard: {
+    borderRadius: RADIUS.lg,
+    padding: 18,
+    alignItems: "center",
     borderWidth: 1,
-    borderColor: "#6EA4BF",
+    gap: 5,
   },
-  refreshLocBtnText: {
-    fontSize: 11.5,
+  stateCardMint: {
+    backgroundColor: COLORS.primarySurface,
+    borderColor: COLORS.primaryBorder,
+  },
+  stateCardNeutral: {
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.border,
+  },
+  stateCardTitle: {
+    fontSize: 14.5,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.textPrimary,
+    marginTop: 4,
   },
-  locationLoadingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  locationStatusNeutralText: {
-    flex: 1,
+  stateCardDesc: {
     fontSize: 12.5,
-    color: "#41337A",
+    color: COLORS.textSecondary,
+    textAlign: "center",
     lineHeight: 18,
-
   },
-  locationResultBody: {
-    gap: 2,
-  },
-  locationStatusOkText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#0f5132",
-
-  },
-  locationDistanceText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#15803d",
-
-  },
-  locationStatusErrText: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "#991b1b",
-
-  },
-  locationDistanceErrText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#b91c1c",
-
-  },
-  locationErrorGuideText: {
-    fontSize: 12,
-    color: "#7f1d1d",
-    lineHeight: 16,
-    marginTop: 2,
-
-  },
-  locationActionBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    backgroundColor: "#b91c1c",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 8,
-    marginTop: 6,
-  },
-  locationActionBtnText: {
-    color: "#ffffff",
-    fontSize: 11.5,
-    fontWeight: "700",
-
-  },
-  pendingPermNote: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#fef9c3",
-    borderWidth: 1,
-    borderColor: "#fde047",
-    borderRadius: 12,
-    padding: 12,
-  },
-  pendingPermNoteText: {
-    flex: 1,
-    fontSize: 12.5,
-    color: "#854d0e",
-    lineHeight: 18,
-
-  },
-  presensiBtn: {
-    flexDirection: "row",
+  primaryBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 14,
     alignItems: "center",
     justifyContent: "center",
+    marginTop: 4,
+  },
+  primaryBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  primaryBtnDisabled: {
+    opacity: 0.7,
+  },
+  submittingRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
-    backgroundColor: "#41337A",
-    borderRadius: 14,
-    paddingVertical: 15,
   },
-  presensiBtnPressed: {
-    backgroundColor: "#41337A",
+  primaryBtnText: {
+    color: COLORS.textOnPrimary,
+    fontSize: 14,
+    fontWeight: "700",
   },
-  presensiBtnDisabled: {
-    opacity: 0.6,
-  },
-  presensiBtnText: {
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: "800",
 
+  // Pop-up Hasil Presensi
+  popupContent: {
+    paddingHorizontal: 20,
+  },
+  popupBody: {
+    alignItems: "center",
+    paddingTop: 4,
+    paddingBottom: 6,
+  },
+  popupIconCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  popupIconSuccess: {
+    backgroundColor: COLORS.primarySoft,
+  },
+  popupIconError: {
+    backgroundColor: COLORS.dangerBg,
+  },
+  popupTitle: {
+    fontSize: 17.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    textAlign: "center",
+    marginBottom: 6,
+  },
+  popupMessage: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    marginBottom: 14,
+  },
+  popupSummaryBox: {
+    width: "100%",
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: 14,
+    gap: 9,
+    marginBottom: 16,
+  },
+  popupPrimaryBtn: {
+    width: "100%",
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 13,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

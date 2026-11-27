@@ -1,107 +1,107 @@
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import AppIcon from "./AppIcon";
+import { COLORS } from "../constants/theme";
+import AppIcon, { type AppIconName } from "./AppIcon";
 
-export type BottomNavTab = "beranda" | "presensi" | "profil";
+export type BottomNavTab =
+  | "beranda"
+  | "presensi"
+  | "peta"
+  | "kelas"
+  | "izin"
+  | "profil";
 
 interface BottomNavBarProps {
+  role?: "praktikan" | "asisten";
   activeTab: BottomNavTab;
-  onChangeTab: (tab: BottomNavTab) => void;
+  onChangeTab?: (tab: BottomNavTab) => void;
   showPresensiTab?: boolean;
 }
 
+interface TabDef {
+  key: BottomNavTab;
+  label: string;
+  icon: AppIconName;
+}
+
+const PRAKTIKAN_TABS: TabDef[] = [
+  { key: "beranda", label: "Beranda", icon: "home" },
+  { key: "presensi", label: "Presensi", icon: "user-round-check" },
+  { key: "peta", label: "Peta", icon: "location" },
+  { key: "profil", label: "Profil", icon: "user" },
+];
+
+const ASISTEN_TABS: TabDef[] = [
+  { key: "beranda", label: "Beranda", icon: "home" },
+  { key: "kelas", label: "Kelas", icon: "book" },
+  { key: "izin", label: "Izin", icon: "file-text" },
+  { key: "profil", label: "Profil", icon: "user" },
+];
+
+/**
+ * Navigasi bawah 4-tab bersih sesuai seluruh layar di `docs/ui`.
+ * Mendukung pergantian state langsung di Beranda maupun navigasi otomatis dari halaman dalam.
+ */
 export default function BottomNavBar({
+  role,
   activeTab,
   onChangeTab,
   showPresensiTab = false,
 }: BottomNavBarProps) {
+  const effectiveRole: "praktikan" | "asisten" =
+    role ?? (showPresensiTab ? "praktikan" : "asisten");
+
+  const tabs =
+    effectiveRole === "praktikan" ? PRAKTIKAN_TABS : ASISTEN_TABS;
+
+  function handlePress(tab: BottomNavTab) {
+    if (onChangeTab) {
+      onChangeTab(tab);
+      return;
+    }
+
+    if (effectiveRole === "praktikan") {
+      router.replace({
+        pathname: "/praktikan",
+        params: tab === "beranda" ? {} : { tab },
+      } as any);
+    } else {
+      router.replace({
+        pathname: "/asisten",
+        params: tab === "beranda" ? {} : { tab },
+      } as any);
+    }
+  }
+
   return (
     <View style={styles.container}>
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => onChangeTab("beranda")}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: activeTab === "beranda" }}
-      >
-        <View
-          style={[
-            styles.pill,
-            activeTab === "beranda" && styles.pillActive,
-          ]}
-        >
-          <AppIcon
-            name="home"
-            size={20}
-            color={activeTab === "beranda" ? "#41337A" : "#6EA4BF"}
-          />
-        </View>
-        <Text
-          style={[
-            styles.tabLabel,
-            activeTab === "beranda" && styles.tabLabelActive,
-          ]}
-        >
-          Beranda
-        </Text>
-      </Pressable>
-
-      {showPresensiTab && (
-        <Pressable
-          style={styles.tabItem}
-          onPress={() => onChangeTab("presensi")}
-          accessibilityRole="tab"
-          accessibilityState={{ selected: activeTab === "presensi" }}
-        >
-          <View
-            style={[
-              styles.pill,
-              activeTab === "presensi" && styles.pillActive,
-            ]}
+      {tabs.map((item) => {
+        const isActive = activeTab === item.key;
+        return (
+          <Pressable
+            key={item.key}
+            style={styles.tabItem}
+            onPress={() => handlePress(item.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: isActive }}
           >
             <AppIcon
-              name="check"
-              size={20}
-              color={activeTab === "presensi" ? "#41337A" : "#6EA4BF"}
+              name={item.icon}
+              size={21}
+              color={isActive ? COLORS.primary : COLORS.textSecondary}
             />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              activeTab === "presensi" && styles.tabLabelActive,
-            ]}
-          >
-            Presensi
-          </Text>
-        </Pressable>
-      )}
-
-      <Pressable
-        style={styles.tabItem}
-        onPress={() => onChangeTab("profil")}
-        accessibilityRole="tab"
-        accessibilityState={{ selected: activeTab === "profil" }}
-      >
-        <View
-          style={[
-            styles.pill,
-            activeTab === "profil" && styles.pillActive,
-          ]}
-        >
-          <AppIcon
-            name="user"
-            size={20}
-            color={activeTab === "profil" ? "#41337A" : "#6EA4BF"}
-          />
-        </View>
-        <Text
-          style={[
-            styles.tabLabel,
-            activeTab === "profil" && styles.tabLabelActive,
-          ]}
-        >
-          Profil
-        </Text>
-      </Pressable>
+            <Text
+              style={[
+                styles.tabLabel,
+                isActive && styles.tabLabelActive,
+              ]}
+            >
+              {item.label}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -109,38 +109,26 @@ export default function BottomNavBar({
 const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
-    backgroundColor: "#ffffff",
+    backgroundColor: COLORS.background,
     borderTopWidth: 1,
-    borderTopColor: "#C2EFEB",
-    paddingTop: 8,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
+    borderTopColor: COLORS.border,
+    paddingTop: 10,
+    paddingBottom: 12,
+    paddingHorizontal: 8,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
-  },
-  pill: {
-    paddingHorizontal: 22,
-    paddingVertical: 5,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  pillActive: {
-    backgroundColor: "#C2EFEB",
+    gap: 5,
   },
   tabLabel: {
-    fontSize: 11.5,
-    fontWeight: "600",
-    color: "#6EA4BF",
-
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
   },
   tabLabelActive: {
-    color: "#41337A",
-    fontWeight: "800",
-
+    color: COLORS.primary,
+    fontWeight: "700",
   },
 });

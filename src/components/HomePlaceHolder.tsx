@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { ROLE_LABEL } from "../constants/roles";
+import { COLORS, RADIUS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 
 export default function HomePlaceholder() {
@@ -15,10 +16,6 @@ export default function HomePlaceholder() {
         <Text style={styles.badge}>{ROLE_LABEL[activeRole]}</Text>
         <Text style={styles.title}>Halo, {user.nama}</Text>
         <Text style={styles.subtitle}>NIM: {user.nim}</Text>
-        <Text style={styles.note}>
-          Halaman beranda {ROLE_LABEL[activeRole].toLowerCase()} (placeholder
-          sprint 1).
-        </Text>
 
         <Pressable style={styles.button} onPress={logout}>
           <Text style={styles.buttonText}>Keluar</Text>
@@ -29,29 +26,28 @@ export default function HomePlaceholder() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#fff" },
+  safe: { flex: 1, backgroundColor: COLORS.background },
   container: { flex: 1, justifyContent: "center", padding: 24 },
   badge: {
     alignSelf: "flex-start",
-    backgroundColor: "#C2EFEB",
-    color: "#41337A",
+    backgroundColor: COLORS.primarySoft,
+    color: COLORS.primary,
+    fontSize: 11.5,
     fontWeight: "600",
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 999,
-    marginBottom: 12,
+    borderRadius: RADIUS.pill,
+    marginBottom: 10,
     overflow: "hidden",
-
   },
-  title: { fontSize: 26, fontWeight: "700", color: "#331E36", },
-  subtitle: { fontSize: 16, color: "#6EA4BF", marginTop: 4, },
-  note: { marginTop: 24, color: "#331E36" },
+  title: { fontSize: 20, fontWeight: "700", color: COLORS.textPrimary },
+  subtitle: { fontSize: 13, color: COLORS.textSecondary, marginTop: 4 },
   button: {
-    backgroundColor: "#ef4444",
-    borderRadius: 8,
-    paddingVertical: 14,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 13,
     alignItems: "center",
-    marginTop: 32,
+    marginTop: 24,
   },
-  buttonText: { color: "#fff", fontSize: 16, fontWeight: "600", },
+  buttonText: { color: COLORS.textOnPrimary, fontSize: 14, fontWeight: "700" },
 });

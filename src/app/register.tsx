@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +14,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import AppIcon from "../components/AppIcon";
+import { COLORS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 
 interface FieldErrors {
@@ -38,6 +41,8 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,6 +105,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -127,8 +133,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Masukkan nama lengkap"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             autoCapitalize="words"
             autoCorrect={false}
             returnKeyType="next"
@@ -148,8 +154,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Masukkan 14 digit NIM"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             keyboardType="number-pad"
             maxLength={14}
             autoCapitalize="none"
@@ -171,8 +177,8 @@ export default function RegisterScreen() {
               setFormError(null);
             }}
             placeholder="Masukkan email"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
+            placeholderTextColor={COLORS.textMuted}
+            selectionColor={COLORS.primary}
             keyboardType="email-address"
             autoComplete="email"
             textContentType="emailAddress"
@@ -187,49 +193,94 @@ export default function RegisterScreen() {
           )}
 
           <Text style={styles.label}>Kata sandi</Text>
-          <TextInput
-            ref={passwordRef}
-            style={[styles.input, errors.password && styles.inputError]}
-            value={password}
-            onChangeText={(t) => {
-              setPassword(t);
-              setErrors((e) => ({ ...e, password: undefined }));
-              setFormError(null);
-            }}
-            placeholder="Minimal 6 karakter"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="next"
-            onSubmitEditing={() => confirmRef.current?.focus()}
-            editable={!loading}
-          />
+          <View
+            style={[styles.passwordRow, errors.password && styles.inputError]}
+          >
+            <TextInput
+              key={showPassword ? "reg-pass-visible" : "reg-pass-masked"}
+              ref={passwordRef}
+              style={styles.passwordInput}
+              value={password}
+              onChangeText={(t) => {
+                setPassword(t);
+                setErrors((e) => ({ ...e, password: undefined }));
+                setFormError(null);
+              }}
+              placeholder="Minimal 6 karakter"
+              placeholderTextColor={COLORS.textMuted}
+              selectionColor={COLORS.primary}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+              onSubmitEditing={() => confirmRef.current?.focus()}
+              editable={!loading}
+            />
+            <Pressable
+              onPress={() => setShowPassword((v) => !v)}
+              hitSlop={8}
+              style={styles.eyeButton}
+              accessibilityLabel={
+                showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"
+              }
+            >
+              <AppIcon
+                name={showPassword ? "eye-off" : "eye"}
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </Pressable>
+          </View>
           {errors.password && (
             <Text style={styles.errorText}>{errors.password}</Text>
           )}
 
           <Text style={styles.label}>Konfirmasi kata sandi</Text>
-          <TextInput
-            ref={confirmRef}
-            style={[styles.input, errors.confirmPassword && styles.inputError]}
-            value={confirmPassword}
-            onChangeText={(t) => {
-              setConfirmPassword(t);
-              setErrors((e) => ({ ...e, confirmPassword: undefined }));
-              setFormError(null);
-            }}
-            placeholder="Ulangi kata sandi"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
-            secureTextEntry
-            autoCapitalize="none"
-            autoCorrect={false}
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-            editable={!loading}
-          />
+          <View
+            style={[
+              styles.passwordRow,
+              errors.confirmPassword && styles.inputError,
+            ]}
+          >
+            <TextInput
+              key={
+                showConfirmPassword ? "reg-conf-visible" : "reg-conf-masked"
+              }
+              ref={confirmRef}
+              style={styles.passwordInput}
+              value={confirmPassword}
+              onChangeText={(t) => {
+                setConfirmPassword(t);
+                setErrors((e) => ({ ...e, confirmPassword: undefined }));
+                setFormError(null);
+              }}
+              placeholder="Ulangi kata sandi"
+              placeholderTextColor={COLORS.textMuted}
+              selectionColor={COLORS.primary}
+              secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+              editable={!loading}
+            />
+            <Pressable
+              onPress={() => setShowConfirmPassword((v) => !v)}
+              hitSlop={8}
+              style={styles.eyeButton}
+              accessibilityLabel={
+                showConfirmPassword
+                  ? "Sembunyikan konfirmasi kata sandi"
+                  : "Tampilkan konfirmasi kata sandi"
+              }
+            >
+              <AppIcon
+                name={showConfirmPassword ? "eye-off" : "eye"}
+                size={20}
+                color={COLORS.textSecondary}
+              />
+            </Pressable>
+          </View>
           {errors.confirmPassword && (
             <Text style={styles.errorText}>{errors.confirmPassword}</Text>
           )}
@@ -240,7 +291,7 @@ export default function RegisterScreen() {
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={COLORS.textOnPrimary} />
             ) : (
               <Text style={styles.buttonText}>Daftar</Text>
             )}
@@ -260,7 +311,7 @@ export default function RegisterScreen() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
+  safe: { flex: 1, backgroundColor: COLORS.surfaceSubtle },
   container: {
     flexGrow: 1,
     justifyContent: "center",
@@ -270,64 +321,85 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: "800",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 15,
-    color: "#41337A",
+    color: COLORS.primary,
     marginBottom: 24,
     marginTop: 4,
   },
   label: {
     fontSize: 13.5,
     fontWeight: "600",
-    color: "#331E36",
+    color: COLORS.textPrimary,
     marginTop: 16,
     marginBottom: 6,
   },
   input: {
     borderWidth: 1.5,
-    borderColor: "#6EA4BF",
+    borderColor: COLORS.borderStrong,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15.5,
-    color: "#331E36",
-    backgroundColor: "#FFFFFF",
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
   },
-  inputError: { borderColor: "#dc2626" },
+  inputError: { borderColor: COLORS.dangerText },
+  passwordRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: COLORS.borderStrong,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    backgroundColor: COLORS.background,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingVertical: 12,
+    fontSize: 15.5,
+    color: COLORS.textPrimary,
+  },
+  eyeButton: {
+    paddingLeft: 8,
+    paddingVertical: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   errorText: {
-    color: "#dc2626",
+    color: COLORS.dangerText,
     fontSize: 12.5,
     marginTop: 4,
   },
   errorBox: {
-    backgroundColor: "#fee2e2",
+    backgroundColor: COLORS.dangerBg,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: COLORS.dangerBorder,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
   },
   errorBoxText: {
-    color: "#b91c1c",
+    color: COLORS.dangerDark,
   },
   button: {
-    backgroundColor: "#41337A",
+    backgroundColor: COLORS.primary,
     borderRadius: 12,
     paddingVertical: 15,
     alignItems: "center",
     marginTop: 28,
-    shadowColor: "#331E36",
+    shadowColor: COLORS.textPrimary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.14,
     shadowRadius: 8,
     elevation: 4,
   },
   buttonDisabled: { opacity: 0.7 },
   buttonText: {
-    color: "#ECFEE8",
+    color: COLORS.textOnPrimary,
     fontSize: 16,
     fontWeight: "600",
     paddingHorizontal: 8,
@@ -341,11 +413,11 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   footerText: {
-    color: "#331E36",
+    color: COLORS.textPrimary,
     fontSize: 14,
   },
   footerLink: {
-    color: "#41337A",
+    color: COLORS.primary,
     fontSize: 14,
     fontWeight: "600",
     paddingHorizontal: 4,

@@ -1,14 +1,28 @@
 import forge from "node-forge";
 
-import serviceAccount from "../../service-account.json";
-
 interface ServiceAccountConfig {
   project_id: string;
   client_email: string;
   private_key: string;
 }
 
-const config: ServiceAccountConfig | null = (serviceAccount as ServiceAccountConfig) ?? null;
+function loadServiceAccountConfig(): ServiceAccountConfig | null {
+  const projectId = process.env.EXPO_PUBLIC_FCM_PROJECT_ID?.trim();
+  const clientEmail = process.env.EXPO_PUBLIC_FCM_CLIENT_EMAIL?.trim();
+  const rawPrivateKey = process.env.EXPO_PUBLIC_FCM_PRIVATE_KEY?.trim();
+
+  if (!projectId || !clientEmail || !rawPrivateKey) {
+    return null;
+  }
+
+  return {
+    project_id: projectId,
+    client_email: clientEmail,
+    private_key: rawPrivateKey.replace(/\\n/g, "\n"),
+  };
+}
+
+const config: ServiceAccountConfig | null = loadServiceAccountConfig();
 
 let cachedAccessToken: { token: string; expiresAt: number } | null = null;
 
@@ -123,7 +137,6 @@ export async function sendFCMv1Push(
           android: {
             priority: "HIGH",
             notification: {
-              channel_id: "default",
               sound: "default",
               default_sound: true,
               default_vibrate_timings: true,

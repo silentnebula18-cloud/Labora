@@ -8,8 +8,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import AppIcon, { type AppIconName } from "./AppIcon";
+import { COLORS, RADIUS } from "../constants/theme";
 import type { AppNotification, NotificationType } from "../types";
+import AppIcon, { type AppIconName } from "./AppIcon";
 
 interface InAppNotificationToastProps {
   notification: AppNotification | null;
@@ -24,13 +25,29 @@ function getIconConfig(type: NotificationType): {
 } {
   switch (type) {
     case "session_opened":
-      return { name: "play", color: "#16a34a", bg: "#dcfce7" };
+      return {
+        name: "play",
+        color: COLORS.primary,
+        bg: COLORS.primarySoft,
+      };
     case "schedule_updated":
-      return { name: "calendar", color: "#d97706", bg: "#fef3c7" };
+      return {
+        name: "calendar",
+        color: COLORS.warningText,
+        bg: COLORS.warningBg,
+      };
     case "permission_decided":
-      return { name: "clipboard", color: "#41337A", bg: "#C2EFEB" };
+      return {
+        name: "file-text",
+        color: COLORS.primary,
+        bg: COLORS.primarySoft,
+      };
     default:
-      return { name: "info", color: "#41337A", bg: "#C2EFEB" };
+      return {
+        name: "info",
+        color: COLORS.primary,
+        bg: COLORS.primarySoft,
+      };
   }
 }
 
@@ -110,10 +127,18 @@ export default function InAppNotificationToast({
         </View>
 
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text
+            style={styles.title}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {notification.title}
           </Text>
-          <Text style={styles.body} numberOfLines={2}>
+          <Text
+            style={styles.body}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
             {notification.body}
           </Text>
         </View>
@@ -126,7 +151,7 @@ export default function InAppNotificationToast({
           }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.closeText}>✕</Text>
+          <AppIcon name="close" size={14} color={COLORS.textSecondary} />
         </Pressable>
       </Pressable>
     </Animated.View>
@@ -143,53 +168,42 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
     padding: 12,
-    shadowColor: "#331E36",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 8,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
     gap: 12,
   },
   iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.sm,
     alignItems: "center",
     justifyContent: "center",
   },
   textContainer: {
     flex: 1,
+    minWidth: 0,
   },
   title: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#331E36",
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
     marginBottom: 2,
-
   },
   body: {
     fontSize: 12,
-    color: "#41337A",
-    lineHeight: 16,
-
+    fontWeight: "400",
+    color: COLORS.textSecondary,
+    lineHeight: 17,
   },
   closeBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#ECFEE8",
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: COLORS.surfaceSubtle,
     alignItems: "center",
     justifyContent: "center",
-  },
-  closeText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#6EA4BF",
-
   },
 });

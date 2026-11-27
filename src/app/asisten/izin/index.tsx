@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -9,9 +10,14 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 import AppIcon from "../../../components/AppIcon";
+import BottomNavBar from "../../../components/BottomNavBar";
+import { COLORS, RADIUS } from "../../../constants/theme";
 import { useAuth } from "../../../context/AuthContext";
 import { useSession } from "../../../context/SessionContext";
 import {
@@ -26,46 +32,44 @@ import type {
 } from "../../../types";
 import { formatJam, formatTanggal } from "../../../utils/format";
 
-// ─── Konfigurasi Status ──────────────────────────────────────────────────────
+interface IzinAsistenListScreenProps {
+  embedded?: boolean;
+}
 
-const STATUS_PERMISSION_CONFIG: Record<
-  PermissionStatus,
-  {
-    label: string;
-    bg: string;
-    border: string;
-    text: string;
-    icon: "clock" | "check" | "alert";
-  }
+const AI_SENTIMENT_PILL: Record<
+  string,
+  { label: string; bg: string; text: string }
 > = {
-  pending: {
-    label: "Menunggu Pemeriksaan",
-    bg: "#fef9c3",
-    border: "#fde047",
-    text: "#854d0e",
-    icon: "clock",
+  positif: {
+    label: "AI · Sentimen: Positif",
+    bg: COLORS.successBg,
+    text: COLORS.successText,
   },
-  approved: {
-    label: "Izin Disetujui",
-    bg: "#e6f4ea",
-    border: "#b7dfc2",
-    text: "#0f5132",
-    icon: "check",
+  netral: {
+    label: "AI · Sentimen: Netral",
+    bg: COLORS.primarySoft,
+    text: COLORS.primary,
   },
-  rejected: {
-    label: "Izin Ditolak",
-    bg: "#fef2f2",
-    border: "#fecaca",
-    text: "#991b1b",
-    icon: "alert",
+  negatif: {
+    label: "AI · Sentimen: Negatif",
+    bg: COLORS.dangerBg,
+    text: COLORS.dangerText,
   },
 };
 
-export default function IzinAsistenListScreen() {
+function formatWaktuPengajuan(date: Date | null): string {
+  if (!date) return "";
+  return `${formatJam(date)} WIB`;
+}
+
+export default function IzinAsistenListScreen({
+  embedded = false,
+}: IzinAsistenListScreenProps) {
   const { sessionId: initialSessionId } = useLocalSearchParams<{
     sessionId?: string;
   }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const { sessions } = useSession();
 
   const [filterSessionId, setFilterSessionId] = useState<string>(
@@ -91,7 +95,6 @@ export default function IzinAsistenListScreen() {
   const [permissionsLoading, setPermissionsLoading] = useState(true);
   const [permissionsError, setPermissionsError] = useState<string | null>(null);
 
-  // 1. Pantau kelas yang diasistensi oleh asisten
   useEffect(() => {
     if (!user) return;
 
@@ -115,7 +118,6 @@ export default function IzinAsistenListScreen() {
     return unsubscribe;
   }, [user]);
 
-  // 2. Pantau seluruh pengajuan izin dari kelas yang diasistensi asisten (SRS 011)
   useEffect(() => {
     if (!classesLoaded || classes.length === 0) return;
 
@@ -175,7 +177,6 @@ export default function IzinAsistenListScreen() {
     return map;
   }, [sessions]);
 
-  // Filter berdasarkan sesi & pencarian Nama / NIM
   const scopedPermissions = useMemo(() => {
     const keyword = searchQuery.trim().toLowerCase();
 
@@ -200,11 +201,7 @@ export default function IzinAsistenListScreen() {
       else if (p.status === "approved") approved += 1;
       else if (p.status === "rejected") rejected += 1;
     });
-    return {
-      pending,
-      approved,
-      rejected,
-    };
+    return { pending, approved, rejected };
   }, [scopedPermissions]);
 
   const filteredPermissions = useMemo(() => {
@@ -215,606 +212,555 @@ export default function IzinAsistenListScreen() {
     ? sessionMap.get(filterSessionId)
     : undefined;
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      {/* Top Bar */}
-      <View style={styles.topBar}>
+  const body = (
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={[
+        styles.content,
+        { paddingTop: embedded ? Math.max(insets.top + 14, 24) : 14 },
+      ]}
+      showsVerticalScrollIndicator={false}
+    >
+      {!embedded && (
         <Pressable
           style={styles.backBtn}
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <AppIcon name="chevron-left" size={18} color="#41337A" />
+          <AppIcon name="chevron-left" size={18} color={COLORS.textPrimary} />
           <Text style={styles.backText}>Kembali</Text>
         </Pressable>
-        <Text style={styles.topBarTitle}>Pemeriksaan Izin</Text>
-        <View style={{ width: 68 }} />
+      )}
+
+      <Text style={styles.title}>Pengajuan Izin</Text>
+      <Text style={styles.subtitle}>Tinjau izin dari praktikan.</Text>
+
+      {/* Search Bar Nama / NIM */}
+      <View style={styles.searchBar}>
+        <AppIcon name="search" size={18} color={COLORS.textSecondary} />
+        <TextInput
+          style={styles.searchInput}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Cari nama atau NIM praktikan"
+          placeholderTextColor={COLORS.textMuted}
+          selectionColor={COLORS.primary}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <Pressable onPress={() => setSearchQuery("")} hitSlop={8}>
+            <Text style={styles.clearSearchText}>Reset</Text>
+          </Pressable>
+        )}
       </View>
 
-      {/* Search Bar Nama & NIM */}
-      <View style={styles.searchSection}>
-        <View style={styles.searchInputWrap}>
-          <AppIcon name="search" size={16} color="#6EA4BF" />
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Cari nama atau NIM praktikan…"
-            placeholderTextColor="#6EA4BF"
-            selectionColor="#41337A"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <Pressable
-              onPress={() => setSearchQuery("")}
-              hitSlop={8}
-              style={styles.clearSearchBtn}
-            >
-              <Text style={styles.clearSearchText}>Reset</Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
-
-      {/* Filter Status Tabs (Menunggu, Disetujui, Ditolak) */}
-      <View style={styles.filterBar}>
+      {/* Segmented Status Filter */}
+      <View style={styles.segmentedTrack}>
         {(
           [
-            { key: "pending", label: "Menunggu", count: counts.pending },
-            { key: "approved", label: "Disetujui", count: counts.approved },
-            { key: "rejected", label: "Ditolak", count: counts.rejected },
+            { key: "pending", label: `Menunggu (${counts.pending})` },
+            { key: "approved", label: `Disetujui (${counts.approved})` },
+            { key: "rejected", label: `Ditolak (${counts.rejected})` },
           ] as const
         ).map((tab) => {
           const active = activeFilter === tab.key;
           return (
             <Pressable
               key={tab.key}
-              style={[styles.filterTab, active && styles.filterTabActive]}
+              style={[styles.segmentBtn, active && styles.segmentBtnActive]}
               onPress={() => setActiveFilter(tab.key)}
             >
               <Text
-                style={[
-                  styles.filterTabText,
-                  active && styles.filterTabTextActive,
-                ]}
+                style={[styles.segmentText, active && styles.segmentTextActive]}
               >
                 {tab.label}
               </Text>
-              <View
-                style={[
-                  styles.filterCountPill,
-                  active && styles.filterCountPillActive,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterCountText,
-                    active && styles.filterCountTextActive,
-                  ]}
-                >
-                  {tab.count}
-                </Text>
-              </View>
             </Pressable>
           );
         })}
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Banner Filter Sesi jika dibuka dari Detail Sesi */}
-        {!!filterSessionId && (
-          <View style={styles.sessionFilterBanner}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.sessionFilterTitle}>Filter Sesi Aktif</Text>
-              <Text style={styles.sessionFilterSub}>
-                {filteredSessionMeta
-                  ? `${filteredSessionMeta.mataKuliah} · Pertemuan ${filteredSessionMeta.nomorPraktikum} (${filteredSessionMeta.namaPraktikum})`
-                  : `ID Sesi: ${filterSessionId}`}
-              </Text>
+      {filteredSessionMeta && (
+        <View style={styles.sessionFilterBanner}>
+          <Text style={styles.sessionFilterText} numberOfLines={1}>
+            Filter sesi: {filteredSessionMeta.mataKuliah} · Kelas{" "}
+            {filteredSessionMeta.namaKelas}
+          </Text>
+          <Pressable onPress={() => setFilterSessionId("")}>
+            <Text style={styles.clearSearchText}>Semua</Text>
+          </Pressable>
+        </View>
+      )}
+
+      <Text style={styles.sectionCaption}>Terbaru</Text>
+
+      {permissionsLoading && (
+        <View style={styles.loadingBox}>
+          <ActivityIndicator color={COLORS.primary} />
+          <Text style={styles.loadingText}>Memuat pengajuan izin…</Text>
+        </View>
+      )}
+
+      {permissionsError && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{permissionsError}</Text>
+        </View>
+      )}
+
+      {!permissionsLoading &&
+        !permissionsError &&
+        filteredPermissions.length === 0 && (
+          <View style={styles.emptyCard}>
+            <View style={styles.emptyIconCircle}>
+              <AppIcon name="file-text" size={24} color={COLORS.primary} />
             </View>
-            <Pressable
-              style={styles.clearFilterBtn}
-              onPress={() => setFilterSessionId("")}
-            >
-              <Text style={styles.clearFilterBtnText}>Semua Sesi</Text>
-            </Pressable>
+            <Text style={styles.emptyTitle}>Tidak ada pengajuan izin</Text>
+            <Text style={styles.emptySubtitle}>
+              Belum ada pengajuan izin pada kategori yang dipilih.
+            </Text>
           </View>
         )}
 
-        {permissionsLoading ? (
-          <View style={styles.loadingBox}>
-            <ActivityIndicator color="#41337A" />
-            <Text style={styles.loadingText}>
-              Memuat daftar pengajuan izin…
-            </Text>
-          </View>
-        ) : permissionsError ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{permissionsError}</Text>
-          </View>
-        ) : filteredPermissions.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <View style={styles.emptyIconCircle}>
-              <AppIcon name="clipboard" size={26} color="#6EA4BF" />
-            </View>
-            <Text style={styles.emptyTitle}>
-              {searchQuery.trim()
-                ? "Pengajuan Tidak Ditemukan"
-                : "Belum Ada Pengajuan Izin"}
-            </Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery.trim()
-                ? `Tidak ada pengajuan dengan nama atau NIM "${searchQuery.trim()}" pada status ini.`
-                : activeFilter === "pending"
-                  ? "Tidak ada pengajuan izin yang sedang menunggu pemeriksaan."
-                  : activeFilter === "approved"
-                    ? "Belum ada pengajuan izin yang disetujui."
-                    : "Belum ada pengajuan izin yang ditolak."}
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.cardList}>
-            {filteredPermissions.map((item) => {
-              const statusCfg =
-                STATUS_PERMISSION_CONFIG[item.status] ??
-                STATUS_PERMISSION_CONFIG.pending;
-              const classInfo = classMap.get(item.classId);
-              const sessInfo = sessionMap.get(item.sessionId);
-              const kodeKelas =
-                classInfo?.kodeKelas || sessInfo?.namaKelas || "—";
-              const mataKuliah =
-                item.mataKuliah ||
-                classInfo?.mataKuliah ||
-                sessInfo?.mataKuliah ||
-                "Praktikum";
-              const nomorPraktikum =
-                item.nomorPraktikum ?? sessInfo?.nomorPraktikum ?? 1;
-              const namaPraktikum =
-                item.namaPraktikum ||
-                sessInfo?.namaPraktikum ||
-                "Sesi Praktikum";
-              const jadwalStr = sessInfo
-                ? `${formatTanggal(sessInfo.tanggal)} · ${formatJam(sessInfo.jamMulai)} – ${formatJam(sessInfo.jamSelesai)} WIB`
-                : "Jadwal mengikuti sesi praktikum";
+      {!permissionsLoading &&
+        filteredPermissions.map((item) => {
+          const sInfo = sessionMap.get(item.sessionId);
+          const cInfo = classMap.get(item.classId);
+          const kodeKelas = cInfo?.kodeKelas || sInfo?.namaKelas || "—";
+          const scheduleLine = sInfo
+            ? `${formatTanggal(sInfo.tanggal)} · ${formatJam(sInfo.jamMulai).replace(":", ".")}–${formatJam(sInfo.jamSelesai).replace(":", ".")}`
+            : `Pertemuan ${item.nomorPraktikum} · ${item.namaPraktikum}`;
 
-              return (
-                <View key={item.id} style={styles.card}>
-                  {/* Baris Atas: Status & Kode Kelas */}
-                  <View style={styles.cardHeaderRow}>
-                    <View
+          const openIzinDetail = () =>
+            router.push(`/asisten/izin/${item.id}` as any);
+
+          return (
+            <Pressable
+              key={item.id}
+              style={({ pressed }) => [
+                styles.permCard,
+                pressed && styles.pressed,
+              ]}
+              onPress={openIzinDetail}
+            >
+              <View style={styles.cardTopRow}>
+                <View style={styles.cardHeaderLeft}>
+                  <View style={styles.cardIconBox}>
+                    <AppIcon
+                      name="file-text"
+                      size={15}
+                      color={COLORS.primary}
+                    />
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={styles.studentName}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {item.nama}
+                    </Text>
+                    <Text
+                      style={styles.timeCaption}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {formatWaktuPengajuan(item.createdAt)}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.statusTag,
+                    item.status === "approved"
+                      ? styles.statusTagSuccess
+                      : item.status === "rejected"
+                        ? styles.statusTagDanger
+                        : styles.statusTagPending,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.statusTagText,
+                      {
+                        color:
+                          item.status === "approved"
+                            ? COLORS.successText
+                            : item.status === "rejected"
+                              ? COLORS.dangerText
+                              : COLORS.neutralBadgeText,
+                      },
+                    ]}
+                  >
+                    {item.status === "approved"
+                      ? "Disetujui"
+                      : item.status === "rejected"
+                        ? "Ditolak"
+                        : "Menunggu"}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.cardDivider} />
+
+              <Text
+                style={styles.courseTitle}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {item.mataKuliah} · Kelas {kodeKelas}
+              </Text>
+
+              <Text
+                style={styles.reasonPreview}
+                numberOfLines={2}
+                ellipsizeMode="tail"
+              >
+                {item.alasan}
+              </Text>
+
+              {item.aiCategory && AI_SENTIMENT_PILL[item.aiCategory] && (
+                <View style={styles.aiBadgeRow}>
+                  <AppIcon name="sparkles" size={13} color={COLORS.primary} />
+                  <View
+                    style={[
+                      styles.aiBadgePill,
+                      {
+                        backgroundColor: AI_SENTIMENT_PILL[item.aiCategory].bg,
+                      },
+                    ]}
+                  >
+                    <Text
                       style={[
-                        styles.statusBadge,
-                        {
-                          backgroundColor: statusCfg.bg,
-                          borderColor: statusCfg.border,
-                        },
+                        styles.aiBadgeText,
+                        { color: AI_SENTIMENT_PILL[item.aiCategory].text },
                       ]}
                     >
-                      <AppIcon
-                        name={statusCfg.icon}
-                        size={12}
-                        color={statusCfg.text}
-                      />
-                      <Text
-                        style={[
-                          styles.statusBadgeText,
-                          { color: statusCfg.text },
-                        ]}
-                      >
-                        {statusCfg.label}
-                      </Text>
-                    </View>
-
-                    <View style={styles.classBadge}>
-                      <Text style={styles.classBadgeText}>
-                        Kelas {kodeKelas}
-                      </Text>
-                    </View>
+                      {AI_SENTIMENT_PILL[item.aiCategory].label}
+                    </Text>
                   </View>
-
-                  {/* Ringkasan Identitas Praktikan (Nama & NIM) */}
-                  <View style={styles.studentIdentityBox}>
-                    <View style={styles.studentAvatar}>
-                      <AppIcon name="user" size={16} color="#41337A" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.studentName} numberOfLines={1}>
-                        {item.nama || "Praktikan"}
-                      </Text>
-                      <Text style={styles.studentNim}>
-                        NIM {item.nim || "—"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Ringkasan Nama Kelas (Mata Kuliah), Sesi, dan Jadwal */}
-                  <View style={styles.summaryMetaBox}>
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Mata Kuliah</Text>
-                      <Text style={styles.summaryValue} numberOfLines={1}>
-                        {mataKuliah}
-                      </Text>
-                    </View>
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Sesi</Text>
-                      <Text style={styles.summaryValue} numberOfLines={1}>
-                        Pertemuan {nomorPraktikum} · {namaPraktikum}
-                      </Text>
-                    </View>
-
-                    <View style={styles.summaryRow}>
-                      <Text style={styles.summaryLabel}>Jadwal</Text>
-                      <Text style={styles.summaryValue} numberOfLines={1}>
-                        {jadwalStr}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Tombol Lihat Detail */}
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.detailBtn,
-                      pressed && styles.btnPressed,
-                    ]}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/asisten/izin/[id]",
-                        params: { id: item.id },
-                      } as any)
-                    }
-                  >
-                    <Text style={styles.detailBtnText}>Lihat Detail</Text>
-                    <AppIcon name="chevron-right" size={15} color="#41337A" />
-                  </Pressable>
                 </View>
-              );
-            })}
-          </View>
-        )}
+              )}
 
-        <View style={{ height: 36 }} />
-      </ScrollView>
+              <View style={styles.cardBottomRow}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.footerLabel}>Jadwal sesi</Text>
+                  <Text
+                    style={styles.scheduleLine}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {scheduleLine}
+                  </Text>
+                </View>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.detailCtaBtn,
+                    pressed && styles.detailCtaBtnPressed,
+                  ]}
+                  onPress={openIzinDetail}
+                >
+                  <Text style={styles.detailCtaBtnText}>Lihat detail</Text>
+                </Pressable>
+              </View>
+            </Pressable>
+          );
+        })}
+    </ScrollView>
+  );
+
+  if (embedded) {
+    return <View style={styles.safe}>{body}</View>;
+  }
+
+  return (
+    <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
+      <StatusBar style="dark" />
+      {body}
+      <BottomNavBar role="asisten" activeTab="izin" />
     </SafeAreaView>
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#ECFEE8" },
+  safe: { flex: 1, backgroundColor: COLORS.surfaceSubtle },
+  scroll: { flex: 1 },
+  content: { paddingHorizontal: 16, paddingBottom: 24 },
+  pressed: { opacity: 0.88 },
 
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#ffffff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#C2EFEB",
-  },
   backBtn: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    width: 68,
+    marginBottom: 10,
+    alignSelf: "flex-start",
   },
-  backText: {
-    color: "#41337A",
-    fontSize: 14,
-    fontWeight: "600",
+  backText: { fontSize: 13, fontWeight: "600", color: COLORS.textPrimary },
 
+  title: {
+    fontSize: 19,
+    fontWeight: "700",
+    lineHeight: 24,
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
   },
-  topBarTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#331E36",
+  subtitle: {
+    fontSize: 12.5,
+    fontWeight: "400",
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+    marginBottom: 12,
+  },
 
-  },
-
-  searchSection: {
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 6,
-  },
-  searchInputWrap: {
+  searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    backgroundColor: "#ECFEE8",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 10,
+    gap: 10,
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.md,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 42,
+    borderWidth: 1,
+    borderColor: COLORS.borderStrong,
+    marginBottom: 12,
   },
   searchInput: {
     flex: 1,
+    paddingVertical: 9,
     fontSize: 13.5,
-    color: "#331E36",
-    paddingVertical: 0,
-
-  },
-  clearSearchBtn: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    color: COLORS.textPrimary,
   },
   clearSearchText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.primary,
   },
 
-  filterBar: {
+  segmentedTrack: {
     flexDirection: "row",
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#C2EFEB",
+    backgroundColor: COLORS.segmentedTrack,
+    borderRadius: RADIUS.md,
+    padding: 4,
+    marginBottom: 14,
   },
-  filterTab: {
+  segmentBtn: {
     flex: 1,
-    flexDirection: "row",
+    paddingVertical: 9,
+    borderRadius: RADIUS.sm + 2,
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
-    borderRadius: 9,
-    backgroundColor: "#ECFEE8",
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
   },
-  filterTabActive: {
-    backgroundColor: "#41337A",
-    borderColor: "#41337A",
+  segmentBtnActive: {
+    backgroundColor: COLORS.background,
   },
-  filterTabText: {
-    fontSize: 12,
+  segmentText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+  },
+  segmentTextActive: {
+    color: COLORS.primary,
     fontWeight: "700",
-    color: "#41337A",
-
-  },
-  filterTabTextActive: {
-    color: "#ffffff",
-  },
-  filterCountPill: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 999,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-  },
-  filterCountPillActive: {
-    backgroundColor: "rgba(255,255,255,0.22)",
-  },
-  filterCountText: {
-    fontSize: 10.5,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-  filterCountTextActive: {
-    color: "#ffffff",
-  },
-
-  scrollContent: {
-    padding: 16,
   },
 
   sessionFilterBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 14,
-  },
-  sessionFilterTitle: {
-    fontSize: 12,
-    fontWeight: "800",
-    color: "#41337A",
-
-  },
-  sessionFilterSub: {
-    fontSize: 12,
-    color: "#41337A",
-    marginTop: 2,
-
-  },
-  clearFilterBtn: {
-    backgroundColor: "#41337A",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  clearFilterBtnText: {
-    color: "#ffffff",
-    fontSize: 11.5,
-    fontWeight: "700",
-
-  },
-
-  loadingBox: {
-    alignItems: "center",
-    paddingVertical: 44,
+    justifyContent: "space-between",
     gap: 10,
-  },
-  loadingText: { fontSize: 13, color: "#6EA4BF", },
-
-  errorBox: {
-    backgroundColor: "#fef2f2",
-    borderWidth: 1,
-    borderColor: "#fecaca",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: COLORS.primarySoft,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: RADIUS.md,
     marginBottom: 12,
   },
-  errorText: { color: "#991b1b", fontSize: 12.5, },
+  sessionFilterText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.primary,
+  },
+  sectionCaption: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: COLORS.textSecondary,
+    marginBottom: 10,
+  },
 
-  emptyBox: {
-    alignItems: "center",
-    paddingVertical: 44,
-    paddingHorizontal: 26,
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
+  permCard: {
+    backgroundColor: COLORS.card,
+    borderRadius: RADIUS.lg,
+    padding: 14,
     borderWidth: 1,
-    borderColor: "#C2EFEB",
+    borderColor: COLORS.border,
+    marginBottom: 10,
   },
-  emptyIconCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: "#ECFEE8",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#331E36",
-    marginBottom: 6,
-
-  },
-  emptySubtitle: {
-    fontSize: 13,
-    color: "#6EA4BF",
-    textAlign: "center",
-    lineHeight: 19,
-
-  },
-
-  cardList: {
-    gap: 12,
-  },
-  card: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-  },
-  cardHeaderRow: {
+  cardTopRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 11,
+    gap: 8,
   },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  statusBadgeText: {
-    fontSize: 11.5,
-    fontWeight: "700",
-
-  },
-  classBadge: {
-    backgroundColor: "#C2EFEB",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-  },
-  classBadgeText: {
-    fontSize: 11.5,
-    fontWeight: "700",
-    color: "#41337A",
-
-  },
-
-  studentIdentityBox: {
+  cardHeaderLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    backgroundColor: "#ECFEE8",
-    borderRadius: 11,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#C2EFEB",
-    marginBottom: 10,
+    flex: 1,
+    minWidth: 0,
   },
-  studentAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: "#C2EFEB",
+  cardIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
   studentName: {
-    fontSize: 14.5,
-    fontWeight: "800",
-    color: "#331E36",
-
-  },
-  studentNim: {
-    fontSize: 12,
-    color: "#41337A",
-    marginTop: 1,
-    fontWeight: "500",
-
-  },
-
-  summaryMetaBox: {
-    gap: 6,
-    paddingVertical: 4,
-    marginBottom: 12,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 8,
-  },
-  summaryLabel: {
-    width: 82,
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#6EA4BF",
-
-  },
-  summaryValue: {
-    flex: 1,
-    fontSize: 12.5,
-    fontWeight: "700",
-    color: "#331E36",
-
-  },
-
-  detailBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    backgroundColor: "#C2EFEB",
-    borderWidth: 1,
-    borderColor: "#6EA4BF",
-    borderRadius: 10,
-    paddingVertical: 10,
-  },
-  detailBtnText: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#41337A",
-
+    color: COLORS.textPrimary,
   },
-  btnPressed: { opacity: 0.85 },
-});
+  timeCaption: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  statusTag: {
+    borderRadius: RADIUS.xs,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  statusTagSuccess: {
+    backgroundColor: COLORS.successBg,
+    borderColor: COLORS.primaryBorder,
+  },
+  statusTagDanger: {
+    backgroundColor: COLORS.dangerBg,
+    borderColor: COLORS.dangerBorder,
+  },
+  statusTagPending: {
+    backgroundColor: COLORS.neutralBadgeBg,
+    borderColor: COLORS.border,
+  },
+  statusTagText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: COLORS.divider,
+    marginVertical: 10,
+  },
+  courseTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  reasonPreview: {
+    fontSize: 12.5,
+    fontWeight: "400",
+    lineHeight: 18,
+    color: COLORS.textSecondary,
+  },
+  aiBadgeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 8,
+  },
+  aiBadgePill: {
+    borderRadius: RADIUS.pill,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  aiBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  cardBottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 12,
+  },
+  footerLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: COLORS.textSecondary,
+  },
+  scheduleLine: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: COLORS.textPrimary,
+    marginTop: 1,
+  },
+  detailCtaBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  detailCtaBtnPressed: {
+    backgroundColor: COLORS.primaryPressed,
+  },
+  detailCtaBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: COLORS.textOnPrimary,
+  },
 
+  loadingBox: {
+    alignItems: "center",
+    paddingVertical: 32,
+    gap: 10,
+  },
+  loadingText: { fontSize: 12.5, color: COLORS.textSecondary },
+  errorBox: {
+    backgroundColor: COLORS.dangerBg,
+    borderWidth: 1,
+    borderColor: COLORS.dangerBorder,
+    borderRadius: RADIUS.md,
+    padding: 12,
+    marginBottom: 12,
+  },
+  errorText: { fontSize: 12.5, color: COLORS.dangerDark },
+  emptyCard: {
+    backgroundColor: COLORS.surfaceSubtle,
+    borderRadius: RADIUS.lg,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  emptyIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: COLORS.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
+  },
+  emptyTitle: {
+    fontSize: 14.5,
+    fontWeight: "700",
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 12.5,
+    color: COLORS.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+});
