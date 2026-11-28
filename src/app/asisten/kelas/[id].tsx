@@ -114,6 +114,12 @@ export default function KelasDetailScreen() {
   const isClassAssistant =
     !!user && !!classData && classData.assistants.includes(user.id);
 
+  // Distribusi peserta kelas merupakan wewenang Aslab (SRS 019).
+  const canManageMembers =
+    !!user &&
+    (user.activeRole === "aslab" ||
+      (Array.isArray(user.roles) && user.roles.includes("aslab")));
+
   useEffect(() => {
     if (!classId) return;
 
@@ -634,7 +640,7 @@ export default function KelasDetailScreen() {
         ) : (
           /* Tab Praktikan (Daftar Peserta Kelas) */
           <>
-            {isClassAssistant && (
+            {canManageMembers && (
               <Pressable
                 style={({ pressed }) => [
                   styles.primaryBtn,
@@ -706,7 +712,7 @@ export default function KelasDetailScreen() {
                           {m.nim}
                         </Text>
                       </View>
-                      {isClassAssistant && (
+                      {canManageMembers && (
                         <Pressable
                           style={styles.removeMemberBtn}
                           onPress={() => {

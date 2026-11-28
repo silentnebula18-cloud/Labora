@@ -33,12 +33,12 @@ import type { Laboratory } from "../../../types";
 export default function KelolaLaboratoriumScreen() {
   const { user } = useAuth();
 
-  const isAssistant =
-    user?.activeRole === "asisten" ||
-    (Array.isArray(user?.roles) && user.roles.includes("asisten"));
+  const isAslab =
+    user?.activeRole === "aslab" ||
+    (Array.isArray(user?.roles) && user.roles.includes("aslab"));
 
   const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
-  const [loading, setLoading] = useState(isAssistant);
+  const [loading, setLoading] = useState(isAslab);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -62,7 +62,7 @@ export default function KelolaLaboratoriumScreen() {
   );
 
   useEffect(() => {
-    if (!user || !isAssistant) {
+    if (!user || !isAslab) {
       return;
     }
 
@@ -79,7 +79,7 @@ export default function KelolaLaboratoriumScreen() {
     );
 
     return unsubscribe;
-  }, [user, isAssistant]);
+  }, [user, isAslab]);
 
   const filteredLabs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -134,7 +134,7 @@ export default function KelolaLaboratoriumScreen() {
     }
   }
 
-  if (!isAssistant) {
+  if (!isAslab) {
     return (
       <SafeAreaView style={styles.safe}>
         <StatusBar style="dark" />
@@ -151,8 +151,8 @@ export default function KelolaLaboratoriumScreen() {
             <AppIcon name="alert" size={30} color={COLORS.dangerText} />
             <Text style={styles.forbiddenTitle}>Akses terbatas</Text>
             <Text style={styles.forbiddenDesc}>
-              Hanya akun dengan peran Asisten yang memiliki wewenang untuk
-              mengelola lokasi laboratorium.
+              Pengaturan lokasi laboratorium kini dikelola oleh peran Aslab.
+              Asisten tidak dapat mengubah pengaturan ruang secara global.
             </Text>
           </View>
         </View>

@@ -169,7 +169,9 @@ export default function RiwayatPresensiKelasScreen() {
                       numberOfLines={1}
                       ellipsizeMode="tail"
                     >
-                      {formatJam(att.waktuHadir)}
+                      {att.attendanceStatus === "izin"
+                        ? "Izin"
+                        : formatJam(att.waktuHadir)}
                     </Text>
                     <AppIcon
                       name="chevron-right"

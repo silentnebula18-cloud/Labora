@@ -39,6 +39,13 @@ service cloud.firestore {
         && 'asisten' in rolesOf(currentUid());
     }
 
+    // Peran Aslab hanya dapat diberikan manual via Firebase Console (SRS 019).
+    function isAslab() {
+      return isSignedIn()
+        && userExists(currentUid())
+        && 'aslab' in rolesOf(currentUid());
+    }
+
     function classExists(classId) {
       return exists(classPath(classId));
     }
@@ -53,6 +60,11 @@ service cloud.firestore {
       return isSignedIn()
         && classExists(classId)
         && currentUid() in get(classPath(classId)).data.memberIds;
+    }
+
+    function isClassMemberUid(classId, uid) {
+      return classExists(classId)
+        && uid in get(classPath(classId)).data.memberIds;
     }
 
     function onlyFields(allowed) {
@@ -76,8 +88,9 @@ service cloud.firestore {
         return isSignedIn() && currentUid() == userId;
       }
 
-      // Profil sendiri, atau dibaca asisten untuk pencarian peserta kelas.
-      allow read: if isSelf() || isAssistant();
+      // Profil sendiri, dibaca asisten untuk pencarian peserta kelas, atau
+      // dibaca aslab untuk distribusi praktikan.
+      allow read: if isSelf() || isAssistant() || isAslab();
 
       allow create: if isSelf()
         && onlyFields(['uid', 'nama', 'nim', 'email', 'roles', 'activeRole', 'createdAt'])
@@ -115,31 +128,54 @@ service cloud.firestore {
     match /classes/{classId} {
       allow read: if isSignedIn()
         && (currentUid() in resource.data.assistants
-            || currentUid() in resource.data.memberIds);
+            || currentUid() in resource.data.memberIds
+            || isAssistant()
+            || isAslab());
 
-      allow create: if isAssistant()
-        && onlyFields(['mataKuliah', 'kodeKelas', 'assistants', 'createdBy', 'memberIds', 'createdAt'])
-        && request.resource.data.keys().hasAll(['mataKuliah', 'kodeKelas', 'assistants', 'createdBy', 'memberIds', 'createdAt'])
+      allow create: if (isAssistant() || isAslab())
+        && onlyFields([
+          'mataKuliah', 'kodeKelas', 'assistants', 'createdBy', 'memberIds',
+          'labId', 'ruang', 'gracePeriodMinutes', 'fineAmount', 'createdAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'mataKuliah', 'kodeKelas', 'assistants', 'createdBy', 'memberIds',
+          'createdAt'
+        ])
         && request.resource.data.createdBy == currentUid()
-        && request.resource.data.assistants == [currentUid()]
-        && request.resource.data.memberIds == []
+        && (
+          (isAslab() && request.resource.data.assistants is list && request.resource.data.memberIds is list)
+          || (isAssistant() && request.resource.data.assistants == [currentUid()] && request.resource.data.memberIds == [])
+        )
         && request.resource.data.mataKuliah is string
         && request.resource.data.mataKuliah.size() >= 1
         && request.resource.data.mataKuliah.size() <= 100
         && request.resource.data.kodeKelas is string
         && request.resource.data.kodeKelas.size() >= 1
         && request.resource.data.kodeKelas.size() <= 10
+        && (!('labId' in request.resource.data)
+            || request.resource.data.labId == null
+            || request.resource.data.labId is string)
+        && (!('ruang' in request.resource.data)
+            || request.resource.data.ruang == null
+            || request.resource.data.ruang is string)
+        && (!('gracePeriodMinutes' in request.resource.data)
+            || (request.resource.data.gracePeriodMinutes is number
+                && request.resource.data.gracePeriodMinutes >= 0
+                && request.resource.data.gracePeriodMinutes <= 120))
+        && (!('fineAmount' in request.resource.data)
+            || (request.resource.data.fineAmount is number
+                && request.resource.data.fineAmount > 0
+                && request.resource.data.fineAmount <= 10000000))
         && request.resource.data.createdAt == request.time;
 
-      // Asisten boleh mengubah info kelas dan daftar anggota (memberIds),
-      // tetapi tidak boleh memindah kepemilikan kelas maupun memasukkan UID asisten ke memberIds.
+      // Asisten hanya boleh mengubah informasi kelas. Distribusi peserta
+      // (memberIds) dan konfigurasi lab/denda merupakan wewenang Aslab (SRS 019).
       allow update: if isClassAssistant(classId)
-        && changedOnly(['mataKuliah', 'kodeKelas', 'memberIds'])
+        && changedOnly(['mataKuliah', 'kodeKelas'])
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.assistants == resource.data.assistants
+        && request.resource.data.memberIds == resource.data.memberIds
         && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.memberIds is list
-        && !(currentUid() in request.resource.data.memberIds)
         && request.resource.data.mataKuliah is string
         && request.resource.data.mataKuliah.size() >= 1
         && request.resource.data.mataKuliah.size() <= 100
@@ -147,16 +183,48 @@ service cloud.firestore {
         && request.resource.data.kodeKelas.size() >= 1
         && request.resource.data.kodeKelas.size() <= 10;
 
-      allow delete: if isClassAssistant(classId);
+      allow update: if isAslab()
+        && changedOnly([
+          'mataKuliah', 'kodeKelas', 'assistants', 'memberIds', 'labId', 'ruang',
+          'gracePeriodMinutes', 'fineAmount'
+        ])
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.assistants is list
+        && request.resource.data.memberIds is list
+        && request.resource.data.mataKuliah is string
+        && request.resource.data.mataKuliah.size() >= 1
+        && request.resource.data.mataKuliah.size() <= 100
+        && request.resource.data.kodeKelas is string
+        && request.resource.data.kodeKelas.size() >= 1
+        && request.resource.data.kodeKelas.size() <= 10
+        && (!('labId' in request.resource.data)
+            || request.resource.data.labId == null
+            || request.resource.data.labId is string)
+        && (!('ruang' in request.resource.data)
+            || request.resource.data.ruang == null
+            || request.resource.data.ruang is string)
+        && (!('gracePeriodMinutes' in request.resource.data)
+            || (request.resource.data.gracePeriodMinutes is number
+                && request.resource.data.gracePeriodMinutes >= 0
+                && request.resource.data.gracePeriodMinutes <= 120))
+        && (!('fineAmount' in request.resource.data)
+            || (request.resource.data.fineAmount is number
+                && request.resource.data.fineAmount > 0
+                && request.resource.data.fineAmount <= 10000000));
+
+      allow delete: if isClassAssistant(classId) || isAslab();
 
       // ─── classes/{classId}/members ─────────────────────────────────────────
+      // Penambahan/penghapusan peserta hanya oleh Aslab (SRS 019).
 
       match /members/{memberId} {
         allow read: if isClassAssistant(classId)
+          || isAslab()
           || (isSignedIn() && currentUid() == memberId);
 
-        // Asisten tidak boleh mendaftarkan dirinya sendiri / asisten pengampu kelas sebagai peserta.
-        allow create: if isClassAssistant(classId)
+        // Aslab tidak boleh mendaftarkan dirinya sendiri / asisten pengampu kelas sebagai peserta.
+        allow create: if isAslab()
           && memberId != classId
           && memberId != currentUid()
           && !(memberId in get(classPath(classId)).data.assistants)
@@ -170,28 +238,31 @@ service cloud.firestore {
           && request.resource.data.email is string
           && request.resource.data.joinedAt == request.time;
 
-        allow update: if isClassAssistant(classId)
+        allow update: if isAslab()
           && changedOnly(['nama', 'nim', 'email'])
           && request.resource.data.uid == resource.data.uid
           && request.resource.data.joinedAt == resource.data.joinedAt;
 
-        allow delete: if isClassAssistant(classId);
+        allow delete: if isAslab();
       }
     }
 
     // ─── schedules ───────────────────────────────────────────────────────────
 
     match /schedules/{scheduleId} {
+      // Asisten/aslab perlu membaca lintas jadwal untuk deteksi bentrok (SRS 019).
       allow read: if isSignedIn()
         && (currentUid() in resource.data.assistants
-            || isClassMember(resource.data.classId));
+            || isClassMember(resource.data.classId)
+            || isAssistant()
+            || isAslab());
 
       allow create: if isAssistant()
         && isClassAssistant(request.resource.data.classId)
         && onlyFields([
           'classId', 'mataKuliah', 'kodeKelas', 'nomorPraktikum',
           'namaPraktikum', 'tanggal', 'jamMulai', 'jamSelesai', 'ruang',
-          'assistants', 'createdBy', 'createdAt', 'updatedAt'
+          'labId', 'assistants', 'createdBy', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.keys().hasAll([
           'classId', 'mataKuliah', 'kodeKelas', 'nomorPraktikum',
@@ -215,6 +286,9 @@ service cloud.firestore {
         && request.resource.data.ruang is string
         && request.resource.data.ruang.size() >= 1
         && request.resource.data.ruang.size() <= 100
+        && (!('labId' in request.resource.data)
+            || request.resource.data.labId == null
+            || request.resource.data.labId is string)
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
@@ -222,7 +296,8 @@ service cloud.firestore {
       allow update: if isClassAssistant(resource.data.classId)
         && changedOnly([
           'classId', 'mataKuliah', 'kodeKelas', 'nomorPraktikum', 'namaPraktikum',
-          'tanggal', 'jamMulai', 'jamSelesai', 'ruang', 'assistants', 'updatedAt'
+          'tanggal', 'jamMulai', 'jamSelesai', 'ruang', 'labId', 'assistants',
+          'updatedAt'
         ])
         && request.resource.data.classId == resource.data.classId
         && request.resource.data.assistants == resource.data.assistants
@@ -244,6 +319,16 @@ service cloud.firestore {
         && request.resource.data.ruang.size() <= 100
         && request.resource.data.updatedAt == request.time;
 
+      // Aslab boleh menyinkronkan daftar asprak (`assistants`) pada jadwal kelas
+      // saat melakukan penambahan atau pemindahan asprak antar-kelas (SRS 021).
+      allow update: if isAslab()
+        && changedOnly(['assistants', 'updatedAt'])
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.assistants is list
+        && request.resource.data.updatedAt == request.time;
+
       allow delete: if isClassAssistant(resource.data.classId);
     }
 
@@ -253,7 +338,8 @@ service cloud.firestore {
     match /sessions/{sessionId} {
       allow read: if isSignedIn()
         && (isClassAssistant(resource.data.classId)
-            || isClassMember(resource.data.classId));
+            || isClassMember(resource.data.classId)
+            || isAslab());
 
       allow create: if isAssistant()
         && request.resource.data.scheduleId == sessionId
@@ -285,11 +371,20 @@ service cloud.firestore {
             || request.resource.data.updatedBy == 'system')
         && changedOnly([
           'status', 'openedAt', 'closedAt', 'openedBy', 'closedBy',
-          'updatedBy', 'updatedAt', 'kodeKelas', 'kodePresensi'
+          'updatedBy', 'updatedAt', 'kodeKelas', 'kodePresensi',
+          'gracePeriodMinutes', 'fineAmount'
         ])
         && (!('kodePresensi' in request.resource.data)
             || (request.resource.data.kodePresensi is string
                 && request.resource.data.kodePresensi.matches('^[A-Z0-9]{4,8}$')))
+        && (!('gracePeriodMinutes' in request.resource.data)
+            || (request.resource.data.gracePeriodMinutes is number
+                && request.resource.data.gracePeriodMinutes >= 0
+                && request.resource.data.gracePeriodMinutes <= 120))
+        && (!('fineAmount' in request.resource.data)
+            || (request.resource.data.fineAmount is number
+                && request.resource.data.fineAmount > 0
+                && request.resource.data.fineAmount <= 10000000))
         && request.resource.data.status in ['scheduled', 'open', 'closed']
         && request.resource.data.kodeKelas is string
         && request.resource.data.updatedAt == request.time
@@ -317,10 +412,11 @@ service cloud.firestore {
       match /attendance/{studentId} {
         allow read: if isSignedIn()
           && (studentId == currentUid()
-              || isClassAssistant(get(sessionPath(sessionId)).data.classId));
+              || isClassAssistant(get(sessionPath(sessionId)).data.classId)
+              || isAslab());
 
         // Praktikan hanya boleh mencatat kehadirannya sendiri, pada sesi
-        // yang sedang dibuka dan di kelas yang ia ikuti.
+        // yang sedang dibuka dan di kelas yang ia ikuti (SRS 007/020).
         allow create: if isSignedIn()
           && studentId == currentUid()
           && exists(sessionPath(sessionId))
@@ -328,21 +424,66 @@ service cloud.firestore {
           && isClassMember(get(sessionPath(sessionId)).data.classId)
           && onlyFields([
             'studentId', 'nama', 'nim', 'sessionId', 'waktuHadir',
-            'latitude', 'longitude', 'jarakMeter', 'radiusMeter'
+            'latitude', 'longitude', 'jarakMeter', 'radiusMeter',
+            'attendanceStatus', 'latenessStatus', 'lateMinutes', 'fineId'
           ])
-          && request.resource.data.keys().hasAll(['studentId', 'nama', 'nim', 'sessionId', 'waktuHadir'])
+          && request.resource.data.keys().hasAll([
+            'studentId', 'nama', 'nim', 'sessionId', 'waktuHadir',
+            'attendanceStatus', 'latenessStatus', 'lateMinutes', 'fineId'
+          ])
           && request.resource.data.studentId == currentUid()
           && request.resource.data.sessionId == sessionId
           && request.resource.data.nama is string
           && request.resource.data.nama.size() >= 1
           && request.resource.data.nim is string
           && request.resource.data.waktuHadir == request.time
+          && request.resource.data.attendanceStatus == 'hadir'
+          && request.resource.data.latenessStatus in ['on_time', 'late']
+          && request.resource.data.lateMinutes is number
+          && request.resource.data.lateMinutes >= 0
+          && request.resource.data.fineId == null
           && (!('latitude' in request.resource.data) || request.resource.data.latitude is number)
           && (!('longitude' in request.resource.data) || request.resource.data.longitude is number)
           && (!('jarakMeter' in request.resource.data) || request.resource.data.jarakMeter is number)
           && (!('radiusMeter' in request.resource.data) || request.resource.data.radiusMeter is number);
 
-        allow update, delete: if false;
+        // Izin disetujui dicatat oleh asisten pengampu sebagai excused, bebas
+        // denda, dan bukan kehadiran fisik (SRS 020).
+        allow create: if isSignedIn()
+          && isClassAssistant(get(sessionPath(sessionId)).data.classId)
+          && isClassMemberUid(get(sessionPath(sessionId)).data.classId, studentId)
+          && onlyFields([
+            'studentId', 'nama', 'nim', 'sessionId', 'waktuHadir',
+            'latitude', 'longitude', 'jarakMeter', 'radiusMeter',
+            'attendanceStatus', 'latenessStatus', 'lateMinutes', 'fineId'
+          ])
+          && request.resource.data.keys().hasAll([
+            'studentId', 'nama', 'nim', 'sessionId', 'waktuHadir',
+            'attendanceStatus', 'latenessStatus', 'lateMinutes', 'fineId'
+          ])
+          && request.resource.data.studentId == studentId
+          && request.resource.data.sessionId == sessionId
+          && request.resource.data.nama is string
+          && request.resource.data.nim is string
+          && request.resource.data.waktuHadir == request.time
+          && request.resource.data.attendanceStatus == 'izin'
+          && request.resource.data.latenessStatus == 'excused'
+          && request.resource.data.lateMinutes == 0
+          && request.resource.data.fineId == null
+          && (!('latitude' in request.resource.data) || request.resource.data.latitude == null)
+          && (!('longitude' in request.resource.data) || request.resource.data.longitude == null)
+          && (!('jarakMeter' in request.resource.data) || request.resource.data.jarakMeter == null)
+          && (!('radiusMeter' in request.resource.data) || request.resource.data.radiusMeter == null);
+
+        // Praktikan hanya boleh menautkan fineId denda miliknya (tidak boleh
+        // mengubah status kehadiran/keterlambatan).
+        allow update: if isSignedIn()
+          && studentId == currentUid()
+          && changedOnly(['fineId'])
+          && (request.resource.data.fineId == null
+              || request.resource.data.fineId is string);
+
+        allow delete: if false;
       }
     }
 
@@ -353,7 +494,8 @@ service cloud.firestore {
     match /permissionRequests/{permissionId} {
       allow read: if isSignedIn()
         && (resource.data.uid == currentUid()
-            || isClassAssistant(resource.data.classId));
+            || isClassAssistant(resource.data.classId)
+            || isAslab());
 
       allow create: if isSignedIn()
         && onlyFields([
@@ -406,17 +548,24 @@ service cloud.firestore {
         && request.resource.data.decidedBy == currentUid()
         && request.resource.data.decidedAt == request.time;
 
+      // Penandaan pencatatan izin (excusedRecorded) oleh asisten setelah
+      // dokumen attendance izin dibuat (SRS 020).
+      allow update: if isClassAssistant(resource.data.classId)
+        && resource.data.status == 'approved'
+        && changedOnly(['excusedRecorded'])
+        && request.resource.data.excusedRecorded == true;
+
       allow delete: if false;
     }
 
     // ─── laboratories ────────────────────────────────────────────────────────
     // Lokasi & radius laboratorium dibaca oleh praktikan dan asisten untuk
-    // validasi lokasi presensi (SRS-014), serta dikelola oleh asisten (SRS-015).
+    // validasi lokasi presensi (SRS-014), serta dikelola oleh Aslab (SRS-019).
 
     match /laboratories/{labId} {
       allow read: if isSignedIn();
 
-      allow create: if isAssistant()
+      allow create: if isAslab()
         && request.resource.data.nama is string
         && request.resource.data.nama.size() >= 1
         && request.resource.data.nama.size() <= 100
@@ -434,7 +583,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
-      allow update: if isAssistant()
+      allow update: if isAslab()
         && request.resource.data.nama is string
         && request.resource.data.nama.size() >= 1
         && request.resource.data.nama.size() <= 100
@@ -451,7 +600,116 @@ service cloud.firestore {
         && request.resource.data.updatedBy == currentUid()
         && request.resource.data.updatedAt == request.time;
 
-      allow delete: if isAssistant();
+      allow delete: if isAslab();
+    }
+
+    // ─── fines ───────────────────────────────────────────────────────────────
+    // Tagihan denda keterlambatan (SRS 020). ID deterministik
+    // `{sessionId}_{studentId}` menjamin satu denda per sesi/praktikan.
+
+    match /fines/{fineId} {
+      // Izinkan `get` saat dokumen belum ada (resource == null) agar transaksi
+      // `createLateFine` dapat memeriksa keberadaan dokumen sebelum membuatnya.
+      allow get: if isSignedIn()
+        && (resource == null
+            || resource.data.studentId == currentUid()
+            || isClassAssistant(resource.data.classId)
+            || isAslab());
+
+      allow list: if isSignedIn()
+        && (resource.data.studentId == currentUid()
+            || isClassAssistant(resource.data.classId)
+            || isAslab());
+
+      // Praktikan membuat denda miliknya sendiri; status awal wajib unpaid.
+      allow create: if isSignedIn()
+        && request.resource.data.studentId == currentUid()
+        && request.resource.data.fineId == fineId
+        && request.resource.data.status == 'unpaid'
+        && request.resource.data.latestOrderId == null
+        && request.resource.data.paidAt == null
+        && isClassMember(request.resource.data.classId)
+        && exists(sessionPath(request.resource.data.sessionId))
+        && request.resource.data.sessionId + '_' + currentUid() == fineId
+        && onlyFields([
+          'fineId', 'studentId', 'nama', 'nim', 'sessionId', 'classId',
+          'kodeKelas', 'mataKuliah', 'nomorPraktikum', 'namaPraktikum',
+          'ruang', 'labId', 'waktuHadir', 'lateMinutes', 'gracePeriodMinutes',
+          'nominal', 'status', 'latestOrderId', 'paidAt', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'fineId', 'studentId', 'nama', 'nim', 'sessionId', 'classId',
+          'kodeKelas', 'mataKuliah', 'nomorPraktikum', 'namaPraktikum',
+          'ruang', 'labId', 'waktuHadir', 'lateMinutes', 'gracePeriodMinutes',
+          'nominal', 'status', 'latestOrderId', 'paidAt', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.nominal is number
+        && request.resource.data.nominal > 0
+        && request.resource.data.lateMinutes is number
+        && request.resource.data.lateMinutes >= 0
+        && request.resource.data.gracePeriodMinutes is number
+        && request.resource.data.gracePeriodMinutes >= 0
+        && request.resource.data.waktuHadir is timestamp
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      // Pembayaran hanya mengubah status pembayaran, tidak pernah
+      // attendance/lateness.
+      allow update: if isAslab()
+        && changedOnly(['status', 'latestOrderId', 'paidAt', 'updatedAt'])
+        && request.resource.data.status in ['unpaid', 'pending', 'paid', 'failed']
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    // ─── paymentTransactions ─────────────────────────────────────────────────
+    // Riwayat transaksi pembayaran denda (SRS 020/021).
+
+    match /paymentTransactions/{orderId} {
+      allow get: if isSignedIn()
+        && (resource == null
+            || resource.data.studentId == currentUid()
+            || isAslab());
+
+      allow list: if isSignedIn()
+        && (resource.data.studentId == currentUid() || isAslab());
+
+      allow create: if isSignedIn()
+        && (request.resource.data.studentId == currentUid() || isAslab())
+        && request.resource.data.orderId == orderId
+        && onlyFields([
+          'orderId', 'fineId', 'studentId', 'nama', 'nim', 'sessionId',
+          'classId', 'mataKuliah', 'nomorPraktikum', 'namaPraktikum', 'ruang',
+          'nominal', 'snapToken', 'redirectUrl', 'paymentType',
+          'transactionStatus', 'status', 'rawGatewayStatus', 'webhookVerified',
+          'paidAt', 'createdAt', 'updatedAt'
+        ])
+        && request.resource.data.keys().hasAll([
+          'orderId', 'fineId', 'studentId', 'sessionId', 'nominal',
+          'createdAt', 'updatedAt'
+        ])
+        && (!('transactionStatus' in request.resource.data)
+            || request.resource.data.transactionStatus in ['pending', 'success', 'failed'])
+        && (!('status' in request.resource.data)
+            || request.resource.data.status in ['pending', 'paid', 'success', 'failed', 'expired'])
+        && request.resource.data.nominal is number
+        && request.resource.data.nominal > 0
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time;
+
+      allow update: if isAslab()
+        && changedOnly([
+          'transactionStatus', 'status', 'paymentType', 'rawGatewayStatus',
+          'webhookVerified', 'paidAt', 'updatedAt'
+        ])
+        && (!('transactionStatus' in request.resource.data)
+            || request.resource.data.transactionStatus in ['pending', 'success', 'failed'])
+        && (!('status' in request.resource.data)
+            || request.resource.data.status in ['pending', 'paid', 'success', 'failed', 'expired'])
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
     }
 
     // ─── notifications ────────────────────────────────────────────────────────

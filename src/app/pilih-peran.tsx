@@ -3,12 +3,29 @@ import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AppIcon from "../components/AppIcon";
+import AppIcon, { type AppIconName } from "../components/AppIcon";
 import BrandMark from "../components/BrandMark";
-import { ROLE_LABEL } from "../constants/roles";
 import { COLORS, RADIUS } from "../constants/theme";
 import { useAuth } from "../context/AuthContext";
 import type { Role } from "../types";
+
+const ROLE_TITLE: Record<Role, string> = {
+  praktikan: "Praktikan",
+  asisten: "Asisten",
+  aslab: "Aslab",
+};
+
+const ROLE_ICON: Record<Role, AppIconName> = {
+  praktikan: "book",
+  asisten: "users",
+  aslab: "flask",
+};
+
+const ROLE_DESCRIPTION: Record<Role, string> = {
+  praktikan: "Ikuti sesi, catat kehadiran, dan pantau jadwal praktikum.",
+  asisten: "Kelola kelas, pantau presensi, dan tinjau pengajuan izin.",
+  aslab: "Kelola laboratorium, konfigurasi denda, dan distribusi praktikan.",
+};
 
 export default function PilihPeranScreen() {
   const { user, selectRole, logout } = useAuth();
@@ -22,10 +39,7 @@ export default function PilihPeranScreen() {
     ? selectedRole
     : (user.roles[0] ?? "praktikan");
 
-  const buttonLabel =
-    effectiveSelected === "asisten"
-      ? "Lanjutkan sebagai Asisten"
-      : "Lanjutkan sebagai Praktikan";
+  const buttonLabel = `Lanjutkan sebagai ${ROLE_TITLE[effectiveSelected]}`;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -63,7 +77,7 @@ export default function PilihPeranScreen() {
                   ]}
                 >
                   <AppIcon
-                    name={role === "asisten" ? "users" : "book"}
+                    name={ROLE_ICON[role]}
                     size={22}
                     color={COLORS.primary}
                   />
@@ -75,16 +89,14 @@ export default function PilihPeranScreen() {
                     numberOfLines={1}
                     ellipsizeMode="tail"
                   >
-                    {role === "asisten" ? "Asisten" : ROLE_LABEL[role]}
+                    {ROLE_TITLE[role]}
                   </Text>
                   <Text
                     style={styles.cardDesc}
                     numberOfLines={2}
                     ellipsizeMode="tail"
                   >
-                    {role === "asisten"
-                      ? "Kelola kelas, pantau presensi, dan tinjau pengajuan izin."
-                      : "Ikuti sesi, catat kehadiran, dan pantau jadwal praktikum."}
+                    {ROLE_DESCRIPTION[role]}
                   </Text>
                 </View>
 

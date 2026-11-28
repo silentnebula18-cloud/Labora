@@ -64,6 +64,17 @@ function mapClass(id: string, data: Record<string, unknown>): ClassRecord {
     createdBy: readString(data.createdBy),
     createdAt: toDate(data.createdAt),
     memberIds: readStringList(data.memberIds),
+    labId: readString(data.labId) || undefined,
+    ruang: readString(data.ruang) || undefined,
+    gracePeriodMinutes:
+      typeof data.gracePeriodMinutes === "number" &&
+      Number.isFinite(data.gracePeriodMinutes)
+        ? data.gracePeriodMinutes
+        : undefined,
+    fineAmount:
+      typeof data.fineAmount === "number" && Number.isFinite(data.fineAmount)
+        ? data.fineAmount
+        : undefined,
   };
 }
 
@@ -107,6 +118,9 @@ export function describeFirestoreError(error: unknown): string {
   }
   if (code.includes("already-exists")) {
     return "Data sudah ada";
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
   return "Gagal memproses data";
 }
@@ -181,6 +195,8 @@ export async function createClass(
     assistants: [uid],
     createdBy: uid,
     memberIds: [],
+    gracePeriodMinutes: 15,
+    fineAmount: 10000,
     createdAt: serverTimestamp(),
   });
 

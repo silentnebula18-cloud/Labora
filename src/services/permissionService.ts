@@ -7,6 +7,7 @@ import {
   onSnapshot,
   query,
   serverTimestamp,
+  setDoc,
   updateDoc,
   where,
 } from "@react-native-firebase/firestore";
@@ -102,6 +103,7 @@ function mapPermissionRecord(
     aiProcessedAt: toDate(data.aiProcessedAt),
     decidedBy: readNullableString(data.decidedBy),
     decidedAt: toDate(data.decidedAt),
+    excusedRecorded: data.excusedRecorded === true,
     createdAt: toDate(data.createdAt),
   };
 }
@@ -374,6 +376,48 @@ export async function decidePermissionRequest(
     decidedBy: assistantUid,
     decidedAt: serverTimestamp(),
   });
+
+  // Izin disetujui → catat kehadiran "izin" bebas denda (SRS 020).
+  if (decision === "approved") {
+    const sessionId = readString(currentData.sessionId);
+    const studentId = readString(currentData.uid);
+    if (sessionId && studentId) {
+      const attendanceRef = doc(
+        db,
+        "sessions",
+        sessionId,
+        "attendance",
+        studentId,
+      );
+      const attendanceSnap = await getDoc(attendanceRef);
+      const alreadyPresent =
+        attendanceSnap.exists() &&
+        readString(
+          (attendanceSnap.data() as Record<string, unknown>).attendanceStatus,
+        ) !== "izin";
+
+      if (!alreadyPresent) {
+        if (!attendanceSnap.exists()) {
+          await setDoc(attendanceRef, {
+            studentId,
+            nama: readString(currentData.nama),
+            nim: readString(currentData.nim),
+            sessionId,
+            waktuHadir: serverTimestamp(),
+            latitude: null,
+            longitude: null,
+            jarakMeter: null,
+            radiusMeter: null,
+            attendanceStatus: "izin",
+            latenessStatus: "excused",
+            lateMinutes: 0,
+            fineId: null,
+          });
+        }
+        await updateDoc(docRef, { excusedRecorded: true });
+      }
+    }
+  }
 
   void notifyPermissionDecided(permissionId, assistantUid, decision).catch(
     (err) => {

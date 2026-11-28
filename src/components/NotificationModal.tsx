@@ -11,7 +11,7 @@ import {
 
 import { COLORS, RADIUS } from "../constants/theme";
 import { requestNotificationPermissionAgain } from "../services/notificationService";
-import type { AppNotification, NotificationType } from "../types";
+import type { AppNotification, NotificationType, Role } from "../types";
 import { formatTanggal } from "../utils/format";
 import AppIcon, { type AppIconName } from "./AppIcon";
 import BottomSheetModal from "./BottomSheetModal";
@@ -23,7 +23,7 @@ interface NotificationModalProps {
   unreadCount: number;
   onMarkAsRead: (id: string) => Promise<void>;
   onMarkAllAsRead: () => Promise<void>;
-  userRole?: "praktikan" | "asisten" | null;
+  userRole?: Role | null;
   isNotificationPermissionGranted?: boolean | null;
   isConnectionError?: boolean;
   onRefreshPermission?: () => void;
