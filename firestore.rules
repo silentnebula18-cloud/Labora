@@ -142,8 +142,10 @@ service cloud.firestore {
           'createdAt'
         ])
         && request.resource.data.createdBy == currentUid()
-        && request.resource.data.assistants == [currentUid()]
-        && request.resource.data.memberIds == []
+        && (
+          (isAslab() && request.resource.data.assistants is list && request.resource.data.memberIds is list)
+          || (isAssistant() && request.resource.data.assistants == [currentUid()] && request.resource.data.memberIds == [])
+        )
         && request.resource.data.mataKuliah is string
         && request.resource.data.mataKuliah.size() >= 1
         && request.resource.data.mataKuliah.size() <= 100
@@ -183,12 +185,12 @@ service cloud.firestore {
 
       allow update: if isAslab()
         && changedOnly([
-          'mataKuliah', 'kodeKelas', 'memberIds', 'labId', 'ruang',
+          'mataKuliah', 'kodeKelas', 'assistants', 'memberIds', 'labId', 'ruang',
           'gracePeriodMinutes', 'fineAmount'
         ])
         && request.resource.data.createdBy == resource.data.createdBy
-        && request.resource.data.assistants == resource.data.assistants
         && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.assistants is list
         && request.resource.data.memberIds is list
         && request.resource.data.mataKuliah is string
         && request.resource.data.mataKuliah.size() >= 1
@@ -315,6 +317,16 @@ service cloud.firestore {
         && request.resource.data.ruang is string
         && request.resource.data.ruang.size() >= 1
         && request.resource.data.ruang.size() <= 100
+        && request.resource.data.updatedAt == request.time;
+
+      // Aslab boleh menyinkronkan daftar asprak (`assistants`) pada jadwal kelas
+      // saat melakukan penambahan atau pemindahan asprak antar-kelas (SRS 021).
+      allow update: if isAslab()
+        && changedOnly(['assistants', 'updatedAt'])
+        && request.resource.data.classId == resource.data.classId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.assistants is list
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if isClassAssistant(resource.data.classId);
@@ -482,7 +494,8 @@ service cloud.firestore {
     match /permissionRequests/{permissionId} {
       allow read: if isSignedIn()
         && (resource.data.uid == currentUid()
-            || isClassAssistant(resource.data.classId));
+            || isClassAssistant(resource.data.classId)
+            || isAslab());
 
       allow create: if isSignedIn()
         && onlyFields([
@@ -595,7 +608,15 @@ service cloud.firestore {
     // `{sessionId}_{studentId}` menjamin satu denda per sesi/praktikan.
 
     match /fines/{fineId} {
-      allow read: if isSignedIn()
+      // Izinkan `get` saat dokumen belum ada (resource == null) agar transaksi
+      // `createLateFine` dapat memeriksa keberadaan dokumen sebelum membuatnya.
+      allow get: if isSignedIn()
+        && (resource == null
+            || resource.data.studentId == currentUid()
+            || isClassAssistant(resource.data.classId)
+            || isAslab());
+
+      allow list: if isSignedIn()
         && (resource.data.studentId == currentUid()
             || isClassAssistant(resource.data.classId)
             || isAslab());
@@ -646,29 +667,46 @@ service cloud.firestore {
     // Riwayat transaksi pembayaran denda (SRS 020/021).
 
     match /paymentTransactions/{orderId} {
-      allow read: if isSignedIn()
+      allow get: if isSignedIn()
+        && (resource == null
+            || resource.data.studentId == currentUid()
+            || isAslab());
+
+      allow list: if isSignedIn()
         && (resource.data.studentId == currentUid() || isAslab());
 
       allow create: if isSignedIn()
         && (request.resource.data.studentId == currentUid() || isAslab())
         && request.resource.data.orderId == orderId
-        && request.resource.data.status in ['pending', 'paid', 'failed', 'expired']
         && onlyFields([
-          'orderId', 'fineId', 'studentId', 'sessionId', 'nominal', 'status',
+          'orderId', 'fineId', 'studentId', 'nama', 'nim', 'sessionId',
+          'classId', 'mataKuliah', 'nomorPraktikum', 'namaPraktikum', 'ruang',
+          'nominal', 'snapToken', 'redirectUrl', 'paymentType',
+          'transactionStatus', 'status', 'rawGatewayStatus', 'webhookVerified',
           'paidAt', 'createdAt', 'updatedAt'
         ])
         && request.resource.data.keys().hasAll([
-          'orderId', 'fineId', 'studentId', 'sessionId', 'nominal', 'status',
+          'orderId', 'fineId', 'studentId', 'sessionId', 'nominal',
           'createdAt', 'updatedAt'
         ])
+        && (!('transactionStatus' in request.resource.data)
+            || request.resource.data.transactionStatus in ['pending', 'success', 'failed'])
+        && (!('status' in request.resource.data)
+            || request.resource.data.status in ['pending', 'paid', 'success', 'failed', 'expired'])
         && request.resource.data.nominal is number
         && request.resource.data.nominal > 0
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time;
 
       allow update: if isAslab()
-        && changedOnly(['status', 'paidAt', 'updatedAt'])
-        && request.resource.data.status in ['pending', 'paid', 'failed', 'expired']
+        && changedOnly([
+          'transactionStatus', 'status', 'paymentType', 'rawGatewayStatus',
+          'webhookVerified', 'paidAt', 'updatedAt'
+        ])
+        && (!('transactionStatus' in request.resource.data)
+            || request.resource.data.transactionStatus in ['pending', 'success', 'failed'])
+        && (!('status' in request.resource.data)
+            || request.resource.data.status in ['pending', 'paid', 'success', 'failed', 'expired'])
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if false;
