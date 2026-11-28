@@ -158,6 +158,12 @@ export default function SessionDetailScreen() {
     return id ? getAttendances(id) : [];
   }, [id, attendanceLoading, realtimeAttendances, getAttendances]);
 
+  // Catatan "izin" bukan kehadiran fisik — pisahkan dari daftar Hadir (SRS 020).
+  const presentAttendances = useMemo(
+    () => attendances.filter((a) => a.attendanceStatus !== "izin"),
+    [attendances],
+  );
+
   const sessionPermissions = useMemo(() => {
     if (!session) return [];
     return permissions.filter(
@@ -326,7 +332,7 @@ export default function SessionDetailScreen() {
     );
   }
 
-  const hadirCount = attendances.length;
+  const hadirCount = presentAttendances.length;
   const izinCount = sessionPermissions.filter(
     (p) => p.status !== "rejected",
   ).length;
@@ -341,8 +347,8 @@ export default function SessionDetailScreen() {
 
   const badge = STATUS_BADGE[session.status] ?? STATUS_BADGE.scheduled;
   const displayedAttendances = showAllRows
-    ? attendances
-    : attendances.slice(0, 6);
+    ? presentAttendances
+    : presentAttendances.slice(0, 6);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top", "left", "right", "bottom"]}>
@@ -600,7 +606,7 @@ export default function SessionDetailScreen() {
               <ActivityIndicator color={COLORS.primary} />
               <Text style={styles.emptySub}>Memuat daftar hadir…</Text>
             </View>
-          ) : attendances.length === 0 ? (
+          ) : presentAttendances.length === 0 ? (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>Belum ada yang presensi</Text>
               <Text style={styles.emptySub}>
@@ -641,23 +647,38 @@ export default function SessionDetailScreen() {
                           {item.nimStudent}
                         </Text>
                       </View>
-                      <Text
-                        style={styles.timeRight}
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                      >
-                        {formatJamPendek(item.waktuHadir)}
-                      </Text>
+                      <View style={styles.attendanceRightCol}>
+                        <Text
+                          style={styles.timeRight}
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {formatJamPendek(item.waktuHadir)}
+                        </Text>
+                        <Text
+                          style={
+                            item.latenessStatus === "late"
+                              ? styles.lateTag
+                              : styles.onTimeTag
+                          }
+                          numberOfLines={1}
+                          ellipsizeMode="tail"
+                        >
+                          {item.latenessStatus === "late"
+                            ? `Terlambat ${item.lateMinutes ?? 0} mnt`
+                            : "Tepat waktu"}
+                        </Text>
+                      </View>
                     </View>
                   );
                 })}
               </View>
 
-              {attendances.length > 6 && (
+              {presentAttendances.length > 6 && (
                 <View style={styles.listFooterRow}>
                   <Text style={styles.listFooterCount}>
                     Menampilkan {displayedAttendances.length} dari{" "}
-                    {attendances.length} praktikan
+                    {presentAttendances.length} praktikan
                   </Text>
                   <Pressable onPress={() => setShowAllRows((v) => !v)}>
                     <Text style={styles.listFooterLink}>
@@ -1271,6 +1292,20 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: "500",
     color: COLORS.textSecondary,
+  },
+  attendanceRightCol: {
+    alignItems: "flex-end",
+    gap: 2,
+  },
+  onTimeTag: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: COLORS.successText,
+  },
+  lateTag: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: COLORS.warningText,
   },
   statusTagMuted: {
     fontSize: 12,

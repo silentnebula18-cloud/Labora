@@ -25,7 +25,12 @@ export default function Index() {
   if (!user) return <Redirect href="/login" />;
   if (!activeRole) return <Redirect href="/pilih-peran" />;
 
-  return (
-    <Redirect href={activeRole === "asisten" ? "/asisten" : "/praktikan"} />
-  );
+  const homeHref =
+    activeRole === "asisten"
+      ? "/asisten"
+      : activeRole === "aslab"
+        ? "/aslab"
+        : "/praktikan";
+
+  return <Redirect href={homeHref as any} />;
 }

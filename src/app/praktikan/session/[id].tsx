@@ -229,7 +229,7 @@ export default function SessionDetailPraktikan() {
         </View>
 
         {/* Status Kehadiran / Izin Praktikan */}
-        {attendance ? (
+        {attendance && attendance.attendanceStatus !== "izin" ? (
           <View style={[styles.statusCard, styles.statusCardMint]}>
             <View style={styles.iconCircleMint}>
               <AppIcon name="check" size={22} color={COLORS.primary} />
@@ -243,7 +243,8 @@ export default function SessionDetailPraktikan() {
               .
             </Text>
           </View>
-        ) : permission?.status === "approved" ? (
+        ) : attendance?.attendanceStatus === "izin" ||
+          permission?.status === "approved" ? (
           <View style={[styles.statusCard, styles.statusCardMint]}>
             <View style={styles.iconCircleMint}>
               <AppIcon name="check" size={22} color={COLORS.primary} />

@@ -151,7 +151,10 @@ export default function HomeAsisten() {
     const unsubscribe = subscribeSessionAttendances(
       featuredSessionId,
       (items) => {
-        setFeaturedAttendances(items);
+        // Catatan izin bukan kehadiran fisik (SRS 020).
+        setFeaturedAttendances(
+          items.filter((item) => item.attendanceStatus !== "izin"),
+        );
       },
       () => {
         setFeaturedAttendances([]);

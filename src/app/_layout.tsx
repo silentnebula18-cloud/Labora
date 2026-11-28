@@ -27,6 +27,10 @@ function RootNavigator() {
       <Stack.Protected guard={activeRole === "asisten"}>
         <Stack.Screen name="asisten" />
       </Stack.Protected>
+
+      <Stack.Protected guard={activeRole === "aslab"}>
+        <Stack.Screen name="aslab" />
+      </Stack.Protected>
     </Stack>
   );
 }

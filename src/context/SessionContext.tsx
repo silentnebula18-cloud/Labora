@@ -109,7 +109,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     user && activeRole ? `${user.id}:${activeRole}` : null;
 
   const sessionsLoading =
-    currentSubscriptionKey !== null && loadedKey !== currentSubscriptionKey;
+    currentSubscriptionKey !== null &&
+    activeRole !== "aslab" &&
+    loadedKey !== currentSubscriptionKey;
 
   // Langganan real-time otomatis berdasarkan user & peran aktif
   useEffect(() => {
@@ -134,6 +136,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         },
       );
       return unsubscribe;
+    }
+
+    if (activeRole === "aslab") {
+      return;
     }
 
     const unsubscribe = subscribeStudentSchedulesWithSessions(
@@ -224,6 +230,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             ? (user?.id || "system")
             : (user?.id || "");
 
+      // Validasi & tulis ke Firestore lebih dulu agar UI tidak menampilkan
+      // status yang ditolak (mis. buka sesi di luar jam jadwal — SRS 019).
+      if (status === "open") {
+        await openSessionInFirestore(sessionId, uid);
+      } else if (status === "closed") {
+        await closeSessionInFirestore(sessionId, uid);
+      }
+
       updateSessionStatus(sessionId, status);
 
       setSessions((prev) =>
@@ -256,12 +270,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             : s,
         ),
       );
-
-      if (status === "open") {
-        await openSessionInFirestore(sessionId, uid);
-      } else if (status === "closed") {
-        await closeSessionInFirestore(sessionId, uid);
-      }
     },
     [user],
   );

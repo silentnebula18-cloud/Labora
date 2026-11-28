@@ -3,11 +3,13 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  getDocs,
   onSnapshot,
   query,
   serverTimestamp,
   setDoc,
   Timestamp,
+  updateDoc,
   where,
   writeBatch,
 } from "@react-native-firebase/firestore";
@@ -18,6 +20,12 @@ import {
   notifySessionOpened,
 } from "./notificationService";
 import { validateStudentLabProximity } from "./locationService";
+import {
+  computeLateness,
+  createLateFine,
+  resolveFineAmount,
+  resolveGracePeriodMinutes,
+} from "./fineService";
 import { attendances } from "../mocks/attendances";
 import { classes } from "../mocks/classes";
 import { enrollments } from "../mocks/enrollments";
@@ -114,6 +122,11 @@ function readStringList(value: unknown): string[] {
     : [];
 }
 
+function readOptionalNumber(value: unknown): number | undefined {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function toDate(value: unknown): Date | null {
   if (value && typeof (value as { toDate?: unknown }).toDate === "function") {
     return (value as { toDate: () => Date }).toDate();
@@ -180,6 +193,7 @@ function mapSchedule(
     jamMulai,
     jamSelesai,
     ruang: readString(data.ruang),
+    labId: readString(data.labId) || undefined,
     assistants: readStringList(data.assistants),
     createdBy: readString(data.createdBy),
     createdAt: toDate(data.createdAt),
@@ -227,6 +241,8 @@ function mapSessionRecord(
     closedAt: toDate(data.closedAt),
     openedBy: readNullableString(data.openedBy),
     closedBy: readNullableString(data.closedBy),
+    gracePeriodMinutes: readOptionalNumber(data.gracePeriodMinutes),
+    fineAmount: readOptionalNumber(data.fineAmount),
     updatedBy: readNullableString(data.updatedBy),
     updatedAt: toDate(data.updatedAt),
   };
@@ -251,6 +267,7 @@ function combineScheduleAndSession(
     jamMulai: schedule.jamMulai,
     jamSelesai: schedule.jamSelesai,
     ruang: schedule.ruang,
+    labId: schedule.labId,
     assistantId: schedule.createdBy || schedule.assistants[0] || "",
     assistants: schedule.assistants,
     kodePresensi: session?.kodePresensi,
@@ -259,6 +276,8 @@ function combineScheduleAndSession(
     closedAt: session?.closedAt ?? null,
     openedBy: session?.openedBy ?? null,
     closedBy: session?.closedBy ?? null,
+    gracePeriodMinutes: session?.gracePeriodMinutes,
+    fineAmount: session?.fineAmount,
     updatedBy: session?.updatedBy ?? null,
     updatedAt: session?.updatedAt ?? schedule.updatedAt ?? null,
     practicum: {
@@ -637,6 +656,69 @@ export function subscribeStudentSchedulesWithSessions(
 
 // ─── Operasi CRUD Jadwal & Status Sesi (SRS 006) ──────────────────────────────
 
+function normalizeRoomName(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function formatClock(date: Date): string {
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}.${minutes}`;
+}
+
+/**
+ * Tolak jadwal yang bertabrakan dengan jadwal lain di laboratorium (ruang) yang
+ * sama pada tanggal yang sama (SRS 019). Bentrok terjadi bila rentang waktu
+ * beririsan: `mulaiBaru < selesaiLama && selesaiBaru > mulaiLama`.
+ */
+async function ensureNoScheduleConflict(params: {
+  tanggal: Date;
+  jamMulai: Date;
+  jamSelesai: Date;
+  ruang: string;
+  excludeScheduleId?: string;
+}): Promise<void> {
+  const dayStart = new Date(params.tanggal);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, "schedules"),
+      where("tanggal", ">=", Timestamp.fromDate(dayStart)),
+      where("tanggal", "<", Timestamp.fromDate(dayEnd)),
+    ),
+  );
+
+  const targetRoom = normalizeRoomName(params.ruang);
+
+  for (const docSnap of snapshot.docs) {
+    if (docSnap.id === params.excludeScheduleId) continue;
+    const data = docSnap.data() as Record<string, unknown>;
+    if (normalizeRoomName(readString(data.ruang)) !== targetRoom) continue;
+
+    const existingTanggal = parseScheduleDate(data.tanggal);
+    const existingMulai = parseScheduleTime(data.jamMulai, existingTanggal, 0, 0);
+    const existingSelesai = parseScheduleTime(
+      data.jamSelesai,
+      existingTanggal,
+      0,
+      0,
+    );
+
+    const overlaps =
+      params.jamMulai.getTime() < existingSelesai.getTime() &&
+      params.jamSelesai.getTime() > existingMulai.getTime();
+    if (!overlaps) continue;
+
+    const label = readString(data.namaPraktikum) || readString(data.kodeKelas);
+    throw new Error(
+      `Jadwal bentrok dengan ${label || "jadwal lain"} di ${params.ruang.trim()} pada pukul ${formatClock(existingMulai)}–${formatClock(existingSelesai)}. Pilih waktu atau ruang lain.`,
+    );
+  }
+}
+
 /**
  * Buat jadwal baru di `schedules/{id}` beserta dokumen sesi di `sessions/{id}`.
  */
@@ -645,6 +727,13 @@ export async function createScheduleAndSession(
   kelas: ClassRecord,
   input: ScheduleInput,
 ): Promise<string> {
+  await ensureNoScheduleConflict({
+    tanggal: input.tanggal,
+    jamMulai: input.jamMulai,
+    jamSelesai: input.jamSelesai,
+    ruang: input.ruang,
+  });
+
   const scheduleRef = doc(collection(db, "schedules"));
   const sessionRef = doc(db, "sessions", scheduleRef.id);
 
@@ -660,6 +749,7 @@ export async function createScheduleAndSession(
     jamMulai: Timestamp.fromDate(input.jamMulai),
     jamSelesai: Timestamp.fromDate(input.jamSelesai),
     ruang: input.ruang.trim(),
+    labId: kelas.labId ?? null,
     assistants: kelas.assistants,
     createdBy: assistantUid,
     createdAt: serverTimestamp(),
@@ -706,6 +796,14 @@ export async function updateScheduleAndSession(
   const scheduleRef = doc(db, "schedules", scheduleId);
   const sessionRef = doc(db, "sessions", scheduleId);
 
+  await ensureNoScheduleConflict({
+    tanggal: input.tanggal,
+    jamMulai: input.jamMulai,
+    jamSelesai: input.jamSelesai,
+    ruang: input.ruang,
+    excludeScheduleId: scheduleId,
+  });
+
   const batch = writeBatch(db);
 
   batch.update(scheduleRef, {
@@ -718,6 +816,7 @@ export async function updateScheduleAndSession(
     jamMulai: Timestamp.fromDate(input.jamMulai),
     jamSelesai: Timestamp.fromDate(input.jamSelesai),
     ruang: input.ruang.trim(),
+    labId: kelas.labId ?? null,
     assistants: kelas.assistants,
     updatedAt: serverTimestamp(),
   });
@@ -755,6 +854,8 @@ export async function deleteScheduleAndSession(
 
 /**
  * Buka sesi praktikum (`status = "open"`).
+ * Hanya diizinkan pada tanggal & rentang jam jadwal (SRS 019), serta menyalin
+ * `gracePeriodMinutes` dan `fineAmount` dari kelas ke dokumen sesi (SRS 020).
  * Jika sebelumnya berstatus closed, closedAt dan closedBy dibersihkan.
  */
 export async function openSessionInFirestore(
@@ -763,29 +864,68 @@ export async function openSessionInFirestore(
 ): Promise<void> {
   const sessionRef = doc(db, "sessions", sessionId);
   const existing = getSessionById(sessionId);
-  let kodePresensi = existing?.kodePresensi;
 
+  const sessionSnap = await getDoc(sessionRef);
+  const sessionData = sessionSnap.data() as Record<string, unknown> | undefined;
+  const classId = readString(sessionData?.classId) || existing?.classId || "";
+
+  const scheduleSnap = await getDoc(doc(db, "schedules", sessionId));
+  if (!scheduleSnap.exists()) {
+    throw new Error("Data jadwal sesi tidak ditemukan");
+  }
+  const scheduleData = scheduleSnap.data() as Record<string, unknown>;
+  const tanggal = parseScheduleDate(scheduleData.tanggal);
+  const jamMulai = parseScheduleTime(scheduleData.jamMulai, tanggal, 7, 40);
+  const jamSelesai = parseScheduleTime(scheduleData.jamSelesai, tanggal, 9, 40);
+
+  const windowStart = new Date(tanggal);
+  windowStart.setHours(jamMulai.getHours(), jamMulai.getMinutes(), 0, 0);
+  const windowEnd = new Date(tanggal);
+  windowEnd.setHours(jamSelesai.getHours(), jamSelesai.getMinutes(), 0, 0);
+
+  const now = Date.now();
+  if (now < windowStart.getTime()) {
+    throw new Error(
+      `Sesi belum dapat dibuka. Jadwal dimulai pukul ${formatClock(windowStart)} WIB.`,
+    );
+  }
+  if (now > windowEnd.getTime()) {
+    throw new Error(
+      `Waktu jadwal sesi telah berakhir pada pukul ${formatClock(windowEnd)} WIB.`,
+    );
+  }
+
+  let kodePresensi =
+    readString(sessionData?.kodePresensi).trim().toUpperCase() ||
+    existing?.kodePresensi;
+  const storedKelas =
+    readString(sessionData?.kodeKelas).trim().toUpperCase() ||
+    existing?.kelas?.namaKelas;
   if (!kodePresensi) {
+    kodePresensi = generateAttendanceCode(
+      storedKelas,
+      existing?.practicum?.nomorPraktikum,
+    );
+  }
+
+  let gracePeriodMinutes = resolveGracePeriodMinutes(
+    existing?.gracePeriodMinutes,
+  );
+  let fineAmount = resolveFineAmount(existing?.fineAmount);
+  if (classId) {
     try {
-      const snap = await getDoc(sessionRef);
-      const snapData = snap.data() as Record<string, unknown> | undefined;
-      const storedCode = readString(snapData?.kodePresensi)
-        .trim()
-        .toUpperCase();
-      const storedKelas =
-        readString(snapData?.kodeKelas).trim().toUpperCase() ||
-        existing?.kelas?.namaKelas;
-      kodePresensi =
-        storedCode ||
-        generateAttendanceCode(
-          storedKelas,
-          existing?.practicum?.nomorPraktikum,
-        );
-    } catch {
-      kodePresensi = generateAttendanceCode(
-        existing?.kelas?.namaKelas,
-        existing?.practicum?.nomorPraktikum,
+      const classSnap = await getDoc(doc(db, "classes", classId));
+      const classData = classSnap.data() as
+        | Record<string, unknown>
+        | undefined;
+      gracePeriodMinutes = resolveGracePeriodMinutes(
+        readOptionalNumber(classData?.gracePeriodMinutes),
       );
+      fineAmount = resolveFineAmount(
+        readOptionalNumber(classData?.fineAmount),
+      );
+    } catch {
+      // Gunakan nilai default bila konfigurasi kelas tidak terbaca.
     }
   }
 
@@ -794,6 +934,8 @@ export async function openSessionInFirestore(
     {
       status: "open",
       kodePresensi,
+      gracePeriodMinutes,
+      fineAmount,
       openedAt: serverTimestamp(),
       openedBy: assistantUid,
       closedAt: null,
@@ -1020,6 +1162,21 @@ export function subscribeSessionAttendances(
           Number.isFinite(data.radiusMeter)
             ? data.radiusMeter
             : undefined;
+        const attendanceStatus =
+          data.attendanceStatus === "izin" ? "izin" : "hadir";
+        const latenessStatus =
+          data.latenessStatus === "late"
+            ? "late"
+            : data.latenessStatus === "excused"
+              ? "excused"
+              : "on_time";
+        const lateMinutes =
+          typeof data.lateMinutes === "number" &&
+          Number.isFinite(data.lateMinutes)
+            ? data.lateMinutes
+            : undefined;
+        const fineId =
+          typeof data.fineId === "string" ? data.fineId : undefined;
 
         // Update cache lokal juga
         const existingIdx = _attendances.findIndex(
@@ -1035,6 +1192,10 @@ export function subscribeSessionAttendances(
           longitude,
           jarakMeter,
           radiusMeter,
+          attendanceStatus,
+          latenessStatus,
+          lateMinutes,
+          fineId,
         };
         if (existingIdx === -1) {
           _attendances.push(attRecord);
@@ -1051,6 +1212,10 @@ export function subscribeSessionAttendances(
           longitude,
           jarakMeter,
           radiusMeter,
+          attendanceStatus,
+          latenessStatus,
+          lateMinutes,
+          fineId,
           namaStudentId: studentId,
           namaStudent: studentName || "Praktikan",
           nimStudent: studentNim || "—",
@@ -1103,6 +1268,20 @@ export function subscribeStudentSessionAttendance(
         typeof data.radiusMeter === "number" && Number.isFinite(data.radiusMeter)
           ? data.radiusMeter
           : undefined;
+      const attendanceStatus =
+        data.attendanceStatus === "izin" ? "izin" : "hadir";
+      const latenessStatus =
+        data.latenessStatus === "late"
+          ? "late"
+          : data.latenessStatus === "excused"
+            ? "excused"
+            : "on_time";
+      const lateMinutes =
+        typeof data.lateMinutes === "number" &&
+        Number.isFinite(data.lateMinutes)
+          ? data.lateMinutes
+          : undefined;
+      const fineId = typeof data.fineId === "string" ? data.fineId : undefined;
 
       const record: Attendance = {
         id: `${sessionId}_${docSnap.id}`,
@@ -1113,6 +1292,10 @@ export function subscribeStudentSessionAttendance(
         longitude,
         jarakMeter,
         radiusMeter,
+        attendanceStatus,
+        latenessStatus,
+        lateMinutes,
+        fineId,
       };
 
       // Sinkronkan ke cache lokal
@@ -1193,6 +1376,7 @@ export async function markAttendance(
   }
 
   const nowIso = new Date().toISOString();
+  const nowDate = new Date(nowIso);
   const studentName =
     studentInfo?.nama?.trim() ||
     users.find((u) => u.id === studentId)?.nama ||
@@ -1202,7 +1386,18 @@ export async function markAttendance(
     users.find((u) => u.id === studentId)?.nim ||
     "—";
 
-  // Tulis ke subcollection attendance di Firestore (SRS 007 & SRS 014)
+  // Perhitungan keterlambatan terhadap jam mulai + grace period (SRS 020)
+  const gracePeriodMinutes = resolveGracePeriodMinutes(
+    session.gracePeriodMinutes,
+  );
+  const lateness = computeLateness(
+    nowDate,
+    session.jamMulai,
+    gracePeriodMinutes,
+  );
+  const latenessStatus = lateness.isLate ? "late" : "on_time";
+
+  // Tulis ke subcollection attendance di Firestore (SRS 007, 014, 020)
   await setDoc(attendanceRef, {
     studentId,
     nama: studentName,
@@ -1213,7 +1408,30 @@ export async function markAttendance(
     longitude: proximity.studentCoords.longitude,
     jarakMeter: proximity.distanceMeters,
     radiusMeter: proximity.labLocation.radius,
+    attendanceStatus: "hadir",
+    latenessStatus,
+    lateMinutes: lateness.lateMinutes,
+    fineId: null,
   });
+
+  let fineId: string | null = null;
+  if (lateness.isLate) {
+    try {
+      fineId = await createLateFine({
+        session,
+        studentId,
+        nama: studentName,
+        nim: studentNim,
+        waktuHadir: nowDate,
+        lateMinutes: lateness.lateMinutes,
+        gracePeriodMinutes: lateness.gracePeriodMinutes,
+      });
+      await updateDoc(attendanceRef, { fineId });
+    } catch (error) {
+      console.warn("[sessionService] createLateFine error:", error);
+      fineId = null;
+    }
+  }
 
   const attendance: Attendance = {
     id: `${sessionId}_${studentId}`,
@@ -1224,6 +1442,10 @@ export async function markAttendance(
     longitude: proximity.studentCoords.longitude,
     jarakMeter: proximity.distanceMeters,
     radiusMeter: proximity.labLocation.radius,
+    attendanceStatus: "hadir",
+    latenessStatus,
+    lateMinutes: lateness.lateMinutes,
+    fineId,
   };
 
   const existingIdx = _attendances.findIndex(

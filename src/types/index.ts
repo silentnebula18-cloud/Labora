@@ -1,9 +1,9 @@
-export type Role = "asisten" | "praktikan";
+export type Role = "asisten" | "praktikan" | "aslab";
 
-export const ROLES: readonly Role[] = ["praktikan", "asisten"];
+export const ROLES: readonly Role[] = ["praktikan", "asisten", "aslab"];
 
 export function isRole(value: unknown): value is Role {
-  return value === "praktikan" || value === "asisten";
+  return value === "praktikan" || value === "asisten" || value === "aslab";
 }
 
 export interface User {
@@ -43,6 +43,10 @@ export interface ClassRecord {
   createdBy: string;
   createdAt: Date | null;
   memberIds?: string[];
+  labId?: string;
+  ruang?: string;
+  gracePeriodMinutes?: number;
+  fineAmount?: number;
 }
 
 export interface ClassMember {
@@ -76,6 +80,7 @@ export interface ScheduleRecord {
   jamMulai: Date;
   jamSelesai: Date;
   ruang: string;
+  labId?: string;
   assistants: string[];
   createdBy: string;
   createdAt: Date | null;
@@ -93,6 +98,8 @@ export interface SessionRecord {
   closedAt: Date | null;
   openedBy: string | null;
   closedBy: string | null;
+  gracePeriodMinutes?: number;
+  fineAmount?: number;
   updatedBy: string | null;
   updatedAt: Date | null;
 }
@@ -106,6 +113,7 @@ export interface Session {
   jamMulai: Date;
   jamSelesai: Date;
   ruang: string;
+  labId?: string;
   assistantId: string;
   assistants?: string[];
   kodePresensi?: string;
@@ -114,6 +122,8 @@ export interface Session {
   closedAt?: Date | null;
   openedBy?: string | null;
   closedBy?: string | null;
+  gracePeriodMinutes?: number;
+  fineAmount?: number;
   updatedBy?: string | null;
   updatedAt?: Date | null;
 }
@@ -146,6 +156,9 @@ export interface Laboratory extends LabLocation {
   updatedBy: string | null;
 }
 
+export type AttendanceStatus = "hadir" | "izin";
+export type LatenessStatus = "on_time" | "late" | "excused";
+
 export interface Attendance {
   id: string;
   sessionId: string;
@@ -155,6 +168,54 @@ export interface Attendance {
   longitude?: number;
   jarakMeter?: number;
   radiusMeter?: number;
+  attendanceStatus?: AttendanceStatus;
+  latenessStatus?: LatenessStatus;
+  lateMinutes?: number;
+  fineId?: string | null;
+}
+
+export type FineStatus = "unpaid" | "pending" | "paid" | "failed";
+
+export interface FineRecord {
+  fineId: string;
+  studentId: string;
+  nama: string;
+  nim: string;
+  sessionId: string;
+  classId: string;
+  kodeKelas: string;
+  mataKuliah: string;
+  nomorPraktikum: number;
+  namaPraktikum: string;
+  ruang: string;
+  labId: string;
+  waktuHadir: Date | null;
+  lateMinutes: number;
+  gracePeriodMinutes: number;
+  nominal: number;
+  status: FineStatus;
+  latestOrderId: string | null;
+  paidAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
+}
+
+export type PaymentTransactionStatus =
+  | "pending"
+  | "paid"
+  | "failed"
+  | "expired";
+
+export interface PaymentTransaction {
+  orderId: string;
+  fineId: string;
+  studentId: string;
+  sessionId: string;
+  nominal: number;
+  status: PaymentTransactionStatus;
+  paidAt: Date | null;
+  createdAt: Date | null;
+  updatedAt: Date | null;
 }
 
 export type PermissionStatus = "pending" | "approved" | "rejected";
@@ -177,6 +238,7 @@ export interface PermissionRecord {
   aiProcessedAt?: Date | null;
   decidedBy?: string | null;
   decidedAt?: Date | null;
+  excusedRecorded?: boolean;
   createdAt: Date | null;
 }
 
@@ -189,7 +251,7 @@ export type NotificationType =
 export interface AppNotification {
   id: string;
   recipientUid: string;
-  recipientRole?: "praktikan" | "asisten";
+  recipientRole?: Role;
   title: string;
   body: string;
   type: NotificationType;
